@@ -1,0 +1,13 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Common
+.env
+.DS_Store
+
+# Node (if you add frontend later)
+node_modules/
+dist/
+build/
