@@ -25,7 +25,7 @@ export default function Home() {
             Motion uses advanced AI to recommend personalized plans with real-time data from your local area. It&rsquo;s your pocket-sized concierge—no matter your diet, preferences, or mood.
           </p>
           <p className="text-gray-700 text-lg leading-relaxed mb-6">
-            The app learns from your preferences and the community to deliver rich, meaningful suggestions. Filter by food, prayer times, noise levels, and more. Whether you're flying solo or planning with friends—Motion has you covered.
+            The app learns from your preferences and the community to deliver rich, meaningful suggestions. Filter by food, prayer times, noise levels, and more. Whether you&rsquo;re flying solo or planning with friends—Motion has you covered.
           </p>
 
           {/* Optional: Image row */}
