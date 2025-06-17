@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Motion - AI-Powered Local Adventures",
   description: "Your personal AI guide for curated local adventures. Whether you're chill or adventurous, Motion crafts experiences around your vibe.",
-  keywords: ["AI", "local adventures", "travel", "recommendations", "lifestyle", "discovery"],
+  keywords: ["AI", "local adventures", "travel", "recommendations", "lifestyle", "discovery", "Things to do", "events", "restaurants", "explore", "community", "personalized", "mindful travel"],
   authors: [{ name: "Motion Team" }],
   openGraph: {
     title: "Motion - Discover Life in Motion",

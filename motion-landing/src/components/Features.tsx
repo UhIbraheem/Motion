@@ -39,7 +39,7 @@ export default function Features() {
           <h2 className="text-3xl sm:text-4xl font-bold text-brand-sage dark:text-brand-gold mb-4 transition-colors duration-500">
             Everything you need to flow with your city
           </h2>
-          <p className="text-xl text-brand-teal max-w-3xl mx-auto">
+          <p className="text-xl text-brand-teal dark:text-brand-cream/90 max-w-3xl mx-auto transition-colors duration-500">
             Motion combines mindful AI with real-time local wisdom to create the perfect adventure planning experience.
           </p>
         </div>
@@ -54,7 +54,7 @@ export default function Features() {
               <h3 className="text-xl font-semibold text-brand-sage dark:text-brand-gold mb-3 transition-colors duration-500">
                 {feature.title}
               </h3>
-              <p className="text-brand-teal leading-relaxed">
+              <p className="text-brand-teal dark:text-brand-cream/90 leading-relaxed transition-colors duration-500">
                 {feature.description}
               </p>
             </div>

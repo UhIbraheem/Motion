@@ -14,7 +14,7 @@ export default function Hero() {
       {/* Background gradient - inverted for dark mode */}
       <div className="absolute inset-0 bg-gradient-to-br from-brand-cream via-brand-light to-brand-cream dark:bg-gradient-to-br dark:from-brand-sage dark:via-brand-teal dark:to-brand-sage transition-all duration-700"></div>
       
-      {/* Animated background elements - adjusted for dark mode */}
+      {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-brand-gold/20 dark:bg-brand-light/30 rounded-full mix-blend-multiply filter blur-xl animate-pulse"></div>
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-brand-teal/20 dark:bg-brand-gold/40 rounded-full mix-blend-multiply filter blur-xl animate-pulse delay-700"></div>
@@ -25,17 +25,11 @@ export default function Hero() {
         mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
       }`}>
         <div className="max-w-4xl mx-auto">
-          {/* Badge */}
-          <div className="inline-flex items-center px-4 py-2 rounded-full bg-brand-gold/20 dark:bg-brand-cream/20 text-brand-sage dark:text-brand-sage text-sm font-medium mb-8 border border-brand-gold/30 dark:border-brand-cream/30">
-            🌊 Go with the Flow
-          </div>
-
-          {/* Main heading - titles in gold for dark mode */}
+          {/* Main heading */}
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold mb-6">
-            <span className="text-brand-sage dark:text-brand-gold transition-colors duration-500">
+            <div className="text-brand-sage dark:text-brand-gold transition-colors duration-500 mb-2">
               Discover Life in
-            </span>
-            <br />
+            </div>
             <span className="text-brand-sage dark:text-brand-gold font-extrabold transition-colors duration-500">
               Motion
             </span>

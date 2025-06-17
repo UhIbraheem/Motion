@@ -13,7 +13,7 @@
 
 .dark {
   --background: #1a2e25;
-  --foreground: #f8f2d5;
+  --foreground: #f8f2d5;  /* This already uses the cream color */
   --card-bg: #2a5245;
   --border: #3c7660;
   --section-light: #2a5245;

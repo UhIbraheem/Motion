@@ -38,13 +38,13 @@ export default function Navbar() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
-            <a href="#about" className="text-brand-sage hover:text-brand-teal transition-colors font-medium">
+            <a href="#about" className="text-brand-sage dark:text-brand-cream hover:text-brand-teal dark:hover:text-brand-gold transition-colors font-medium">
               About
             </a>
-            <a href="#features" className="text-brand-sage hover:text-brand-teal transition-colors font-medium">
+            <a href="#features" className="text-brand-sage dark:text-brand-cream hover:text-brand-teal dark:hover:text-brand-gold transition-colors font-medium">
               Features
             </a>
-            <a href="#contact" className="text-brand-sage hover:text-brand-teal transition-colors font-medium">
+            <a href="#contact" className="text-brand-sage dark:text-brand-cream hover:text-brand-teal dark:hover:text-brand-gold transition-colors font-medium">
               Contact
             </a>
             <DarkModeToggle />
@@ -71,9 +71,9 @@ export default function Navbar() {
         {isMobileMenuOpen && (
           <div className="md:hidden bg-brand-cream border-t border-brand-light">
             <div className="px-2 pt-2 pb-3 space-y-1">
-              <a href="#about" className="block px-3 py-2 text-brand-sage hover:text-brand-teal font-medium">About</a>
-              <a href="#features" className="block px-3 py-2 text-brand-sage hover:text-brand-teal font-medium">Features</a>
-              <a href="#contact" className="block px-3 py-2 text-brand-sage hover:text-brand-teal font-medium">Contact</a>
+              <a href="#about" className="block px-3 py-2 text-brand-sage dark:text-brand-cream hover:text-brand-teal dark:hover:text-brand-gold font-medium">About</a>
+              <a href="#features" className="block px-3 py-2 text-brand-sage dark:text-brand-cream hover:text-brand-teal dark:hover:text-brand-gold font-medium">Features</a>
+              <a href="#contact" className="block px-3 py-2 text-brand-sage dark:text-brand-cream hover:text-brand-teal dark:hover:text-brand-gold font-medium">Contact</a>
               <button className="w-full text-left px-3 py-2 bg-brand-gold text-brand-sage rounded-lg font-semibold">
                 Get Early Access
               </button>

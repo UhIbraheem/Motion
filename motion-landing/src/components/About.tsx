@@ -7,7 +7,7 @@ export default function About() {
             <h2 className="text-3xl sm:text-4xl font-bold text-brand-sage dark:text-brand-gold mb-6 transition-colors duration-500">
               Your mindful adventure companion
             </h2>
-            <div className="space-y-6 text-lg text-brand-teal">
+            <div className="space-y-6 text-lg text-brand-teal dark:text-brand-cream/90 transition-colors duration-500">
               <p>
                 Motion harmonizes cutting-edge AI with the natural rhythm of local discovery. 
                 We create personalized adventure flows that honor your preferences, energy, and the moment you&apos;re in.
@@ -24,13 +24,13 @@ export default function About() {
             </div>
             
             <div className="mt-8 grid grid-cols-2 gap-6">
-              <div className="text-center p-4 bg-[var(--card-bg)] rounded-xl border border-brand-light shadow-sm">
+              <div className="text-center p-4 bg-[var(--card-bg)] rounded-xl border border-brand-light dark:border-brand-teal shadow-sm transition-all duration-500">
                 <div className="text-3xl font-bold text-brand-gold">AI</div>
-                <div className="text-sm text-brand-sage font-medium">Mindful Intelligence</div>
+                <div className="text-sm text-brand-sage dark:text-brand-cream/90 font-medium transition-colors duration-500">Mindful Intelligence</div>
               </div>
-              <div className="text-center p-4 bg-white/50 rounded-xl border border-brand-light">
-                <div className="text-3xl font-bold text-brand-teal">Flow</div>
-                <div className="text-sm text-brand-sage font-medium">Real-time Harmony</div>
+              <div className="text-center p-4 bg-[var(--card-bg)] rounded-xl border border-brand-light dark:border-brand-teal shadow-sm transition-all duration-500">
+                <div className="text-3xl font-bold text-brand-teal dark:text-brand-gold transition-colors duration-500">Flow</div>
+                <div className="text-sm text-brand-sage dark:text-brand-cream/90 font-medium transition-colors duration-500">Real-time Harmony</div>
               </div>
             </div>
           </div>
@@ -40,16 +40,16 @@ export default function About() {
             <div className="bg-gradient-to-br from-brand-light to-brand-gold rounded-3xl p-8 shadow-2xl">
               <div className="bg-[var(--card-bg)] rounded-2xl p-6 shadow-lg">
                 <div className="flex items-center justify-between mb-4">
-                  <div className="text-sm font-semibold text-brand-sage">Motion Flow Preview</div>
+                  <div className="text-sm font-semibold text-brand-sage dark:text-brand-cream/90 transition-colors duration-500">Motion Flow Preview</div>
                   <div className="w-3 h-3 bg-brand-gold rounded-full"></div>
                 </div>
                 <div className="space-y-3">
-                  <div className="h-4 bg-brand-cream rounded w-3/4"></div>
-                  <div className="h-4 bg-brand-cream rounded w-1/2"></div>
+                  <div className="h-4 bg-brand-cream dark:bg-brand-sage/30 rounded w-3/4 transition-colors duration-500"></div>
+                  <div className="h-4 bg-brand-cream dark:bg-brand-sage/30 rounded w-1/2 transition-colors duration-500"></div>
                   <div className="h-32 bg-gradient-to-r from-brand-light to-brand-gold/50 rounded-lg flex items-center justify-center">
                     <span className="text-2xl">🌊</span>
                   </div>
-                  <div className="h-4 bg-brand-cream rounded w-2/3"></div>
+                  <div className="h-4 bg-brand-cream dark:bg-brand-sage/30 rounded w-2/3 transition-colors duration-500"></div>
                 </div>
               </div>
             </div>
