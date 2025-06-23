@@ -1,43 +1,38 @@
-'use client';
-
-import { useEffect, useState } from 'react';
+// motion-landing/src/components/Hero.tsx - Bigger Logo Version
+import MotionLogo from './MotionLogo';
 
 export default function Hero() {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-      {/* Background gradient - inverted for dark mode */}
-      <div className="absolute inset-0 bg-gradient-to-br from-brand-cream via-brand-light to-brand-cream dark:bg-gradient-to-br dark:from-brand-sage dark:via-brand-teal dark:to-brand-sage transition-all duration-700"></div>
-      
-      {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-brand-gold/20 dark:bg-brand-light/30 rounded-full mix-blend-multiply filter blur-xl animate-pulse"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-brand-teal/20 dark:bg-brand-gold/40 rounded-full mix-blend-multiply filter blur-xl animate-pulse delay-700"></div>
-        <div className="absolute top-1/2 left-1/4 w-60 h-60 bg-brand-sage/10 dark:bg-brand-cream/20 rounded-full mix-blend-multiply filter blur-xl animate-pulse delay-1000"></div>
+    <section className="min-h-screen flex items-center justify-center bg-gradient-to-br from-brand-cream via-brand-light to-brand-gold/30 dark:from-gray-900 dark:via-gray-800 dark:to-brand-sage-dark relative overflow-hidden">
+      {/* Background decoration - removed grid.svg reference */}
+      <div className="absolute inset-0 opacity-30">
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-brand-gold/10 to-transparent animate-pulse"></div>
       </div>
-
-      <div className={`relative z-10 text-center px-4 sm:px-6 lg:px-8 transition-all duration-1000 ${
-        mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
-      }`}>
-        <div className="max-w-4xl mx-auto">
-          {/* Main heading */}
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold mb-6">
-            <div className="text-brand-sage dark:text-brand-gold transition-colors duration-500 mb-2">
-              Discover Life in
+      
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <div className="space-y-8">
+          {/* Big Logo - Using 'hero' size for maximum impact */}
+          <div className="flex justify-center mb-12">
+            <div className="transform hover:scale-105 transition-transform duration-500">
+              <MotionLogo size="hero" variant="icon" theme="light" />
             </div>
-            <span className="text-brand-sage dark:text-brand-gold font-extrabold transition-colors duration-500">
+          </div>
+
+          {/* Main headline */}
+          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold text-brand-sage dark:text-brand-cream leading-tight">
+            Discover Life in{' '}
+            <span className="text-brand-gold dark:text-brand-gold relative">
               Motion
+              <svg className="absolute -bottom-2 left-0 w-full h-3 text-brand-teal/30" viewBox="0 0 100 10" preserveAspectRatio="none">
+                <path d="M0,8 Q50,0 100,8" stroke="currentColor" strokeWidth="2" fill="none"/>
+              </svg>
             </span>
           </h1>
 
-          {/* Subtitle - normal text in off-white for dark mode */}
-          <p className="text-xl sm:text-2xl text-brand-teal dark:text-brand-cream/90 mb-12 max-w-3xl mx-auto leading-relaxed transition-colors duration-500">
-            Your personal AI guide for curated local adventures. Whether you&apos;re seeking serenity or excitement, 
+          {/* Subtitle */}
+          <p className="text-xl sm:text-2xl text-brand-teal dark:text-brand-cream/80 max-w-3xl mx-auto leading-relaxed">
+            Your personal AI guide for curated local adventures. 
+            Whether you&apos;re seeking serenity or excitement, 
             Motion flows with your energy and crafts experiences around your vibe.
           </p>
 

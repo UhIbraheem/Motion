@@ -1,6 +1,8 @@
+// motion-landing/src/components/Navbar.tsx - Fixed Dark Mode
 'use client';
 
 import { useState, useEffect } from 'react';
+import MotionLogo from './MotionLogo';
 import DarkModeToggle from './DarkModeToggle';
 
 export default function Navbar() {
@@ -18,22 +20,14 @@ export default function Navbar() {
   return (
     <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${
       isScrolled 
-        ? 'bg-brand-cream/90 backdrop-blur-md shadow-lg border-b border-brand-light' 
+        ? 'bg-brand-cream/90 dark:bg-brand-sage-dark/90 backdrop-blur-md shadow-lg border-b border-brand-light dark:border-brand-teal' 
         : 'bg-transparent'
     }`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-4">
           {/* Logo */}
           <div className="flex items-center">
-            <div className="flex items-center space-x-2">
-              {/* Wave logo placeholder - you can replace with your actual logo */}
-              <div className="w-8 h-8 bg-brand-gold rounded-full flex items-center justify-center">
-                <div className="text-brand-sage text-sm">🌊</div>
-              </div>
-              <div className="text-2xl font-bold text-brand-sage dark:text-brand-gold transition-colors duration-300">
-                Motion
-              </div>
-            </div>
+            <MotionLogo size="sm" variant="full" theme="light" />
           </div>
 
           {/* Desktop Navigation */}
@@ -48,7 +42,7 @@ export default function Navbar() {
               Contact
             </a>
             <DarkModeToggle />
-            <button className="bg-brand-gold text-brand-sage px-6 py-2 rounded-full hover:bg-brand-light transition-all duration-300 font-semibold shadow-md hover:shadow-lg">
+            <button className="bg-brand-gold hover:bg-brand-light text-brand-sage px-6 py-2 rounded-full transition-all duration-300 font-semibold shadow-md hover:shadow-lg">
               Get Early Access
             </button>
           </div>
@@ -58,7 +52,7 @@ export default function Navbar() {
             <DarkModeToggle />
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="text-brand-sage hover:text-brand-teal"
+              className="text-brand-sage dark:text-brand-cream hover:text-brand-teal dark:hover:text-brand-gold transition-colors"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -69,12 +63,12 @@ export default function Navbar() {
 
         {/* Mobile Navigation */}
         {isMobileMenuOpen && (
-          <div className="md:hidden bg-brand-cream border-t border-brand-light">
+          <div className="md:hidden bg-brand-cream dark:bg-brand-sage-dark border-t border-brand-light dark:border-brand-teal">
             <div className="px-2 pt-2 pb-3 space-y-1">
               <a href="#about" className="block px-3 py-2 text-brand-sage dark:text-brand-cream hover:text-brand-teal dark:hover:text-brand-gold font-medium">About</a>
               <a href="#features" className="block px-3 py-2 text-brand-sage dark:text-brand-cream hover:text-brand-teal dark:hover:text-brand-gold font-medium">Features</a>
               <a href="#contact" className="block px-3 py-2 text-brand-sage dark:text-brand-cream hover:text-brand-teal dark:hover:text-brand-gold font-medium">Contact</a>
-              <button className="w-full text-left px-3 py-2 bg-brand-gold text-brand-sage rounded-lg font-semibold">
+              <button className="w-full text-left px-3 py-2 bg-brand-gold hover:bg-brand-light text-brand-sage rounded-lg font-semibold transition-colors">
                 Get Early Access
               </button>
             </div>

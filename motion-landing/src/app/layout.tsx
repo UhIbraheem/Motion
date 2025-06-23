@@ -1,3 +1,4 @@
+// motion-landing/src/app/layout.tsx - Fixed Version
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -13,6 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://motionflow.app'),
   title: "Motion - AI-Powered Local Adventures",
   description: "Your personal AI guide for curated local adventures. Whether you're chill or adventurous, Motion crafts experiences around your vibe.",
   keywords: ["AI", "local adventures", "travel", "recommendations", "lifestyle", "discovery", "Things to do", "events", "restaurants", "explore", "community", "personalized", "mindful travel"],
@@ -24,7 +26,7 @@ export const metadata: Metadata = {
     siteName: "Motion",
     images: [
       {
-        url: "/og-image.jpg", // You'll want to add this
+        url: "/icon.png",
         width: 1200,
         height: 630,
         alt: "Motion - AI-Powered Local Adventures",
@@ -37,7 +39,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Motion - Discover Life in Motion",
     description: "Your personal AI guide for curated local adventures",
-    images: ["/og-image.jpg"],
+    images: ["/icon.png"],
   },
   robots: {
     index: true,
