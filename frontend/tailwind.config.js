@@ -7,7 +7,13 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Motion brand colors
+        // Base UI colors
+        background: {
+          light: '#FFFFFF',  // Pure white for light mode base
+          dark: '#121212',   // Standard dark gray for dark mode
+          subtle: '#F8F8F8', // Subtle off-white for secondary areas
+        },
+        // Motion brand colors as accents
         brand: {
           sage: '#3c7660',
           gold: '#f2cc6c',
@@ -17,6 +23,12 @@ module.exports = {
           // Dark mode variants
           'sage-dark': '#2a5245',
           'teal-dark': '#3a7361',
+        },
+        // Text colors
+        text: {
+          primary: '#333333',    // Main text color (dark gray)
+          secondary: '#666666',  // Secondary text
+          light: '#FFFFFF',      // Light text for dark backgrounds
         }
       }
     },
