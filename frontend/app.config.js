@@ -1,56 +1,41 @@
-// app.config.js - Updated with proper logo assets
-module.exports = {
+// app.config.js - Universal Deep Linking
+import 'dotenv/config';
+
+export default {
   expo: {
     name: "Motion",
-    slug: "motion",
+    slug: "motion-app",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/icon.png",
-    userInterfaceStyle: "light",
+    userInterfaceStyle: "automatic",
+    scheme: "motionapp", // Custom scheme for production
     splash: {
-      image: "./assets/splash.png",
+      image: "./assets/icon.png",
       resizeMode: "contain",
-      backgroundColor: "#f8f2d5" // brand-cream
+      backgroundColor: "#f8f2d5"
     },
     assetBundlePatterns: [
       "**/*"
     ],
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.motion.app",
-      buildNumber: "1.0.0"
+      bundleIdentifier: "com.motion.app" // Required for deep linking
     },
     android: {
       adaptiveIcon: {
-        foregroundImage: "./assets/adaptive-icon.png",
-        backgroundColor: "#f8f2d5" // brand-cream
+        foregroundImage: "./assets/icon.png",
+        backgroundColor: "#f8f2d5"
       },
-      package: "com.motion.app",
-      versionCode: 1
+      package: "com.motion.app" // Required for deep linking
     },
     web: {
-      favicon: "./assets/favicon.png",
-      bundler: "metro"
+      favicon: "./assets/favicon.ico"
     },
     extra: {
-      EXPO_PUBLIC_API_URL: process.env.EXPO_PUBLIC_API_URL,
       EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
       EXPO_PUBLIC_SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
-    },
-    plugins: [
-      "expo-font",
-      [
-        "expo-splash-screen",
-        {
-          backgroundColor: "#f8f2d5",
-          image: "./assets/splash.png",
-          dark: {
-            backgroundColor: "#2a5245",
-            image: "./assets/splash-dark.png"
-          },
-          imageWidth: 200
-        }
-      ]
-    ]
+      EXPO_PUBLIC_API_URL: process.env.EXPO_PUBLIC_API_URL,
+    }
   }
 };

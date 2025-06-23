@@ -1,4 +1,4 @@
-// src/screens/AuthScreens/LoginScreen.tsx - Updated with Big Full Logo
+// src/screens/AuthScreens/LoginScreen.tsx - Simple Email Auth
 import React, { useState } from 'react';
 import { View, Text, ScrollView, SafeAreaView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
@@ -28,6 +28,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       if (error) {
         Alert.alert('Login Failed', error.message);
       }
+      // Success - AuthContext will handle navigation
     } catch (error) {
       Alert.alert('Error', 'An unexpected error occurred');
     } finally {
@@ -43,7 +44,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       >
         <ScrollView className="flex-1" contentContainerStyle={{ flexGrow: 1 }}>
           <View className="flex-1 justify-center px-6">
-            {/* Big Full Logo Section - No extra text */}
+            {/* Logo Section */}
             <View className="items-center mb-12">
               <MotionLogo size="xl" variant="full" theme="light" useFullLogo={true} />
             </View>
@@ -97,11 +98,14 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
               />
             </View>
 
-            {/* Development Hint */}
+            {/* Dev Info */}
             {__DEV__ && (
               <View className="mt-8 bg-brand-light rounded-xl p-4">
                 <Text className="text-brand-sage text-center text-sm font-medium">
-                  💡 Dev Mode: Use any email/password to sign in
+                  🎯 Real Supabase Auth Active!
+                </Text>
+                <Text className="text-brand-sage text-center text-xs mt-1">
+                  Create a real account to test
                 </Text>
               </View>
             )}

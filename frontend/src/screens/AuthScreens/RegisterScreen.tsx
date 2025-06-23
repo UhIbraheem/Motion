@@ -1,4 +1,4 @@
-// src/screens/AuthScreens/RegisterScreen.tsx - Updated with Big Full Logo
+// src/screens/AuthScreens/RegisterScreen.tsx - Simple Email Auth
 import React, { useState } from 'react';
 import { View, Text, ScrollView, SafeAreaView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
@@ -37,13 +37,13 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
 
     setIsLoading(true);
     try {
-      const { error } = await signUp(email, password);
+      const { error } = await signUp(email, password, firstName, lastName);
       if (error) {
         Alert.alert('Registration Failed', error.message);
       } else {
         Alert.alert(
-          'Success', 
-          'Account created successfully! Please check your email for verification.',
+          'Success!', 
+          'Account created! Check your email to verify your account, then you can sign in.',
           [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
         );
       }
@@ -62,9 +62,9 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
       >
         <ScrollView className="flex-1" contentContainerStyle={{ flexGrow: 1 }}>
           <View className="flex-1 justify-center px-6 py-8">
-            {/* Big Full Logo Section - No extra text */}
+            {/* Logo Section */}
             <View className="items-center mb-8">
-              <MotionLogo size="xl" variant="full" theme="light" useFullLogo={true} />
+              <MotionLogo size="lg" variant="full" theme="light" useFullLogo={true} />
             </View>
 
             {/* Registration Form */}

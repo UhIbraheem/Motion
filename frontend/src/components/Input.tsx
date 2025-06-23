@@ -20,7 +20,7 @@ const Input: React.FC<InputProps> = ({
   return (
     <View className="mb-4">
       {label && (
-        <Text className="text-text-primary text-sm font-medium mb-1.5">
+        <Text className="text-brand-sage text-sm font-medium mb-1.5">
           {label}
         </Text>
       )}
@@ -33,11 +33,11 @@ const Input: React.FC<InputProps> = ({
         )}
         
         <TextInput
-          className={`w-full bg-background-subtle rounded-lg border ${
+          className={`w-full bg-white rounded-lg border ${
             error 
               ? 'border-red-500' 
               : 'border-gray-300'
-          } px-4 py-3 text-text-primary ${
+          } px-4 py-3 text-brand-sage ${
             leftIcon ? 'pl-10' : ''
           } ${
             rightIcon ? 'pr-10' : ''
@@ -60,7 +60,7 @@ const Input: React.FC<InputProps> = ({
       )}
       
       {helperText && !error && (
-        <Text className="text-text-secondary text-xs mt-1">
+        <Text className="text-brand-teal text-xs mt-1">
           {helperText}
         </Text>
       )}
