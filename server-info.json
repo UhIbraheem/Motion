@@ -1,0 +1,7 @@
+{
+  "port": 3001,
+  "localUrl": "http://localhost:3001",
+  "mobileUrl": "http://10.1.10.188:3001",
+  "apiUrl": "http://localhost:3001/api/ai",
+  "timestamp": "2025-06-26T19:41:28.989Z"
+}
