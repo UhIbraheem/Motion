@@ -4,8 +4,10 @@ import Button from '../components/Button';
 import Input from '../components/Input';
 import Card from '../components/Card';
 import { aiService, AdventureFilters, GeneratedAdventure, AdventureStep } from '../services/aiService';
+import { useAuth } from '../context/AuthContext';
 
 const CurateScreen: React.FC = () => {
+  const { user } = useAuth(); // Get current user
   const [filters, setFilters] = useState<AdventureFilters>({
     location: '',
     duration: 'half-day',
@@ -25,6 +27,7 @@ const CurateScreen: React.FC = () => {
   const [editingStepIndex, setEditingStepIndex] = useState<number | null>(null);
   const [editRequest, setEditRequest] = useState('');
   const [isRegeneratingStep, setIsRegeneratingStep] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   
   const vibeOptions = ['relaxed', 'energetic', 'cultural', 'foodie', 'outdoor'];
   const dietaryOptions = ['vegetarian', 'vegan', 'gluten-free', 'halal'];
@@ -173,6 +176,45 @@ const CurateScreen: React.FC = () => {
     setEditRequest('');
   };
 
+  const saveAdventure = async () => {
+    if (!generatedAdventure || !user) {
+      Alert.alert('Error', 'Please generate an adventure and make sure you are logged in.');
+      return;
+    }
+
+    setIsSaving(true);
+    
+    try {
+      console.log('💾 Saving adventure for user:', user.email);
+      const { data, error } = await aiService.saveAdventure(generatedAdventure, user.id);
+      
+      if (error) {
+        Alert.alert('Save Failed', error);
+        return;
+      }
+
+      Alert.alert(
+        'Adventure Saved! 🎉', 
+        `"${generatedAdventure.title}" has been saved to your plans.`,
+        [
+          { 
+            text: 'View My Plans', 
+            onPress: () => {
+              // This will navigate to Plans tab in the future
+              console.log('Navigate to Plans tab');
+            }
+          },
+          { text: 'Create Another', onPress: resetForm }
+        ]
+      );
+    } catch (error) {
+      console.error('❌ Save error:', error);
+      Alert.alert('Error', 'Failed to save adventure. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (generatedAdventure) {
     return (
       <SafeAreaView className="flex-1 bg-background-light">
@@ -232,10 +274,12 @@ const CurateScreen: React.FC = () => {
             {/* Action Buttons */}
             <View className="space-y-3">
               <Button 
-                title="💾 Save This Adventure"
-                onPress={() => Alert.alert('Coming Soon!', 'Adventure saving will be added in the next update')} 
+                title={isSaving ? "Saving Adventure..." : "💾 Save This Adventure"}
+                onPress={saveAdventure}
                 variant="primary"
                 size="lg"
+                isLoading={isSaving}
+                leftIcon={!isSaving ? <Text className="text-xl">💾</Text> : undefined}
               />
               <Button 
                 title="🔄 Generate Completely New Adventure"

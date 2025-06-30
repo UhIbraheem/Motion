@@ -1,9 +1,9 @@
-// src/navigation/RootNavigator.tsx - WORKING Navigation Logic
+// src/navigation/RootNavigator.tsx - Clean Version (No Sign Out Buttons)
 import React, { useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { useAuth } from '../context/AuthContext';
-import { ActivityIndicator, View, Text, Alert } from 'react-native';
+import { ActivityIndicator, View, Text } from 'react-native';
 import MotionLogo from '../components/shared/MotionLogo';
 import Button from '../components/Button';
 
@@ -18,9 +18,9 @@ type RootStackParamList = {
 const Stack = createStackNavigator<RootStackParamList>();
 
 const RootNavigator: React.FC = () => {
-  const { user, loading, signOut } = useAuth();
+  const { user, loading } = useAuth(); // Removed signOut since we're not using it here
   const [bypassAuth, setBypassAuth] = useState(false);
-  const [showDevScreen, setShowDevScreen] = useState(__DEV__); // Control dev screen visibility
+  const [showDevScreen, setShowDevScreen] = useState(__DEV__);
 
   // Show a loading screen while checking auth state
   if (loading) {
@@ -60,7 +60,7 @@ const RootNavigator: React.FC = () => {
             title="Test with Real Authentication" 
             onPress={() => {
               console.log('🔐 Navigating to real auth...');
-              setShowDevScreen(false); // Hide dev screen, show auth
+              setShowDevScreen(false);
               setBypassAuth(false);
             }}
             variant="primary"
@@ -94,64 +94,12 @@ const RootNavigator: React.FC = () => {
     );
   }
 
-  // If user is logged in OR bypassing auth, show main app
+  // If user is logged in OR bypassing auth, show main app (CLEAN - no dev buttons)
   if (user || bypassAuth) {
     return (
       <NavigationContainer>
         <Stack.Navigator screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="App">
-            {() => (
-              <View className="flex-1">
-                <AppNavigator />
-                {/* Development controls */}
-                {__DEV__ && (
-                  <View className="absolute top-12 right-4 z-50 space-y-2">
-                    {user && (
-                      <Button
-                        title="Sign Out"
-                        onPress={async () => {
-                          Alert.alert(
-                            'Sign Out',
-                            'Are you sure you want to sign out?',
-                            [
-                              { text: 'Cancel', style: 'cancel' },
-                              { 
-                                text: 'Sign Out', 
-                                style: 'destructive',
-                                onPress: async () => {
-                                  try {
-                                    await signOut();
-                                    console.log('✅ Signed out successfully');
-                                    setShowDevScreen(true); // Show dev screen again
-                                  } catch (error) {
-                                    console.error('❌ Sign out failed:', error);
-                                    Alert.alert('Error', 'Failed to sign out');
-                                  }
-                                }
-                              }
-                            ]
-                          );
-                        }}
-                        variant="outline"
-                        size="sm"
-                      />
-                    )}
-                    {bypassAuth && (
-                      <Button
-                        title="Enable Auth"
-                        onPress={() => {
-                          setBypassAuth(false);
-                          setShowDevScreen(true);
-                        }}
-                        variant="secondary"
-                        size="sm"
-                      />
-                    )}
-                  </View>
-                )}
-              </View>
-            )}
-          </Stack.Screen>
+          <Stack.Screen name="App" component={AppNavigator} />
         </Stack.Navigator>
       </NavigationContainer>
     );

@@ -1,9 +1,9 @@
-// frontend/src/services/aiService.ts - FRESH COMPLETE VERSION
-import { ENV } from '../utils/env';
+// frontend/src/services/aiService.ts - SIMPLE WORKING VERSION
+import { supabase } from './supabase';
 
 export interface AdventureFilters {
   location?: string;
-  radius?: number; // miles
+  radius?: number;
   duration?: 'quick' | 'half-day' | 'full-day';
   budget?: 'budget' | 'moderate' | 'premium';
   vibe?: string[];
@@ -32,33 +32,47 @@ export interface GeneratedAdventure {
   estimatedDuration: string;
   estimatedCost: string;
   createdAt: string;
+  description?: string;
+  location?: string;
+  isCompleted?: boolean;
+  isFavorite?: boolean;
+  filtersUsed?: AdventureFilters;
 }
 
 export class AIAdventureService {
   private baseURL: string;
 
   constructor() {
-    this.baseURL = ENV.apiUrl; // Should be http://192.168.4.30:5000
-    console.log('🤖 AI Service initialized with URL:', this.baseURL);
+    // Detect if we're on mobile or web and use appropriate URL
+    const Platform = require('react-native').Platform;
+    
+    if (Platform.OS === 'web') {
+      // Web can use localhost
+      this.baseURL = 'http://localhost:3001/api/ai';
+    } else {
+      // Mobile needs your Mac's IP address
+      this.baseURL = 'http://192.168.4.27:3001/api/ai';
+    }
+    
+    console.log('🤖 AI Service using:', this.baseURL);
   }
 
   /**
-   * Generate adventure plan using your backend AI
+   * Generate adventure plan
    */
   async generateAdventure(filters: AdventureFilters): Promise<{
     data: GeneratedAdventure | null;
     error: string | null;
   }> {
     try {
-      console.log('🎯 Sending request to AI backend:', filters);
+      console.log('🎯 Generating adventure with filters:', filters);
 
-      // Format filters for your backend
       const requestBody = {
         app_filter: this.formatFiltersForBackend(filters),
         radius: filters.radius || 10,
       };
 
-      console.log('📤 Request body:', requestBody);
+      console.log('📤 Sending to backend:', requestBody);
 
       const response = await fetch(`${this.baseURL}/generate-plan`, {
         method: 'POST',
@@ -73,26 +87,101 @@ export class AIAdventureService {
         console.error('❌ Backend error:', response.status, errorText);
         return {
           data: null,
-          error: `Backend error: ${response.status} - ${errorText}`,
+          error: `Backend error: ${response.status}`,
         };
       }
 
       const backendData = await response.json();
-      console.log('✅ Backend response:', backendData);
+      console.log('✅ Got response:', backendData);
 
-      // Transform backend response to frontend format
-      const adventure = this.transformBackendResponse(backendData);
-
-      return {
-        data: adventure,
-        error: null,
+      // Transform to our format
+      const adventure: GeneratedAdventure = {
+        title: backendData.plan_title || 'Your Adventure',
+        steps: backendData.steps || [],
+        estimatedDuration: this.calculateDuration(backendData.steps || []),
+        estimatedCost: this.estimateCost(backendData.steps || []),
+        createdAt: new Date().toISOString(),
+        description: `A ${filters.duration} adventure in ${filters.location}`,
+        location: filters.location,
+        filtersUsed: filters,
       };
+
+      return { data: adventure, error: null };
+
     } catch (error) {
       console.error('❌ Network error:', error);
       return {
         data: null,
-        error: 'Network error. Please check your connection and try again.',
+        error: 'Cannot connect to backend. Make sure it\'s running on localhost:3001',
       };
+    }
+  }
+
+  /**
+   * Save adventure to database
+   */
+  async saveAdventure(adventure: GeneratedAdventure, userId: string): Promise<{
+    data: any | null;
+    error: string | null;
+  }> {
+    try {
+      console.log('💾 Saving adventure:', adventure.title);
+
+      const adventureData = {
+        user_id: userId,
+        title: adventure.title,
+        description: adventure.description || 'A Motion adventure',
+        duration_hours: this.parseHoursFromDuration(adventure.estimatedDuration),
+        estimated_cost: this.parseCostFromString(adventure.estimatedCost),
+        difficulty_level: 'easy',
+        steps: adventure.steps,
+        filters_used: adventure.filtersUsed,
+        is_completed: false,
+        is_favorite: false,
+        ai_confidence_score: 0.8,
+      };
+
+      const { data, error } = await supabase
+        .from('adventures')
+        .insert([adventureData])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('❌ Save error:', error);
+        return { data: null, error: error.message };
+      }
+
+      console.log('✅ Saved successfully!');
+      return { data, error: null };
+
+    } catch (error) {
+      console.error('❌ Save failed:', error);
+      return { data: null, error: 'Failed to save adventure' };
+    }
+  }
+
+  /**
+   * Get user adventures
+   */
+  async getUserAdventures(userId: string): Promise<{
+    data: any[] | null;
+    error: string | null;
+  }> {
+    try {
+      const { data, error } = await supabase
+        .from('adventures')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        return { data: null, error: error.message };
+      }
+
+      return { data, error: null };
+    } catch (error) {
+      return { data: null, error: 'Failed to load adventures' };
     }
   }
 
@@ -110,7 +199,7 @@ export class AIAdventureService {
     error: string | null;
   }> {
     try {
-      console.log(`🔄 Regenerating step ${stepIndex}:`, userRequest);
+      console.log(`🔄 Regenerating step ${stepIndex + 1}:`, userRequest);
 
       const requestBody = {
         stepIndex,
@@ -162,10 +251,7 @@ export class AIAdventureService {
       };
     }
   }
-
-  /**
-   * Format frontend filters into backend-expected format
-   */
+  // Helper methods
   private formatFiltersForBackend(filters: AdventureFilters): string {
     const parts: string[] = [];
 
@@ -192,16 +278,7 @@ export class AIAdventureService {
     }
 
     if (filters.groupSize) {
-      parts.push(`Group size: ${filters.groupSize} ${filters.groupSize === 1 ? 'person' : 'people'}`);
-    }
-
-    if (filters.transportMethod && filters.transportMethod !== 'flexible') {
-      const transportMap = {
-        walking: 'walking distance only (very close locations)',
-        bike: 'bike or scooter friendly (short distances)',
-        rideshare: 'rideshare/driving (can go further distances)',
-      };
-      parts.push(`Transportation: ${transportMap[filters.transportMethod as keyof typeof transportMap]}`);
+      parts.push(`Group size: ${filters.groupSize} people`);
     }
 
     if (filters.vibe && filters.vibe.length > 0) {
@@ -212,64 +289,41 @@ export class AIAdventureService {
       parts.push(`Dietary needs: ${filters.dietaryRestrictions.join(', ')}`);
     }
 
-    if (filters.timeOfDay && filters.timeOfDay !== 'flexible') {
-      parts.push(`Time preference: ${filters.timeOfDay}`);
-    }
-
-    const formatted = parts.join('\n');
-    console.log('📝 Formatted filters for backend:', formatted);
-    return formatted;
+    return parts.join('\n');
   }
 
-  /**
-   * Transform your backend response to frontend format
-   */
-  private transformBackendResponse(backendData: any): GeneratedAdventure {
-    return {
-      title: backendData.plan_title || 'Your Motion Adventure',
-      steps: (backendData.steps || []).map((step: any) => ({
-        time: step.time || 'Flexible',
-        title: step.title || 'Adventure Stop',
-        location: step.location || 'Location TBD',
-        booking: step.booking || undefined,
-        notes: step.notes || undefined,
-      })),
-      estimatedDuration: this.calculateDuration(backendData.steps || []),
-      estimatedCost: this.estimateCost(backendData.steps || []),
-      createdAt: new Date().toISOString(),
-    };
-  }
-
-  /**
-   * Calculate estimated duration from steps
-   */
   private calculateDuration(steps: any[]): string {
-    if (steps.length === 0) return '2 hours';
-    
-    // Estimate based on number of steps
-    const estimatedHours = Math.max(2, steps.length * 1.5);
-    
-    if (estimatedHours <= 3) return `${Math.round(estimatedHours)} hours`;
-    if (estimatedHours <= 6) return `${Math.round(estimatedHours)} hours`;
-    return 'Full day';
+    if (steps.length <= 2) return '2 hours';
+    if (steps.length <= 4) return '4 hours';
+    return '6+ hours';
   }
 
-  /**
-   * Estimate cost from steps (simple heuristic)
-   */
   private estimateCost(steps: any[]): string {
-    const foodSteps = steps.filter(step => 
+    const foodSteps = steps.filter((step: any) => 
       step.title?.toLowerCase().includes('restaurant') ||
       step.title?.toLowerCase().includes('cafe') ||
-      step.title?.toLowerCase().includes('lunch') ||
-      step.title?.toLowerCase().includes('dinner')
+      step.title?.toLowerCase().includes('lunch')
     );
 
     if (foodSteps.length <= 1) return '$';
     if (foodSteps.length <= 2) return '$$';
     return '$$$';
   }
+
+  private parseHoursFromDuration(duration: string): number {
+    const match = duration.match(/(\d+)/);
+    return match ? parseInt(match[1]) : 4;
+  }
+
+  private parseCostFromString(cost: string): number {
+    const costMap: Record<string, number> = {
+      '$': 25,
+      '$$': 75,
+      '$$$': 150,
+    };
+    return costMap[cost] || 50; // Default to moderate if unknown
+  }
 }
 
-// Export singleton instance
+// Export singleton
 export const aiService = new AIAdventureService();

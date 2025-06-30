@@ -1,26 +1,14 @@
-// src/utils/env.ts - SIMPLIFIED Environment Utils
+// frontend/src/utils/env.ts - SIMPLE VERSION
 import Constants from 'expo-constants';
 
-// Access environment variables with proper fallbacks
+// Simple, reliable environment setup
 export const ENV = {
-  apiUrl: Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL || 'http://localhost:3001',
-  supabaseUrl: Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_URL || '',
-  supabaseAnonKey: Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_ANON_KEY || '',
+  supabaseUrl: Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_URL || 'https://example.supabase.co',
+  supabaseAnonKey: Constants.expoConfig?.extra?.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'key',
 };
 
 // For development debugging
 if (__DEV__) {
-  console.log('📡 Environment variables loaded:', {
-    apiUrl: ENV.apiUrl,
-    supabaseUrl: ENV.supabaseUrl ? `${ENV.supabaseUrl.substring(0, 20)}...` : 'NOT SET',
-    supabaseKey: ENV.supabaseAnonKey ? `${ENV.supabaseAnonKey.substring(0, 20)}...` : 'NOT SET',
-  });
-  
-  // Warn if not configured
-  if (!ENV.supabaseUrl || ENV.supabaseUrl === '') {
-    console.warn('⚠️ SUPABASE_URL not configured! Auth will not work.');
-  }
-  if (!ENV.supabaseAnonKey || ENV.supabaseAnonKey === '') {
-    console.warn('⚠️ SUPABASE_ANON_KEY not configured! Auth will not work.');
-  }
+  console.log('🔧 Simple env loaded');
+  console.log('🔧 Supabase URL:', ENV.supabaseUrl.substring(0, 30) + '...');
 }
