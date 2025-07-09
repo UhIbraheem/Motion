@@ -1,3 +1,4 @@
+// src/screens/PlansScreen.tsx - COMPLETE VERSION WITH SHARE FEATURE
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
@@ -6,15 +7,20 @@ import {
   SafeAreaView, 
   RefreshControl, 
   Alert,
-  StyleSheet 
+  StyleSheet,
+  TouchableOpacity 
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Button from '../components/Button';
 import { GradientAdventureCard } from '../components/GradientAdventureCard';
+import { AdventureDetailModal } from '../components/AdventureDetailModal';
+import { ShareAdventureModal } from '../components/ShareAdventureModal';
 import { aiService } from '../services/aiService';
 import { useAuth } from '../context/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
 
+
+// Updated interface to match GradientAdventureCard
 interface SavedAdventure {
   id: string;
   title: string;
@@ -23,9 +29,10 @@ interface SavedAdventure {
   estimated_cost: number;
   steps: any[];
   is_completed: boolean;
-  is_favorite: boolean;
+  is_favorite: boolean; // Required, not optional
   created_at: string;
   filters_used?: any;
+  step_completions?: { [stepIndex: number]: boolean }; // Add step completion tracking
 }
 
 const PlansScreen: React.FC = () => {
@@ -33,6 +40,12 @@ const PlansScreen: React.FC = () => {
   const [adventures, setAdventures] = useState<SavedAdventure[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [shareModalVisible, setShareModalVisible] = useState(false);
+  const [adventureToShare, setAdventureToShare] = useState<SavedAdventure | null>(null);
+  
+  // Modal state
+  const [selectedAdventure, setSelectedAdventure] = useState<SavedAdventure | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
   const loadAdventures = async (showRefreshSpinner = false) => {
     if (!user) return;
@@ -54,7 +67,15 @@ const PlansScreen: React.FC = () => {
       }
 
       console.log('✅ Loaded adventures:', data?.length || 0);
-      setAdventures(data || []);
+      
+      // Ensure all adventures have required fields with defaults
+      const processedAdventures = (data || []).map(adventure => ({
+        ...adventure,
+        is_favorite: adventure.is_favorite ?? false, // Default to false if undefined
+        step_completions: adventure.step_completions ?? {} // Default to empty object
+      }));
+      
+      setAdventures(processedAdventures);
     } catch (error) {
       console.error('❌ Unexpected error loading adventures:', error);
       Alert.alert('Error', 'Something went wrong loading your adventures');
@@ -101,26 +122,106 @@ const PlansScreen: React.FC = () => {
     return adventures.filter(adventure => adventure.is_completed);
   };
 
+  // Open adventure detail modal
   const viewAdventureDetails = (adventure: SavedAdventure) => {
-    // For now, just show an alert with details
-    const stepsList = adventure.steps.map((step, index) => 
-      `${index + 1}. ${step.title} at ${step.time}`
-    ).join('\n');
-
-    Alert.alert(
-      adventure.title,
-      `${adventure.description}\n\nSteps:\n${stepsList}`,
-      [
-        { text: 'Close', style: 'cancel' },
-        { text: 'Mark Complete', onPress: () => markAsCompleted(adventure.id) }
-      ]
-    );
+    setSelectedAdventure(adventure);
+    setModalVisible(true);
   };
 
+  // Close modal
+  const closeModal = () => {
+    setModalVisible(false);
+    setSelectedAdventure(null);
+  };
+
+  // Handle step completion updates
+  const handleUpdateStepCompletion = async (adventureId: string, stepIndex: number, completed: boolean) => {
+    try {
+      const { error } = await aiService.updateStepCompletion(adventureId, stepIndex, completed);
+      
+      if (error) {
+        Alert.alert('Error', 'Failed to update step completion');
+        return;
+      }
+
+      // Update local state
+      setAdventures(prev => prev.map(adventure => {
+        if (adventure.id === adventureId) {
+          const updatedCompletions = {
+            ...adventure.step_completions,
+            [stepIndex]: completed
+          };
+          return {
+            ...adventure,
+            step_completions: updatedCompletions
+          };
+        }
+        return adventure;
+      }));
+
+      // Also update selected adventure if it's the same one
+      if (selectedAdventure?.id === adventureId) {
+        setSelectedAdventure(prev => ({
+          ...prev!,
+          step_completions: {
+            ...prev!.step_completions,
+            [stepIndex]: completed
+          }
+        }));
+      }
+
+    } catch (error) {
+      console.error('Error updating step completion:', error);
+      Alert.alert('Error', 'Failed to update step completion');
+    }
+  };
+
+  // Mark entire adventure as complete
+  const handleMarkAdventureComplete = async (adventureId: string) => {
+    try {
+      const { error } = await aiService.markAdventureComplete(adventureId);
+      
+      if (error) {
+        Alert.alert('Error', 'Failed to mark adventure as complete');
+        return;
+      }
+
+      // Update local state
+      setAdventures(prev => prev.map(adventure => {
+        if (adventure.id === adventureId) {
+          // Mark all steps as completed when adventure is completed
+          const allStepsCompleted: { [stepIndex: number]: boolean } = {};
+          adventure.steps.forEach((_, index) => {
+            allStepsCompleted[index] = true;
+          });
+
+          return {
+            ...adventure,
+            is_completed: true,
+            step_completions: allStepsCompleted
+          };
+        }
+        return adventure;
+      }));
+
+      // Show success message
+      Alert.alert(
+        '🎉 Congratulations!', 
+        'Adventure completed! Great job exploring.',
+        [{ text: 'Awesome!', style: 'default' }]
+      );
+
+    } catch (error) {
+      console.error('Error marking adventure complete:', error);
+      Alert.alert('Error', 'Failed to mark adventure as complete');
+    }
+  };
+
+  // Handle adventure deletion with confirmation
   const handleDeleteAdventure = async (adventureId: string) => {
     Alert.alert(
       'Delete Adventure',
-      'Are you sure you want to delete this adventure?',
+      'Are you sure you want to delete this adventure? This action cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -128,13 +229,24 @@ const PlansScreen: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             try {
-              // TODO: Implement delete in aiService
-              // await aiService.deleteAdventure(adventureId);
+              const { error } = await aiService.deleteAdventure(adventureId);
               
-              // For now, remove from local state
+              if (error) {
+                Alert.alert('Error', 'Failed to delete adventure');
+                return;
+              }
+
+              // Remove from local state
               setAdventures(prev => prev.filter(a => a.id !== adventureId));
+              
+              // Close modal if this adventure was being viewed
+              if (selectedAdventure?.id === adventureId) {
+                closeModal();
+              }
+              
               Alert.alert('Success', 'Adventure deleted successfully');
             } catch (error) {
+              console.error('Error deleting adventure:', error);
               Alert.alert('Error', 'Failed to delete adventure');
             }
           }
@@ -143,73 +255,65 @@ const PlansScreen: React.FC = () => {
     );
   };
 
-  const handleEditAdventure = (adventure: SavedAdventure) => {
-    // TODO: Navigate to edit screen or show edit modal
-    Alert.alert('Edit Feature', 'Edit functionality coming soon!');
+  const handleShareAdventure = (adventure: SavedAdventure) => {
+    setAdventureToShare(adventure);
+    setShareModalVisible(true);
   };
 
-  const markAsCompleted = async (adventureId: string) => {
-    // TODO: Implement marking as completed
-    Alert.alert('Feature Coming Soon', 'Mark as completed feature will be added soon!');
+  // Handle adventure editing (placeholder for now)
+  const handleEditAdventure = (adventure: SavedAdventure) => {
+    Alert.alert(
+      'Edit Adventure', 
+      'Edit functionality coming soon! You\'ll be able to modify adventure details and regenerate specific steps.',
+      [{ text: 'Got it', style: 'default' }]
+    );
   };
+
+  const upcomingAdventures = getUpcomingAdventures();
+  const completedAdventures = getCompletedAdventures();
 
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.centerContainer}>
-          <Text style={styles.loadingEmoji}>🌊</Text>
+        <View style={styles.centerContent}>
           <Text style={styles.loadingText}>Loading your adventures...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
-  if (!user) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.centerContainer}>
-          <Text style={styles.loadingEmoji}>🔐</Text>
-          <Text style={styles.centerText}>
-            Please sign in to view your saved adventures
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  const upcomingAdventures = getUpcomingAdventures();
-  const completedAdventures = getCompletedAdventures();
-
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={styles.container}>
       <SafeAreaView style={styles.container}>
-        <ScrollView 
+        <ScrollView
           style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
               onRefresh={() => loadAdventures(true)}
+              colors={['#3c7660']} // brand-sage
               tintColor="#3c7660"
             />
           }
         >
+          {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.title}>My Adventures</Text>
-            <Text style={styles.subtitle}>
+            <Text style={styles.headerTitle}>Your Adventures</Text>
+            <Text style={styles.headerSubtitle}>
               {adventures.length === 0 
-                ? "Start creating your first adventure!"
+                ? 'No adventures yet' 
                 : `${adventures.length} adventure${adventures.length === 1 ? '' : 's'} saved`
               }
             </Text>
           </View>
 
+          {/* Content */}
           {adventures.length === 0 ? (
-            // Empty state
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateEmoji}>🗺️</Text>
-              <Text style={styles.emptyStateTitle}>
-                No adventures yet!
-              </Text>
+              <Text style={styles.emptyStateTitle}>No Adventures Yet</Text>
               <Text style={styles.emptyStateText}>
                 Create your first AI-powered adventure in the Curate tab to see it here.
               </Text>
@@ -234,9 +338,9 @@ const PlansScreen: React.FC = () => {
                     <GradientAdventureCard
                       key={adventure.id}
                       adventure={adventure}
-                      onPress={(a) => viewAdventureDetails(a as SavedAdventure)}
+                      onPress={viewAdventureDetails}
                       onDelete={handleDeleteAdventure}
-                      onEdit={(a) => handleEditAdventure(a as SavedAdventure)}
+                      onEdit={handleEditAdventure}
                       formatDuration={formatDuration}
                       formatCost={formatCost}
                       formatDate={formatDate}
@@ -253,45 +357,70 @@ const PlansScreen: React.FC = () => {
                   </Text>
                   
                   {completedAdventures.map((adventure) => (
-                    <GradientAdventureCard
-                      key={adventure.id}
-                      adventure={adventure}
-                      onPress={(a) => viewAdventureDetails(a as SavedAdventure)}
-                      onDelete={handleDeleteAdventure}
-                      onEdit={(a) => handleEditAdventure(a as SavedAdventure)}
-                      formatDuration={formatDuration}
-                      formatCost={formatCost}
-                      formatDate={formatDate}
-                    />
+                    <View key={adventure.id}>
+                      <GradientAdventureCard
+                        adventure={adventure}
+                        onPress={viewAdventureDetails}
+                        onDelete={handleDeleteAdventure}
+                        onEdit={handleEditAdventure}
+                        formatDuration={formatDuration}
+                        formatCost={formatCost}
+                        formatDate={formatDate}
+                      />
+                      
+                      {/* Share button for completed adventures */}
+                      <TouchableOpacity
+                        onPress={() => handleShareAdventure(adventure)}
+                        style={{
+                          backgroundColor: '#f2cc6c',
+                          paddingVertical: 12,
+                          paddingHorizontal: 20,
+                          borderRadius: 20,
+                          marginTop: -10,
+                          marginBottom: 16,
+                          marginHorizontal: 16,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        <Text style={{ fontSize: 16, fontWeight: '600', color: '#3c7660', marginRight: 8 }}>
+                          Share to Community
+                        </Text>
+                        <Text style={{ fontSize: 18 }}>✨</Text>
+                      </TouchableOpacity>
+                    </View>
                   ))}
                 </View>
               )}
-
-              {/* Quick Stats */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>📊 Your Stats</Text>
-                <View style={styles.statsContainer}>
-                  <View style={styles.statCard}>
-                    <Text style={styles.statNumber}>{adventures.length}</Text>
-                    <Text style={styles.statLabel}>Total Adventures</Text>
-                  </View>
-                  <View style={styles.statCard}>
-                    <Text style={[styles.statNumber, { color: '#4d987b' }]}>
-                      {completedAdventures.length}
-                    </Text>
-                    <Text style={styles.statLabel}>Completed</Text>
-                  </View>
-                  <View style={styles.statCard}>
-                    <Text style={[styles.statNumber, { color: '#3c7660' }]}>
-                      {upcomingAdventures.length}
-                    </Text>
-                    <Text style={styles.statLabel}>Planned</Text>
-                  </View>
-                </View>
-              </View>
             </>
           )}
         </ScrollView>
+
+        {/* Adventure Detail Modal */}
+        <AdventureDetailModal
+          visible={modalVisible}
+          adventure={selectedAdventure}
+          onClose={closeModal}
+          onMarkComplete={handleMarkAdventureComplete}
+          onUpdateStepCompletion={handleUpdateStepCompletion}
+          formatDate={formatDate}
+          formatDuration={formatDuration}
+          formatCost={formatCost}
+        />
+
+        {/* Share Adventure Modal */}
+        <ShareAdventureModal
+          visible={shareModalVisible}
+          adventure={adventureToShare}
+          onClose={() => {
+            setShareModalVisible(false);
+            setAdventureToShare(null);
+          }}
+          onSuccess={() => {
+            loadAdventures(); // Refresh the list
+          }}
+        />
       </SafeAreaView>
     </GestureHandlerRootView>
   );
@@ -304,98 +433,66 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-    padding: 16,
   },
-  centerContainer: {
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 100, // Extra space for tab bar
+  },
+  centerContent: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: 20,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#3c7660',
+    fontWeight: '500',
   },
   header: {
     marginBottom: 24,
   },
-  title: {
+  headerTitle: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#3c7660',
+    marginBottom: 4,
   },
-  subtitle: {
-    color: '#666666',
-    marginTop: 4,
+  headerSubtitle: {
+    fontSize: 16,
+    color: '#666',
   },
-  loadingEmoji: {
-    fontSize: 48,
+  section: {
+    marginBottom: 32,
   },
-  loadingText: {
+  sectionTitle: {
     fontSize: 18,
+    fontWeight: '600',
     color: '#3c7660',
-    marginTop: 8,
-  },
-  centerText: {
-    fontSize: 18,
-    color: '#3c7660',
-    textAlign: 'center',
+    marginBottom: 16,
   },
   emptyState: {
-    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 80,
+    paddingVertical: 60,
+    paddingHorizontal: 32,
   },
   emptyStateEmoji: {
     fontSize: 64,
     marginBottom: 16,
   },
   emptyStateTitle: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 24,
+    fontWeight: 'bold',
     color: '#3c7660',
-    marginBottom: 8,
+    marginBottom: 12,
     textAlign: 'center',
   },
   emptyStateText: {
-    color: '#666666',
+    fontSize: 16,
+    color: '#666',
     textAlign: 'center',
-    marginBottom: 24,
     lineHeight: 24,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333333',
-    marginBottom: 12,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  statCard: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-    padding: 16,
-    width: '32%',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#f6dc9b',
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#f2cc6c',
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#666666',
-    textAlign: 'center',
-    marginTop: 4,
+    marginBottom: 32,
   },
 });
 

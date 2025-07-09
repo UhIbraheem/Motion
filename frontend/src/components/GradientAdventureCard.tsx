@@ -1,3 +1,4 @@
+// src/components/GradientAdventureCard.tsx - FIXED TYPES
 import React, { useEffect, useRef } from 'react';
 import {
   View,
@@ -15,7 +16,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 
-// Type definitions
+// Type definitions - UNIFIED WITH PLANSSCREEN
 interface AdventureStep {
   time: string;
   title: string;
@@ -24,17 +25,19 @@ interface AdventureStep {
   notes?: string;
 }
 
+// Updated to match SavedAdventure from PlansScreen EXACTLY
 interface Adventure {
   id: string;
   title: string;
   description: string;
   duration_hours: number;
   estimated_cost: number;
-  steps: AdventureStep[];
+  steps: any[]; // Changed to any[] to match PlansScreen SavedAdventure
   is_completed: boolean;
-  is_favorite?: boolean;
+  is_favorite: boolean;
   created_at: string;
   filters_used?: any;
+  step_completions?: { [stepIndex: number]: boolean };
 }
 
 interface GradientAdventureCardProps {
@@ -141,31 +144,41 @@ export const GradientAdventureCard: React.FC<GradientAdventureCardProps> = ({
     }
   };
 
-  // Update action opacity based on swipe
-  translateX.addListener(({ value }) => {
-    const opacity = Math.abs(value) / SWIPE_THRESHOLD;
-    actionOpacity.setValue(Math.min(opacity, 1));
-  });
+  // Update opacity for swipe actions
+  useEffect(() => {
+    const listener = translateX.addListener(({ value }) => {
+      const opacity = Math.min(Math.abs(value) / SWIPE_THRESHOLD, 1);
+      actionOpacity.setValue(opacity);
+    });
 
+    return () => translateX.removeListener(listener);
+  }, [translateX, actionOpacity]);
+
+  // Render swipe actions
   const renderActions = () => (
     <>
-      {/* Delete Action (Left) */}
+      {/* Delete Action (Right Swipe) */}
       <Animated.View
         style={{
           position: 'absolute',
-          left: 0,
+          left: 8,
           top: 0,
           bottom: 0,
-          width: SWIPE_THRESHOLD,
-          backgroundColor: '#ef4444',
+          width: SCREEN_WIDTH * 0.75,
           justifyContent: 'center',
           alignItems: 'center',
-          opacity: actionOpacity,
+          backgroundColor: '#ef4444',
+          borderRadius: 16,
+          opacity: actionOpacity.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, 1],
+            extrapolate: 'clamp',
+          }),
           transform: [
             {
               translateX: translateX.interpolate({
-                inputRange: [0, SWIPE_THRESHOLD],
-                outputRange: [-SWIPE_THRESHOLD, 0],
+                inputRange: [0, SCREEN_WIDTH],
+                outputRange: [-SCREEN_WIDTH * 0.75, 0],
                 extrapolate: 'clamp',
               }),
             },
@@ -177,23 +190,28 @@ export const GradientAdventureCard: React.FC<GradientAdventureCardProps> = ({
         </Text>
       </Animated.View>
 
-      {/* Edit Action (Right) */}
+      {/* Edit Action (Left Swipe) */}
       <Animated.View
         style={{
           position: 'absolute',
-          right: 0,
+          right: 8,
           top: 0,
           bottom: 0,
-          width: SWIPE_THRESHOLD,
-          backgroundColor: '#3b82f6',
+          width: SCREEN_WIDTH * 0.75,
           justifyContent: 'center',
           alignItems: 'center',
-          opacity: actionOpacity,
+          backgroundColor: '#3b82f6',
+          borderRadius: 16,
+          opacity: actionOpacity.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, 1],
+            extrapolate: 'clamp',
+          }),
           transform: [
             {
               translateX: translateX.interpolate({
-                inputRange: [-SWIPE_THRESHOLD, 0],
-                outputRange: [0, SWIPE_THRESHOLD],
+                inputRange: [-SCREEN_WIDTH, 0],
+                outputRange: [0, SCREEN_WIDTH * 0.75],
                 extrapolate: 'clamp',
               }),
             },
@@ -214,6 +232,8 @@ export const GradientAdventureCard: React.FC<GradientAdventureCardProps> = ({
       <PanGestureHandler
         onGestureEvent={handleGestureEvent}
         onHandlerStateChange={handleGestureStateChange}
+        activeOffsetX={[-10, 10]}
+        failOffsetY={[-30, 30]}
       >
         <Animated.View
           style={{
@@ -259,18 +279,32 @@ export const GradientAdventureCard: React.FC<GradientAdventureCardProps> = ({
                       color: adventure.is_completed ? 'white' : '#3c7660',
                     }}
                   >
-                    {adventure.is_completed ? 'Completed' : 'Planned'}
+                    {adventure.is_completed ? 'Completed' : 'Upcoming'}
                   </Text>
                 </View>
+
+                {/* Favorite Icon */}
+                {adventure.is_favorite && (
+                  <View
+                    style={{
+                      position: 'absolute',
+                      top: 48,
+                      right: 12,
+                    }}
+                  >
+                    <Text style={{ fontSize: 16 }}>⭐</Text>
+                  </View>
+                )}
 
                 {/* Title */}
                 <Text
                   style={{
-                    fontSize: 20,
+                    fontSize: 18,
                     fontWeight: 'bold',
                     color: '#3c7660',
                     marginBottom: 8,
-                    paddingRight: 80,
+                    paddingRight: 80, // Make room for badges
+                    lineHeight: 24,
                   }}
                   numberOfLines={2}
                 >
@@ -282,7 +316,7 @@ export const GradientAdventureCard: React.FC<GradientAdventureCardProps> = ({
                   style={{
                     fontSize: 14,
                     color: '#666666',
-                    marginBottom: 12,
+                    marginBottom: 16,
                     lineHeight: 20,
                   }}
                   numberOfLines={2}
@@ -290,12 +324,12 @@ export const GradientAdventureCard: React.FC<GradientAdventureCardProps> = ({
                   {adventure.description}
                 </Text>
 
-                {/* Meta Information */}
+                {/* Adventure Details */}
                 <View
                   style={{
                     flexDirection: 'row',
-                    flexWrap: 'wrap',
-                    marginBottom: 12,
+                    justifyContent: 'space-between',
+                    marginBottom: 16,
                   }}
                 >
                   <View
@@ -382,14 +416,5 @@ export const GradientAdventureCard: React.FC<GradientAdventureCardProps> = ({
         </Animated.View>
       </PanGestureHandler>
     </View>
-  );
-};
-
-// Wrapper component to ensure GestureHandlerRootView
-export const GradientAdventureCardWrapper: React.FC<GradientAdventureCardProps> = (props) => {
-  return (
-    <GestureHandlerRootView>
-      <GradientAdventureCard {...props} />
-    </GestureHandlerRootView>
   );
 };
