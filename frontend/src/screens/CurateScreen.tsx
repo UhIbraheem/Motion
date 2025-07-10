@@ -1,23 +1,51 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, SafeAreaView, Alert, TouchableOpacity, Modal, TextInput, Keyboard, TouchableWithoutFeedback } from 'react-native';
+import Slider from '@react-native-community/slider';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import Card from '../components/Card';
 import { aiService, AdventureFilters, GeneratedAdventure, AdventureStep } from '../services/aiService';
 import { useAuth } from '../context/AuthContext';
+import { 
+  Poppins_700Bold, 
+  Poppins_600SemiBold,
+  useFonts 
+} from '@expo-google-fonts/poppins';
+import { 
+  Inter_600SemiBold,
+  Inter_500Medium 
+} from '@expo-google-fonts/inter';
 
 const CurateScreen: React.FC = () => {
+    const [fontsLoaded] = useFonts({
+    Poppins_700Bold,
+    Poppins_600SemiBold,
+    Inter_600SemiBold,
+    Inter_500Medium,
+  });
+
+
   const { user } = useAuth(); // Get current user
   const [filters, setFilters] = useState<AdventureFilters>({
     location: '',
     duration: 'half-day',
     budget: 'moderate',
-    vibe: [],
-    dietaryRestrictions: [],
+    dietaryRestrictions: [], // Now hard restrictions only
+    foodPreferences: [], // NEW: Soft preferences
     timeOfDay: 'flexible',
     groupSize: 1,
     radius: 5, // Default 5 miles
-    transportMethod: 'flexible',
+    transportMethod: 'flexible', // Keep for backend compatibility but don't show UI
+    // Phase 1 additions
+    experienceTypes: [],
+    startTime: '10:00',
+    endTime: '16:00',
+    flexibleTiming: true,
+    customEndTime: false,
+    // Phase 2 additions
+    otherRestriction: '', // NEW: Custom restriction text
+
+    
   });
   
   const [generatedAdventure, setGeneratedAdventure] = useState<GeneratedAdventure | null>(null);
@@ -28,27 +56,95 @@ const CurateScreen: React.FC = () => {
   const [editRequest, setEditRequest] = useState('');
   const [isRegeneratingStep, setIsRegeneratingStep] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  // NEW: Random greeting rotation
+  const getRandomGreeting = (): string => {
+    const greetings = [
+      "What's the vibe?",
+      "What are you looking for?", 
+      "What's the plan?",
+      "Ready to explore?",
+      "Where to today?",
+      "What's calling you?",
+      "Adventure awaits...",
+      "What sounds good?",
+      "Let's get started",
+      "Time to discover"
+    ];
+    
+    // Random greeting each visit (not daily) for more variety
+    const randomIndex = Math.floor(Math.random() * greetings.length);
+    return greetings[randomIndex];
+  };
   
-  const vibeOptions = ['relaxed', 'energetic', 'cultural', 'foodie', 'outdoor'];
-  const dietaryOptions = ['vegetarian', 'vegan', 'gluten-free', 'halal'];
-  const transportOptions: Array<{
-    key: 'walking' | 'bike' | 'rideshare' | 'flexible';
-    label: string;
-    desc: string;
-    icon: string;
-  }> = [
-    { key: 'walking', label: 'Walking', desc: '0.5 miles', icon: '🚶' },
-    { key: 'bike', label: 'Bike/Scooter', desc: '2-3 miles', icon: '🛴' },
-    { key: 'rideshare', label: 'Uber/Lyft', desc: '10+ miles', icon: '🚗' },
-    { key: 'flexible', label: 'Any', desc: 'Mix of methods', icon: '🚀' }
+  // Experience Types with selection limit
+  const experienceTypes = [
+    'Hidden Gem', 'Explorer', 'Nature', 'Partier', 'Solo Freestyle', 
+    'Academic Weapon', 'Special Occasion', 'Artsy', 'Foodie Adventure', 'Culture Dive'
+  ];
+  const maxExperienceSelection = 4;
+  
+  // REMOVED: vibeOptions (replaced by experienceTypes)
+  
+  // NEW: Split dietary into restrictions (hard) and preferences (soft)
+  const dietaryRestrictions = ['Nut Allergy', 'Gluten-Free', 'Dairy-Free', 'Soy-Free', 'Shellfish Allergy'];
+  const foodPreferences = ['Vegetarian', 'Vegan', 'Halal', 'Kosher', 'Local Cuisine', 'Healthy Options'];
+  
+  // REMOVED: transportOptions array - no longer needed
+
+  // Time options for start time picker
+  const timeOptions = [
+    '6:00', '7:00', '8:00', '9:00', '10:00', '11:00', '12:00',
+    '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'
   ];
   
-  const toggleArraySelection = (array: string[], item: string, setter: (value: string[]) => void) => {
+  const toggleArraySelection = (array: string[], item: string, setter: (value: string[]) => void, maxLimit?: number) => {
     if (array.includes(item)) {
       setter(array.filter(i => i !== item));
     } else {
+      if (maxLimit && array.length >= maxLimit) {
+        Alert.alert('Selection Limit', `You can only select up to ${maxLimit} options.`);
+        return;
+      }
       setter([...array, item]);
     }
+  };
+
+  // Smart end time calculation based on duration
+  const calculateEndTime = (startTime: string, duration: string): string => {
+    const start = parseInt(startTime.split(':')[0]);
+    let hours = 4; // default
+    
+    switch (duration) {
+      case 'quick': hours = 2; break;
+      case 'half-day': hours = 6; break;
+      case 'full-day': hours = 9; break;
+    }
+    
+    const endHour = start + hours;
+    return `${endHour}:00`;
+  };
+
+  // Format time for display (24h to 12h)
+  const formatTimeDisplay = (time: string): string => {
+    const hour = parseInt(time.split(':')[0]);
+    if (hour === 0) return '12:00 AM';
+    if (hour < 12) return `${hour}:00 AM`;
+    if (hour === 12) return '12:00 PM';
+    return `${hour - 12}:00 PM`;
+  };
+
+  // NEW: Get transport suggestion based on radius
+  const getTransportSuggestion = (radius: number): { icon: string; text: string } => {
+    if (radius <= 2) return { icon: '🚶', text: 'Walking distance' };
+    if (radius <= 5) return { icon: '🚲', text: 'Bike/scooter friendly' };
+    if (radius <= 15) return { icon: '🚗', text: 'Uber/driving recommended' };
+    return { icon: '🛣️', text: 'Road trip territory' };
+  };
+
+  // NEW: Convert miles to km
+  const milesToKm = (miles: number): number => {
+    return Math.round(miles * 1.60934 * 10) / 10;
   };
 
   // Update radius based on transport method
@@ -67,6 +163,26 @@ const CurateScreen: React.FC = () => {
         radius: transportRadiusMap[transport]
       };
     });
+  };
+
+  // Handle start time change with auto end time calculation
+  const handleStartTimeChange = (startTime: string) => {
+    const newEndTime = filters.customEndTime ? filters.endTime : calculateEndTime(startTime, filters.duration ?? 'half-day');
+    setFilters(prev => ({
+      ...prev,
+      startTime,
+      endTime: newEndTime
+    }));
+  };
+
+  // Handle duration change with auto end time calculation  
+  const handleDurationChange = (duration: string) => {
+    const newEndTime = filters.customEndTime ? filters.endTime : calculateEndTime(filters.startTime ?? '', duration);
+    setFilters(prev => ({
+      ...prev,
+      duration: duration as any,
+      endTime: newEndTime
+    }));
   };
 
   const generateAdventure = async () => {
@@ -411,27 +527,237 @@ const CurateScreen: React.FC = () => {
   return (
     <SafeAreaView className="flex-1 bg-background-light">
       <ScrollView className="flex-1 p-4">
-        <View className="mb-6">
-          <Text className="text-2xl font-bold text-brand-sage">Curate Your Adventure</Text>
-          <Text className="text-text-secondary">Let AI create your perfect local experience</Text>
+        {/* NEW: Random Greeting Header */}
+        <View className="mb-2">
+          <Text 
+            className="text-3xl font-bold text-brand-sage mb-1"
+            style={{ 
+              fontFamily: 'Poppins_700', // Will fallback to system if not available
+              letterSpacing: -0.5 
+            }}
+          >
+            {getRandomGreeting()}
+          </Text>
         </View>
 
-        <Card title="Adventure Preferences" elevated={true}>
-          <Text className="text-text-secondary mb-4">
-            Tell us what you're looking for and our AI will create a personalized adventure.
+        <Card elevated={true}>
+        {/* Location Input with matching header style */}
+        <View className="mb-4">
+          <Text className="text-lg font-semibold text-brand-sage mb-2">
+            Location *
           </Text>
-          
-          {/* Location Input */}
           <Input
-            label="Location *"
             placeholder="Enter city, neighborhood, or address"
             value={filters.location}
             onChangeText={(location) => setFilters(prev => ({ ...prev, location }))}
           />
+        </View>
+
+          {/* Adventure Timing */}
+          <View className="mb-4">
+            <Text 
+              className="text-brand-sage text-base font-semibold mb-2"
+              style={{ fontFamily: 'Inter_600SemiBold' }}
+            >
+              🕐 Adventure Timing
+            </Text>
+            
+            {/* Start Time */}
+            <View className="mb-3">
+              <Text 
+                className="text-brand-sage text-sm font-medium mb-2"
+                style={{ fontFamily: 'Inter-Medium' }}
+              >
+                Start time
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-2">
+                <View className="flex-row space-x-2">
+                  {timeOptions.map((time) => (
+                    <TouchableOpacity
+                      key={time}
+                      onPress={() => handleStartTimeChange(time)}
+                      className={`rounded-lg px-3 py-2 border ${
+                        filters.startTime === time 
+                          ? 'bg-brand-sage border-brand-sage' 
+                          : 'bg-brand-cream border-brand-light'
+                      }`}
+                    >
+                      <Text className={`text-sm font-medium ${
+                        filters.startTime === time ? 'text-white' : 'text-brand-sage'
+                      }`}>
+                        {formatTimeDisplay(time)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+
+            {/* Duration with Smart End Time */}
+            <View className="mb-3">
+              <Text 
+                className="text-brand-sage text-sm font-medium mb-2"
+                style={{ fontFamily: 'Inter-Medium' }}
+              >
+                Duration
+              </Text>
+              <View className="flex-row justify-between mb-2">
+                {[
+                  { key: 'quick', label: '2 Hours', desc: 'Quick adventure' },
+                  { key: 'half-day', label: 'Half Day', desc: '4-6 hours' },
+                  { key: 'full-day', label: 'Full Day', desc: '8+ hours' }
+                ].map((duration) => (
+                  <TouchableOpacity 
+                    key={duration.key}
+                    onPress={() => handleDurationChange(duration.key)}
+                    className={`rounded-lg px-3 py-3 w-[32%] items-center border ${
+                      filters.duration === duration.key 
+                        ? 'bg-brand-sage border-brand-sage' 
+                        : 'bg-brand-cream border-brand-light'
+                    }`}
+                  >
+                    <Text className={`font-semibold ${
+                      filters.duration === duration.key ? 'text-white' : 'text-brand-sage'
+                    }`}>
+                      {duration.label}
+                    </Text>
+                    <Text className={`text-xs mt-1 text-center ${
+                      filters.duration === duration.key ? 'text-white' : 'text-brand-sage'
+                    }`}>
+                      {duration.desc}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              
+              {/* Smart End Time Display */}
+              <View className="bg-brand-light rounded-lg p-3">
+                <Text className="text-brand-sage text-sm">
+                  Ends around: {formatTimeDisplay(filters.endTime ?? '')}
+                </Text>
+                
+                {/* Custom End Time Toggle */}
+                <TouchableOpacity
+                  onPress={() => setFilters(prev => ({ ...prev, customEndTime: !prev.customEndTime }))}
+                  className="flex-row items-center mt-2"
+                >
+                  <View className={`w-4 h-4 rounded border mr-2 ${
+                    filters.customEndTime ? 'bg-brand-sage border-brand-sage' : 'border-gray-400'
+                  }`}>
+                    {filters.customEndTime && (
+                      <Text className="text-white text-xs text-center">✓</Text>
+                    )}
+                  </View>
+                  <Text className="text-brand-sage text-sm">Custom end time</Text>
+                </TouchableOpacity>
+
+                {/* Custom End Time Picker */}
+                {filters.customEndTime && (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-2">
+                    <View className="flex-row space-x-2">
+                      {timeOptions.map((time) => (
+                        <TouchableOpacity
+                          key={time}
+                          onPress={() => setFilters(prev => ({ ...prev, endTime: time }))}
+                          className={`rounded-lg px-3 py-2 border ${
+                            filters.endTime === time 
+                              ? 'bg-brand-sage border-brand-sage' 
+                              : 'bg-brand-cream border-brand-light'
+                          }`}
+                        >
+                          <Text className={`text-sm font-medium ${
+                            filters.endTime === time ? 'text-white' : 'text-brand-sage'
+                          }`}>
+                            {formatTimeDisplay(time)}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </ScrollView>
+                )}
+
+                {/* Flexible Timing Toggle */}
+                <TouchableOpacity
+                  onPress={() => setFilters(prev => ({ ...prev, flexibleTiming: !prev.flexibleTiming }))}
+                  className="flex-row items-center mt-3"
+                >
+                  <View className={`w-4 h-4 rounded border mr-2 ${
+                    filters.flexibleTiming ? 'bg-brand-sage border-brand-sage' : 'border-gray-400'
+                  }`}>
+                    {filters.flexibleTiming && (
+                      <Text className="text-white text-xs text-center">✓</Text>
+                    )}
+                  </View>
+                  <Text className="text-brand-sage text-sm">Flexible timing (+/- 1 hour)</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+          {/* Experience Types with Selection Limit */}
+          <View className="mb-4">
+            <View className="flex-row justify-between items-center mb-2">
+              <Text 
+                className="text-brand-sage text-base font-semibold"
+                style={{ fontFamily: 'Inter_600SemiBold' }}
+              >
+                🏷️ Experience Types
+              </Text>
+              <Text className="text-brand-teal text-xs">
+                {filters.experienceTypes?.length || 0}/{maxExperienceSelection} selected
+              </Text>
+            </View>
+            <Text className="text-xs text-text-secondary mb-3">
+              Choose up to {maxExperienceSelection} types that match your adventure style
+            </Text>
+            <View className="flex-row flex-wrap justify-center">
+              {experienceTypes.map((type) => {
+                const isSelected = filters.experienceTypes?.includes(type);
+                const isDisabled = !isSelected && (filters.experienceTypes?.length || 0) >= maxExperienceSelection;
+                
+                return (
+                  <TouchableOpacity
+                    key={type}
+                    onPress={() => {
+                      if (!isDisabled) {
+                        toggleArraySelection(
+                          filters.experienceTypes || [], 
+                          type, 
+                          (newTypes) => setFilters(prev => ({ ...prev, experienceTypes: newTypes })),
+                          maxExperienceSelection
+                        );
+                      }
+                    }}
+                    disabled={isDisabled}
+                    className={`rounded-full px-3 py-2 mx-1 mb-2 border ${
+                      isSelected
+                        ? 'bg-brand-sage border-brand-sage' 
+                        : isDisabled
+                        ? 'bg-gray-100 border-gray-300'
+                        : 'bg-brand-cream border-brand-light'
+                    }`}
+                  >
+                    <Text className={`text-sm font-medium ${
+                      isSelected
+                        ? 'text-white' 
+                        : isDisabled
+                        ? 'text-gray-400'
+                        : 'text-brand-sage'
+                    }`}>
+                      {type}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
 
           {/* Group Size */}
           <View className="mb-4">
-            <Text className="text-brand-sage text-sm font-medium mb-2">
+            <Text 
+              className="text-brand-sage text-base font-semibold mb-2"
+              style={{ fontFamily: 'Inter_600SemiBold' }}
+            >
               Group Size: {filters.groupSize} {filters.groupSize === 1 ? 'person' : 'people'}
             </Text>
             <View className="flex-row items-center">
@@ -457,95 +783,67 @@ const CurateScreen: React.FC = () => {
             </View>
           </View>
 
-          {/* Transport Method & Radius */}
+          {/* NEW: Draggable Radius Slider with Transport Context */}
           <View className="mb-4">
-            <Text className="text-brand-sage text-sm font-medium mb-2">How do you want to get around?</Text>
-            <View className="space-y-2">
-              {transportOptions.map((transport) => (
-                <TouchableOpacity
-                  key={transport.key}
-                  onPress={() => handleTransportChange(transport.key)}
-                  className={`rounded-lg p-3 border flex-row items-center ${
-                    filters.transportMethod === transport.key 
-                      ? 'bg-brand-gold border-brand-gold' 
-                      : 'bg-brand-cream border-brand-light'
-                  }`}
-                >
-                  <Text className="text-2xl mr-3">{transport.icon}</Text>
-                  <View className="flex-1">
-                    <Text className={`font-semibold ${
-                      filters.transportMethod === transport.key ? 'text-brand-sage' : 'text-brand-sage'
-                    }`}>
-                      {transport.label}
-                    </Text>
-                    <Text className="text-xs text-brand-sage">{transport.desc}</Text>
-                  </View>
-                  {filters.transportMethod === transport.key && (
-                    <Text className="text-brand-sage text-lg">✓</Text>
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
+            <Text 
+              className="text-brand-sage text-base font-semibold mb-2"
+              style={{ fontFamily: 'Inter_600SemiBold' }}
+            >
+              📏 Max Distance
+            </Text>
             
-            {/* Custom Radius */}
-            <View className="mt-3 p-3 bg-brand-light rounded-lg">
-              <Text className="text-brand-sage text-sm font-medium mb-2">
-                Max Distance: {filters.radius} {filters.radius === 1 ? 'mile' : 'miles'}
-              </Text>
-              <View className="flex-row items-center">
-                <TouchableOpacity
-                  onPress={() => setFilters(prev => ({ ...prev, radius: Math.max(0.5, prev.radius! - 0.5) }))}
-                  className="bg-brand-cream rounded-full w-8 h-8 items-center justify-center"
-                >
-                  <Text className="text-brand-sage font-bold">-</Text>
-                </TouchableOpacity>
+            {/* Slider Display */}
+            <View className="bg-brand-light rounded-lg p-4">
+              <View className="flex-row justify-between items-center mb-4">
+                <Text className="text-brand-sage font-semibold text-lg">
+                  {filters.radius} miles
+                </Text>
+                <Text className="text-brand-sage text-sm">
+                  ({milesToKm(filters.radius!)} km)
+                </Text>
+              </View>
+              
+              {/* Draggable Slider */}
+              <View className="mb-4">
+                <Slider
+                  style={{ width: '100%', height: 40 }}
+                  minimumValue={0.5}
+                  maximumValue={20}
+                  value={filters.radius}
+                  onValueChange={(value: number) => setFilters(prev => ({ ...prev, radius: Math.round(value * 2) / 2 }))}
+                  minimumTrackTintColor="#3c7660"
+                  maximumTrackTintColor="#f8f2d5"
+                  thumbTintColor="#3c7660"
+                  step={0.5}
+                />
                 
-                <View className="flex-1 mx-3 bg-white rounded-lg py-2 items-center">
-                  <Text className="text-brand-sage font-semibold">{filters.radius} mi</Text>
+                {/* Slider Labels */}
+                <View className="flex-row justify-between">
+                  <Text className="text-xs text-brand-sage">0.5 mi</Text>
+                  <Text className="text-xs text-brand-sage">20 mi</Text>
                 </View>
-                
-                <TouchableOpacity
-                  onPress={() => setFilters(prev => ({ ...prev, radius: Math.min(50, prev.radius! + 0.5) }))}
-                  className="bg-brand-cream rounded-full w-8 h-8 items-center justify-center"
-                >
-                  <Text className="text-brand-sage font-bold">+</Text>
-                </TouchableOpacity>
+              </View>
+              
+              {/* Transport Suggestion */}
+              <View className="flex-row items-center justify-center bg-brand-cream rounded-lg p-3">
+                <Text className="text-lg mr-2">{getTransportSuggestion(filters.radius!).icon}</Text>
+                <Text className="text-brand-sage text-sm font-medium">
+                  {getTransportSuggestion(filters.radius!).text}
+                </Text>
               </View>
             </View>
           </View>
-          
-          {/* Duration Selector */}
-          <View className="mb-4">
-            <Text className="text-brand-sage text-sm font-medium mb-2">Duration</Text>
-            <View className="flex-row justify-between">
-              {[
-                { key: 'quick', label: '2 Hours', desc: 'Quick adventure' },
-                { key: 'half-day', label: 'Half Day', desc: '4-6 hours' },
-                { key: 'full-day', label: 'Full Day', desc: '8+ hours' }
-              ].map((duration) => (
-                <TouchableOpacity 
-                  key={duration.key}
-                  onPress={() => setFilters(prev => ({ ...prev, duration: duration.key as any }))}
-                  className={`rounded-lg px-3 py-3 w-[32%] items-center border ${
-                    filters.duration === duration.key 
-                      ? 'bg-brand-gold border-brand-gold' 
-                      : 'bg-brand-cream border-brand-light'
-                  }`}
-                >
-                  <Text className={`font-semibold ${
-                    filters.duration === duration.key ? 'text-brand-sage' : 'text-brand-sage'
-                  }`}>
-                    {duration.label}
-                  </Text>
-                  <Text className="text-xs text-brand-sage mt-1 text-center">{duration.desc}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
+
+          {/* REMOVED: Transport Method section - saves space */}
           
           {/* Budget Selector */}
           <View className="mb-4">
-            <Text className="text-brand-sage text-sm font-medium mb-2">Budget</Text>
+            <Text 
+              className="text-brand-sage text-base font-semibold mb-2"
+              style={{ fontFamily: 'Inter_600SemiBold' }}
+            >
+              Budget
+            </Text>
             <View className="flex-row justify-between">
               {[
                 { key: 'budget', label: '$', desc: 'Budget-friendly' },
@@ -557,73 +855,104 @@ const CurateScreen: React.FC = () => {
                   onPress={() => setFilters(prev => ({ ...prev, budget: budget.key as any }))}
                   className={`rounded-lg px-4 py-3 w-[32%] items-center border ${
                     filters.budget === budget.key 
-                      ? 'bg-brand-gold border-brand-gold' 
+                      ? 'bg-brand-sage border-brand-sage' 
                       : 'bg-brand-light border-brand-light'
                   }`}
                 >
                   <Text className={`text-lg font-bold ${
-                    filters.budget === budget.key ? 'text-brand-sage' : 'text-brand-sage'
+                    filters.budget === budget.key ? 'text-white' : 'text-brand-sage'
                   }`}>
                     {budget.label}
                   </Text>
-                  <Text className="text-xs text-brand-sage mt-1 text-center">{budget.desc}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-          
-          {/* Vibe selector */}
-          <View className="mb-4">
-            <Text className="text-brand-sage text-sm font-medium mb-2">
-              Vibe (tap to select multiple)
-            </Text>
-            <View className="flex-row flex-wrap">
-              {vibeOptions.map((vibe) => (
-                <TouchableOpacity
-                  key={vibe}
-                  onPress={() => toggleArraySelection(
-                    filters.vibe || [], 
-                    vibe, 
-                    (newVibes) => setFilters(prev => ({ ...prev, vibe: newVibes }))
-                  )}
-                  className={`rounded-full px-4 py-2 mr-2 mb-2 border ${
-                    filters.vibe?.includes(vibe) 
-                      ? 'bg-brand-gold border-brand-gold' 
-                      : 'bg-brand-cream border-brand-light'
-                  }`}
-                >
-                  <Text className={`font-medium ${
-                    filters.vibe?.includes(vibe) ? 'text-brand-sage' : 'text-brand-sage'
+                  <Text className={`text-xs mt-1 text-center ${
+                    filters.budget === budget.key ? 'text-white' : 'text-brand-sage'
                   }`}>
-                    {vibe.charAt(0).toUpperCase() + vibe.slice(1)}
+                    {budget.desc}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
           </View>
 
-          {/* Dietary Restrictions */}
-          <View className="mb-6">
-            <Text className="text-brand-sage text-sm font-medium mb-2">Dietary Preferences</Text>
-            <View className="flex-row flex-wrap">
-              {dietaryOptions.map((dietary) => (
+          {/* REMOVED: Old Vibe selector - replaced by Experience Types */}
+
+          {/* NEW: Split Dietary System */}
+          {/* Dietary Restrictions (Hard Constraints) */}
+          <View className="mb-4">
+            <Text 
+              className="text-brand-sage text-base font-semibold mb-2"
+              style={{ fontFamily: 'Inter_600SemiBold' }}
+            >
+              🚨 Dietary Restrictions
+            </Text>
+            <Text className="text-xs text-text-secondary mb-3">
+              Select any allergies or strict dietary requirements
+            </Text>
+            <View className="flex-row flex-wrap justify-center mb-3">
+              {dietaryRestrictions.map((restriction) => (
                 <TouchableOpacity
-                  key={dietary}
+                  key={restriction}
                   onPress={() => toggleArraySelection(
                     filters.dietaryRestrictions || [], 
-                    dietary, 
-                    (newDietary) => setFilters(prev => ({ ...prev, dietaryRestrictions: newDietary }))
+                    restriction, 
+                    (newRestrictions) => setFilters(prev => ({ ...prev, dietaryRestrictions: newRestrictions }))
                   )}
-                  className={`rounded-full px-3 py-2 mr-2 mb-2 border ${
-                    filters.dietaryRestrictions?.includes(dietary) 
+                  className={`rounded-full px-3 py-2 mx-1 mb-2 border ${
+                    filters.dietaryRestrictions?.includes(restriction) 
+                      ? 'bg-red-500 border-red-500' 
+                      : 'bg-brand-light border-brand-light'
+                  }`}
+                >
+                  <Text className={`text-sm font-medium ${
+                    filters.dietaryRestrictions?.includes(restriction) ? 'text-white' : 'text-brand-sage'
+                  }`}>
+                    {restriction}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            
+            {/* Other Restriction Input */}
+            <TextInput
+              className="bg-white border border-brand-light rounded-lg p-3 text-brand-sage"
+              placeholder="Other restriction (max 20 characters)"
+              placeholderTextColor="#999999"
+              value={filters.otherRestriction}
+              onChangeText={(text) => setFilters(prev => ({ ...prev, otherRestriction: text.slice(0, 20) }))}
+              maxLength={20}
+            />
+          </View>
+
+          {/* Food Preferences (Soft Preferences) */}
+          <View className="mb-6">
+            <Text 
+              className="text-brand-sage text-base font-semibold mb-2"
+              style={{ fontFamily: 'Inter_600SemiBold' }}
+            >
+              🌱 Food Preferences
+            </Text>
+            <Text className="text-xs text-text-secondary mb-3">
+              Select food styles you prefer (optional)
+            </Text>
+            <View className="flex-row flex-wrap justify-center">
+              {foodPreferences.map((preference) => (
+                <TouchableOpacity
+                  key={preference}
+                  onPress={() => toggleArraySelection(
+                    filters.foodPreferences || [], 
+                    preference, 
+                    (newPreferences) => setFilters(prev => ({ ...prev, foodPreferences: newPreferences }))
+                  )}
+                  className={`rounded-full px-3 py-2 mx-1 mb-2 border ${
+                    filters.foodPreferences?.includes(preference) 
                       ? 'bg-brand-teal border-brand-teal' 
                       : 'bg-brand-light border-brand-light'
                   }`}
                 >
                   <Text className={`text-sm font-medium ${
-                    filters.dietaryRestrictions?.includes(dietary) ? 'text-white' : 'text-brand-sage'
+                    filters.foodPreferences?.includes(preference) ? 'text-white' : 'text-brand-sage'
                   }`}>
-                    {dietary.charAt(0).toUpperCase() + dietary.slice(1)}
+                    {preference}
                   </Text>
                 </TouchableOpacity>
               ))}

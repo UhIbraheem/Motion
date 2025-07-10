@@ -6,11 +6,17 @@ export interface AdventureFilters {
   radius?: number;
   duration?: 'quick' | 'half-day' | 'full-day';
   budget?: 'budget' | 'moderate' | 'premium';
-  vibe?: string[];
   dietaryRestrictions?: string[];
   timeOfDay?: 'morning' | 'afternoon' | 'evening' | 'flexible';
   groupSize?: number;
   transportMethod?: 'walking' | 'bike' | 'rideshare' | 'flexible';
+  experienceTypes?: string[];
+  startTime?: string;
+  endTime?: string;
+  flexibleTiming?: boolean;
+  customEndTime?: boolean;
+  foodPreferences?: string[]; // NEW: Soft food preferences
+  otherRestriction?: string;   // NEW: Custom restriction text
 }
 
 export interface AdventureStep {
@@ -569,10 +575,6 @@ async getCommunityAdventures(): Promise<{
 
     if (filters.groupSize) {
       parts.push(`Group size: ${filters.groupSize} people`);
-    }
-
-    if (filters.vibe && filters.vibe.length > 0) {
-      parts.push(`Vibe: ${filters.vibe.join(', ')}`);
     }
 
     if (filters.dietaryRestrictions && filters.dietaryRestrictions.length > 0) {
