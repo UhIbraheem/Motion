@@ -551,37 +551,85 @@ async getCommunityAdventures(): Promise<{
   private formatFiltersForBackend(filters: AdventureFilters): string {
     const parts: string[] = [];
 
+    // Duration and timing (MOST IMPORTANT)
+    if (filters.duration) {
+      const durationMap = {
+        'quick': '2 hours',
+        'half-day': '4-6 hours', 
+        'full-day': '8+ hours'
+      };
+      parts.push(`Duration: ${durationMap[filters.duration as keyof typeof durationMap] || filters.duration}`);
+    }
+
+    // START TIME AND END TIME - Critical timing info
+    if (filters.startTime) {
+      parts.push(`Start time: ${filters.startTime} (${this.formatTimeDisplay(filters.startTime)})`);
+    }
+    
+    if (filters.endTime) {
+      parts.push(`End time: ${filters.endTime} (${this.formatTimeDisplay(filters.endTime)})`);
+    }
+
+    // Flexible timing
+    if (filters.flexibleTiming) {
+      parts.push('Flexible timing: Allow +/- 1 hour flexibility');
+    }
+
+    // Location
     if (filters.location) {
       parts.push(`Location: ${filters.location}`);
     }
 
-    if (filters.duration) {
-      const durationMap = {
-        quick: '2 hours or less',
-        'half-day': '4-6 hours',
-        'full-day': 'full day (8+ hours)',
-      };
-      parts.push(`Duration: ${durationMap[filters.duration]}`);
+    // Experience types
+    if (filters.experienceTypes && filters.experienceTypes.length > 0) {
+      parts.push(`Experience types: ${filters.experienceTypes.join(', ')}`);
     }
 
+    // Group size
+    if (filters.groupSize) {
+      parts.push(`Group size: ${filters.groupSize} ${filters.groupSize === 1 ? 'person' : 'people'}`);
+    }
+
+    // Budget
     if (filters.budget) {
       const budgetMap = {
-        budget: 'Budget-friendly ($)',
-        moderate: 'Moderate budget ($$)',
-        premium: 'Higher-end ($$$)',
+        'budget': 'Budget-friendly ($)',
+        'moderate': 'Moderate ($$)',
+        'premium': 'Premium ($$$)'
       };
-      parts.push(`Budget: ${budgetMap[filters.budget]}`);
+      parts.push(`Budget: ${budgetMap[filters.budget as keyof typeof budgetMap] || filters.budget}`);
     }
 
-    if (filters.groupSize) {
-      parts.push(`Group size: ${filters.groupSize} people`);
+    // Radius
+    if (filters.radius) {
+      parts.push(`Max distance: ${filters.radius} miles from location`);
     }
 
+    // Dietary restrictions
     if (filters.dietaryRestrictions && filters.dietaryRestrictions.length > 0) {
-      parts.push(`Dietary needs: ${filters.dietaryRestrictions.join(', ')}`);
+      parts.push(`Dietary restrictions (REQUIRED): ${filters.dietaryRestrictions.join(', ')}`);
+    }
+
+    // Food preferences
+    if (filters.foodPreferences && filters.foodPreferences.length > 0) {
+      parts.push(`Food preferences: ${filters.foodPreferences.join(', ')}`);
+    }
+
+    // Custom restriction
+    if (filters.otherRestriction) {
+      parts.push(`Other restriction: ${filters.otherRestriction}`);
     }
 
     return parts.join('\n');
+  }
+
+  // Add this helper method right after formatFiltersForBackend
+  private formatTimeDisplay(time: string): string {
+    const hour = parseInt(time.split(':')[0]);
+    if (hour === 0) return '12:00 AM';
+    if (hour < 12) return `${hour}:00 AM`;
+    if (hour === 12) return '12:00 PM';
+    return `${hour - 12}:00 PM`;
   }
 
   

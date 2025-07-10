@@ -23,6 +23,8 @@ router.post("/generate-plan", async (req, res) => {
     console.log("📝 Received request:", { app_filter, radius });
 
     const prompt = `
+Create a detailed adventure plan with these requirements:
+
 You are an AI concierge planning a full or partial day of activities based on user input. Your goal is to recommend a personalized, enjoyable, well-paced plan with real businesses/locations, aligned with the user's preferences.
 
 Rules:
@@ -40,31 +42,35 @@ Rules:
 User Filters:
 ${app_filter}
 
-Respond ONLY in the following JSON format (Example):
+CRITICAL TIMING REQUIREMENTS:
+- MUST start at the specified start time
+- MUST end by the specified end time
+- Each step must have realistic timing that fits within the total duration
+- Schedule activities logically (meals at meal times, etc.)
+- Account for travel time between locations
+
+Create a JSON response with:
 {
-  "plan_title": "Cozy Afternoon in South Beach",
+  "title": "Adventure name",
+  "description": "Brief description", 
+  "estimatedDuration": "X hours",
+  "estimatedCost": "$X range",
   "steps": [
     {
-      "time": "2:00 PM",
-      "title": "Lunch at Bombay Darbar",
-      "location": "2901 Florida Ave, Miami, FL",
+      "time": "HH:MM format (24-hour)",
+      "title": "Activity name",
+      "location": "Specific address/location",
+      "notes": "Details and tips",
       "booking": {
-        "method": "OpenTable",
-        "link": "https://opentable.com/reserve-url",
-        "fallback": "Call (305) 555-1234 if no availability"
-      },
-      "notes": "Try their vegetarian thali"
-    },
-    {
-      "time": "3:30 PM",
-      "title": "Scenic Walk at South Pointe Park",
-      "location": "1 Washington Ave, Miami Beach, FL",
-      "booking": null,
-      "notes": "Great for photos and prayer-friendly quiet spaces"
+        "method": "How to book/access",
+        "link": "website if applicable",
+        "fallback": "alternative if booking fails"
+      }
     }
   ]
 }
-`;
+
+ENSURE ALL STEP TIMES ARE BETWEEN THE START AND END TIME SPECIFIED!`;
 
     console.log("🤖 Sending to OpenAI...");
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, SafeAreaView, Alert, TouchableOpacity, Modal, TextInput, Keyboard, TouchableWithoutFeedback } from 'react-native';
 import Slider from '@react-native-community/slider';
 import Button from '../components/Button';
@@ -58,24 +58,27 @@ const CurateScreen: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
 
   // NEW: Random greeting rotation
-  const getRandomGreeting = (): string => {
-    const greetings = [
-      "What's the vibe?",
-      "What are you looking for?", 
-      "What's the plan?",
-      "Ready to explore?",
-      "Where to today?",
-      "What's calling you?",
-      "Adventure awaits...",
-      "What sounds good?",
-      "Let's get started",
-      "Time to discover"
-    ];
-    
-    // Random greeting each visit (not daily) for more variety
+  // At the top of your component (after other useState/useEffect imports):
+
+  const greetings = [
+    "What's the vibe?",
+    "What are you looking for?", 
+    "What's the plan?",
+    "Ready to explore?",
+    "Where to today?",
+    "What's calling you?",
+    "Adventure awaits...",
+    "What sounds good?",
+    "Let's get started",
+    "Time to discover"
+  ];
+
+  const [greeting, setGreeting] = useState(greetings[0]);
+
+  useEffect(() => {
     const randomIndex = Math.floor(Math.random() * greetings.length);
-    return greetings[randomIndex];
-  };
+    setGreeting(greetings[randomIndex]);
+  }, []);
   
   // Experience Types with selection limit
   const experienceTypes = [
@@ -84,14 +87,11 @@ const CurateScreen: React.FC = () => {
   ];
   const maxExperienceSelection = 4;
   
-  // REMOVED: vibeOptions (replaced by experienceTypes)
-  
+
   // NEW: Split dietary into restrictions (hard) and preferences (soft)
   const dietaryRestrictions = ['Nut Allergy', 'Gluten-Free', 'Dairy-Free', 'Soy-Free', 'Shellfish Allergy'];
   const foodPreferences = ['Vegetarian', 'Vegan', 'Halal', 'Kosher', 'Local Cuisine', 'Healthy Options'];
   
-  // REMOVED: transportOptions array - no longer needed
-
   // Time options for start time picker
   const timeOptions = [
     '6:00', '7:00', '8:00', '9:00', '10:00', '11:00', '12:00',
@@ -194,6 +194,13 @@ const CurateScreen: React.FC = () => {
     setIsGenerating(true);
     
     try {
+      // DEBUG: Log the exact timing info being sent
+      console.log('🎯 Timing info being sent to AI:');
+      console.log('- Start time:', filters.startTime);
+      console.log('- End time:', filters.endTime);
+      console.log('- Duration:', filters.duration);
+      console.log('- Flexible timing:', filters.flexibleTiming);
+      console.log('- Custom end time:', filters.customEndTime);
       console.log('🎯 Starting adventure generation with filters:', filters);
       const { data, error } = await aiService.generateAdventure(filters);
       
@@ -479,16 +486,17 @@ const CurateScreen: React.FC = () => {
                     
                     <View className="flex-row flex-wrap mb-4">
                       {getQuickEditSuggestions(generatedAdventure.steps[editingStepIndex]).map((suggestion, index) => (
-                        <TouchableOpacity
+                        <Button
                           key={index}
+                          title={suggestion}
                           onPress={() => {
                             setEditRequest(suggestion);
                             Keyboard.dismiss();
                           }}
-                          className="bg-brand-light rounded-full px-3 py-2 mr-2 mb-2"
-                        >
-                          <Text className="text-brand-sage text-sm">{suggestion}</Text>
-                        </TouchableOpacity>
+                          variant="filter"
+                          size="sm"
+                          isSelected={false}
+                        />
                       ))}
                     </View>
 
@@ -529,15 +537,12 @@ const CurateScreen: React.FC = () => {
       <ScrollView className="flex-1 p-4">
         {/* NEW: Random Greeting Header */}
         <View className="mb-2">
-          <Text 
-            className="text-3xl font-bold text-brand-sage mb-1"
-            style={{ 
-              fontFamily: 'Poppins_700', // Will fallback to system if not available
-              letterSpacing: -0.5 
-            }}
-          >
-            {getRandomGreeting()}
-          </Text>
+        <Text
+          className="text-3xl font-bold text-brand-sage mb-1"
+          style={{ fontFamily: 'Poppins_700', letterSpacing: -0.5 }}
+        >
+          {greeting}
+        </Text>
         </View>
 
         <Card elevated={true}>
@@ -570,24 +575,17 @@ const CurateScreen: React.FC = () => {
               >
                 Start time
               </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-2">
-                <View className="flex-row space-x-2">
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
+                <View className="flex-row px-2">
                   {timeOptions.map((time) => (
-                    <TouchableOpacity
+                    <Button
                       key={time}
+                      title={formatTimeDisplay(time)}
                       onPress={() => handleStartTimeChange(time)}
-                      className={`rounded-lg px-3 py-2 border ${
-                        filters.startTime === time 
-                          ? 'bg-brand-sage border-brand-sage' 
-                          : 'bg-brand-cream border-brand-light'
-                      }`}
-                    >
-                      <Text className={`text-sm font-medium ${
-                        filters.startTime === time ? 'text-white' : 'text-brand-sage'
-                      }`}>
-                        {formatTimeDisplay(time)}
-                      </Text>
-                    </TouchableOpacity>
+                      variant="filter-time"
+                      size="sm"
+                      isSelected={filters.startTime === time}
+                    />
                   ))}
                 </View>
               </ScrollView>
@@ -601,32 +599,21 @@ const CurateScreen: React.FC = () => {
               >
                 Duration
               </Text>
-              <View className="flex-row justify-between mb-2">
+              <View className="flex-row justify-between space-x-2 mb-2">
                 {[
                   { key: 'quick', label: '2 Hours', desc: 'Quick adventure' },
                   { key: 'half-day', label: 'Half Day', desc: '4-6 hours' },
                   { key: 'full-day', label: 'Full Day', desc: '8+ hours' }
                 ].map((duration) => (
-                  <TouchableOpacity 
+                  <Button
                     key={duration.key}
+                    title={duration.label}
+                    description={duration.desc}
                     onPress={() => handleDurationChange(duration.key)}
-                    className={`rounded-lg px-3 py-3 w-[32%] items-center border ${
-                      filters.duration === duration.key 
-                        ? 'bg-brand-sage border-brand-sage' 
-                        : 'bg-brand-cream border-brand-light'
-                    }`}
-                  >
-                    <Text className={`font-semibold ${
-                      filters.duration === duration.key ? 'text-white' : 'text-brand-sage'
-                    }`}>
-                      {duration.label}
-                    </Text>
-                    <Text className={`text-xs mt-1 text-center ${
-                      filters.duration === duration.key ? 'text-white' : 'text-brand-sage'
-                    }`}>
-                      {duration.desc}
-                    </Text>
-                  </TouchableOpacity>
+                    variant="filter-action"
+                    isSelected={filters.duration === duration.key}
+                    className="flex-1 mx-1"
+                  />
                 ))}
               </View>
               
@@ -656,21 +643,14 @@ const CurateScreen: React.FC = () => {
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-2">
                     <View className="flex-row space-x-2">
                       {timeOptions.map((time) => (
-                        <TouchableOpacity
+                        <Button
                           key={time}
+                          title={formatTimeDisplay(time)}
                           onPress={() => setFilters(prev => ({ ...prev, endTime: time }))}
-                          className={`rounded-lg px-3 py-2 border ${
-                            filters.endTime === time 
-                              ? 'bg-brand-sage border-brand-sage' 
-                              : 'bg-brand-cream border-brand-light'
-                          }`}
-                        >
-                          <Text className={`text-sm font-medium ${
-                            filters.endTime === time ? 'text-white' : 'text-brand-sage'
-                          }`}>
-                            {formatTimeDisplay(time)}
-                          </Text>
-                        </TouchableOpacity>
+                          variant="filter-time"
+                          size="sm"
+                          isSelected={filters.endTime === time}
+                        />
                       ))}
                     </View>
                   </ScrollView>
@@ -711,44 +691,23 @@ const CurateScreen: React.FC = () => {
               Choose up to {maxExperienceSelection} types that match your adventure style
             </Text>
             <View className="flex-row flex-wrap justify-center">
-              {experienceTypes.map((type) => {
-                const isSelected = filters.experienceTypes?.includes(type);
-                const isDisabled = !isSelected && (filters.experienceTypes?.length || 0) >= maxExperienceSelection;
-                
-                return (
-                  <TouchableOpacity
-                    key={type}
-                    onPress={() => {
-                      if (!isDisabled) {
-                        toggleArraySelection(
-                          filters.experienceTypes || [], 
-                          type, 
-                          (newTypes) => setFilters(prev => ({ ...prev, experienceTypes: newTypes })),
-                          maxExperienceSelection
-                        );
-                      }
-                    }}
-                    disabled={isDisabled}
-                    className={`rounded-full px-3 py-2 mx-1 mb-2 border ${
-                      isSelected
-                        ? 'bg-brand-sage border-brand-sage' 
-                        : isDisabled
-                        ? 'bg-gray-100 border-gray-300'
-                        : 'bg-brand-cream border-brand-light'
-                    }`}
-                  >
-                    <Text className={`text-sm font-medium ${
-                      isSelected
-                        ? 'text-white' 
-                        : isDisabled
-                        ? 'text-gray-400'
-                        : 'text-brand-sage'
-                    }`}>
-                      {type}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+              {experienceTypes.map((type) => (
+                <Button
+                  key={type}
+                  title={type}
+                  onPress={() => toggleArraySelection(
+                    filters.experienceTypes || [],
+                    type,
+                    (newTypes) => setFilters(prev => ({ ...prev, experienceTypes: newTypes })),
+                    maxExperienceSelection
+                  )}
+                  variant="filter"
+                  size="sm"
+                  isSelected={filters.experienceTypes?.includes(type)}
+                  disabled={!filters.experienceTypes?.includes(type) && 
+                            (filters.experienceTypes?.length || 0) >= maxExperienceSelection}
+                />
+              ))}
             </View>
           </View>
 
@@ -844,37 +803,24 @@ const CurateScreen: React.FC = () => {
             >
               Budget
             </Text>
-            <View className="flex-row justify-between">
+            <View className="flex-row justify-between space-x-2">
               {[
                 { key: 'budget', label: '$', desc: 'Budget-friendly' },
                 { key: 'moderate', label: '$$', desc: 'Moderate' },
                 { key: 'premium', label: '$$$', desc: 'Premium' }
               ].map((budget) => (
-                <TouchableOpacity 
+                <Button
                   key={budget.key}
+                  title={budget.label}
+                  description={budget.desc}
                   onPress={() => setFilters(prev => ({ ...prev, budget: budget.key as any }))}
-                  className={`rounded-lg px-4 py-3 w-[32%] items-center border ${
-                    filters.budget === budget.key 
-                      ? 'bg-brand-sage border-brand-sage' 
-                      : 'bg-brand-light border-brand-light'
-                  }`}
-                >
-                  <Text className={`text-lg font-bold ${
-                    filters.budget === budget.key ? 'text-white' : 'text-brand-sage'
-                  }`}>
-                    {budget.label}
-                  </Text>
-                  <Text className={`text-xs mt-1 text-center ${
-                    filters.budget === budget.key ? 'text-white' : 'text-brand-sage'
-                  }`}>
-                    {budget.desc}
-                  </Text>
-                </TouchableOpacity>
+                  variant="filter-action"
+                  isSelected={filters.budget === budget.key}
+                  className="flex-1 mx-1"
+                />
               ))}
             </View>
           </View>
-
-          {/* REMOVED: Old Vibe selector - replaced by Experience Types */}
 
           {/* NEW: Split Dietary System */}
           {/* Dietary Restrictions (Hard Constraints) */}
@@ -890,25 +836,16 @@ const CurateScreen: React.FC = () => {
             </Text>
             <View className="flex-row flex-wrap justify-center mb-3">
               {dietaryRestrictions.map((restriction) => (
-                <TouchableOpacity
+                <Button
                   key={restriction}
-                  onPress={() => toggleArraySelection(
-                    filters.dietaryRestrictions || [], 
+                  title={restriction}
+                  onPress={() => toggleArraySelection(filters.dietaryRestrictions || [], 
                     restriction, 
-                    (newRestrictions) => setFilters(prev => ({ ...prev, dietaryRestrictions: newRestrictions }))
-                  )}
-                  className={`rounded-full px-3 py-2 mx-1 mb-2 border ${
-                    filters.dietaryRestrictions?.includes(restriction) 
-                      ? 'bg-red-500 border-red-500' 
-                      : 'bg-brand-light border-brand-light'
-                  }`}
-                >
-                  <Text className={`text-sm font-medium ${
-                    filters.dietaryRestrictions?.includes(restriction) ? 'text-white' : 'text-brand-sage'
-                  }`}>
-                    {restriction}
-                  </Text>
-                </TouchableOpacity>
+                    (newRestrictions) => setFilters(prev => ({ ...prev, dietaryRestrictions: newRestrictions })))}
+                  variant="filter-restriction"
+                  size="sm"
+                  isSelected={filters.dietaryRestrictions?.includes(restriction)}
+                />
               ))}
             </View>
             
@@ -936,25 +873,18 @@ const CurateScreen: React.FC = () => {
             </Text>
             <View className="flex-row flex-wrap justify-center">
               {foodPreferences.map((preference) => (
-                <TouchableOpacity
+                <Button
                   key={preference}
+                  title={preference}
                   onPress={() => toggleArraySelection(
-                    filters.foodPreferences || [], 
-                    preference, 
+                    filters.foodPreferences || [],
+                    preference,
                     (newPreferences) => setFilters(prev => ({ ...prev, foodPreferences: newPreferences }))
                   )}
-                  className={`rounded-full px-3 py-2 mx-1 mb-2 border ${
-                    filters.foodPreferences?.includes(preference) 
-                      ? 'bg-brand-teal border-brand-teal' 
-                      : 'bg-brand-light border-brand-light'
-                  }`}
-                >
-                  <Text className={`text-sm font-medium ${
-                    filters.foodPreferences?.includes(preference) ? 'text-white' : 'text-brand-sage'
-                  }`}>
-                    {preference}
-                  </Text>
-                </TouchableOpacity>
+                  variant="filter-preference"
+                  size="sm"
+                  isSelected={filters.foodPreferences?.includes(preference)}
+                />
               ))}
             </View>
           </View>
