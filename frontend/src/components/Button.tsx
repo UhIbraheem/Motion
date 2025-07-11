@@ -130,13 +130,13 @@ const Button: React.FC<ButtonProps> = ({
       break;
 
     case 'filter-action':
-      // Budget and Duration buttons (rectangular with descriptions)
-      buttonClasses += ` rounded-lg border ${
+      // Budget and Duration buttons (rectangular with descriptions) - UNIFORM SIZE
+      buttonClasses += ` rounded-lg border items-center justify-center h-16 min-w-[100px] px-2 py-2 ${
         isSelected
           ? 'bg-brand-sage border-brand-sage'
           : 'bg-white border-brand-gold shadow-sm'
       }`;
-      textClasses = `text-base font-bold ${
+      textClasses = `text-sm font-medium ${
         isSelected ? 'text-white' : 'text-brand-sage'
       }`;
       break;
@@ -159,23 +159,23 @@ return (
       <>
         {/* For buttons WITH descriptions (duration, budget) */}
         {description ? (
-          <View className="items-center justify-center">
+          <View className="items-center justify-center flex-1">
             {leftIcon && <View className="mb-1">{leftIcon}</View>}
-            <Text className={`font-bold ${
+            <Text className={`font-semibold text-base ${
               isSelected ? 'text-white' : 'text-brand-sage'
-            } text-base`}>
+            }`} numberOfLines={1}>
               {title}
             </Text>
-            <Text className={`text-xs mt-1 text-center ${
+            <Text className={`text-xs text-center mt-1 ${
               isSelected ? 'text-white' : 'text-brand-sage'
-            }`}>
+            }`} numberOfLines={1}>
               {description}
             </Text>
             {rightIcon && <View className="mt-1">{rightIcon}</View>}
           </View>
         ) : (
           /* For buttons WITHOUT descriptions (chips) */
-          <View className="flex-row items-center">
+          <View className="flex-row items-center justify-center">
             {leftIcon && <View className="mr-2">{leftIcon}</View>}
             <Text className={textClasses}>{title}</Text>
             {rightIcon && <View className="ml-2">{rightIcon}</View>}

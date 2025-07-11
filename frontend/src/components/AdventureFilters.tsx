@@ -1,0 +1,333 @@
+import React from 'react';
+import { View, Text, TouchableOpacity, TextInput, ScrollView, Alert } from 'react-native';
+import Slider from '@react-native-community/slider';
+import Button from './Button';
+import Input from './Input';
+import Card from './Card';
+import TimingSection from './TimingSection';
+import { AdventureFilters as AdventureFiltersType } from '../services/aiService';
+
+interface AdventureFiltersProps {
+  greeting: string;
+  filters: AdventureFiltersType;
+  setFilters: React.Dispatch<React.SetStateAction<AdventureFiltersType>>;
+  isGenerating: boolean;
+  onGenerateAdventure: () => void;
+  onStartTimeChange: (time: string) => void;
+  onDurationChange: (duration: string) => void;
+}
+
+const AdventureFilters: React.FC<AdventureFiltersProps> = ({
+  greeting,
+  filters,
+  setFilters,
+  isGenerating,
+  onGenerateAdventure,
+  onStartTimeChange,
+  onDurationChange,
+}) => {
+  // Experience Types with selection limit
+  const experienceTypes = [
+    'Hidden Gem', 'Explorer', 'Nature', 'Partier', 'Solo Freestyle', 
+    'Academic Weapon', 'Special Occasion', 'Artsy', 'Foodie Adventure', 'Culture Dive'
+  ];
+  const maxExperienceSelection = 4;
+
+  // Dietary options
+  const dietaryRestrictions = ['Nut Allergy', 'Gluten-Free', 'Dairy-Free', 'Soy-Free', 'Shellfish Allergy'];
+  const foodPreferences = ['Vegetarian', 'Vegan', 'Halal', 'Kosher', 'Local Cuisine', 'Healthy Options'];
+
+  // Helper functions
+  const toggleArraySelection = (array: string[], item: string, setter: (value: string[]) => void, maxLimit?: number) => {
+    if (array.includes(item)) {
+      setter(array.filter(i => i !== item));
+    } else {
+      if (maxLimit && array.length >= maxLimit) {
+        Alert.alert('Selection Limit', `You can only select up to ${maxLimit} options.`);
+        return;
+      }
+      setter([...array, item]);
+    }
+  };
+
+  const getTransportSuggestion = (radius: number): { icon: string; text: string } => {
+    if (radius <= 2) return { icon: '🚶', text: 'Walking distance' };
+    if (radius <= 5) return { icon: '🚲', text: 'Bike/scooter friendly' };
+    if (radius <= 15) return { icon: '🚗', text: 'Uber/driving recommended' };
+    return { icon: '🛣️', text: 'Road trip territory' };
+  };
+
+  const milesToKm = (miles: number): number => {
+    return Math.round(miles * 1.60934 * 10) / 10;
+  };
+
+  return (
+    <ScrollView className="flex-1 p-4">
+      {/* Random Greeting Header */}
+      <View className="mb-2">
+        <Text
+          className="text-3xl font-bold text-brand-sage mb-1"
+          style={{ fontFamily: 'Poppins_700', letterSpacing: -0.5 }}
+        >
+          {greeting}
+        </Text>
+      </View>
+
+      <Card elevated={true}>
+        {/* Location Input */}
+        <View className="mb-4">
+          <Text className="text-lg font-semibold text-brand-sage mb-2">
+            Location *
+          </Text>
+          <Input
+            placeholder="Enter city, neighborhood, or address"
+            value={filters.location}
+            onChangeText={(location) => setFilters(prev => ({ ...prev, location }))}
+          />
+        </View>
+
+        {/* Adventure Timing */}
+        <View className="mb-4">
+          <Text 
+            className="text-brand-sage text-base font-semibold mb-2"
+            style={{ fontFamily: 'Inter_600SemiBold' }}
+          >
+            🕐 Adventure Timing
+          </Text>
+          
+          <TimingSection
+            startTime={filters.startTime || '10:00'}
+            endTime={filters.endTime || '16:00'}
+            duration={filters.duration || 'half-day'}
+            flexibleTiming={filters.flexibleTiming || false}
+            customEndTime={filters.customEndTime || false}
+            onStartTimeChange={onStartTimeChange}
+            onDurationChange={onDurationChange}
+            onFlexibleTimingChange={(flexible) => setFilters(prev => ({ ...prev, flexibleTiming: flexible }))}
+            onCustomEndTimeChange={(custom) => setFilters(prev => ({ ...prev, customEndTime: custom }))}
+            onEndTimeChange={(time) => setFilters(prev => ({ ...prev, endTime: time }))}
+          />
+        </View>
+
+        {/* Experience Types */}
+        <View className="mb-4">
+          <View className="flex-row justify-between items-center mb-2">
+            <Text 
+              className="text-brand-sage text-base font-semibold"
+              style={{ fontFamily: 'Inter_600SemiBold' }}
+            >
+              🏷️ Experience Types
+            </Text>
+            <Text className="text-brand-teal text-xs">
+              {filters.experienceTypes?.length || 0}/{maxExperienceSelection} selected
+            </Text>
+          </View>
+          <Text className="text-xs text-text-secondary mb-3">
+            Choose up to {maxExperienceSelection} types that match your adventure style
+          </Text>
+          <View className="flex-row flex-wrap justify-center">
+            {experienceTypes.map((type) => (
+              <Button
+                key={type}
+                title={type}
+                onPress={() => toggleArraySelection(
+                  filters.experienceTypes || [],
+                  type,
+                  (newTypes) => setFilters(prev => ({ ...prev, experienceTypes: newTypes })),
+                  maxExperienceSelection
+                )}
+                variant="filter"
+                size="sm"
+                isSelected={filters.experienceTypes?.includes(type)}
+                disabled={!filters.experienceTypes?.includes(type) && 
+                          (filters.experienceTypes?.length || 0) >= maxExperienceSelection}
+              />
+            ))}
+          </View>
+        </View>
+
+        {/* Group Size */}
+        <View className="mb-4">
+          <Text 
+            className="text-brand-sage text-base font-semibold mb-2"
+            style={{ fontFamily: 'Inter_600SemiBold' }}
+          >
+            Group Size: {filters.groupSize} {filters.groupSize === 1 ? 'person' : 'people'}
+          </Text>
+          <View className="flex-row items-center">
+            <TouchableOpacity
+              onPress={() => setFilters(prev => ({ ...prev, groupSize: Math.max(1, prev.groupSize! - 1) }))}
+              className="bg-brand-light rounded-full w-10 h-10 items-center justify-center"
+            >
+              <Text className="text-brand-sage text-lg font-bold">-</Text>
+            </TouchableOpacity>
+            
+            <View className="flex-1 mx-4">
+              <View className="bg-brand-cream rounded-lg py-3 items-center">
+                <Text className="text-brand-sage font-semibold text-lg">{filters.groupSize}</Text>
+              </View>
+            </View>
+            
+            <TouchableOpacity
+              onPress={() => setFilters(prev => ({ ...prev, groupSize: Math.min(20, prev.groupSize! + 1) }))}
+              className="bg-brand-light rounded-full w-10 h-10 items-center justify-center"
+            >
+              <Text className="text-brand-sage text-lg font-bold">+</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Radius Slider */}
+        <View className="mb-4">
+          <Text 
+            className="text-brand-sage text-base font-semibold mb-2"
+            style={{ fontFamily: 'Inter_600SemiBold' }}
+          >
+            📏 Max Distance
+          </Text>
+          
+          <View className="bg-brand-light rounded-lg p-4">
+            <View className="flex-row justify-between items-center mb-4">
+              <Text className="text-brand-sage font-semibold text-lg">
+                {filters.radius} miles
+              </Text>
+              <Text className="text-brand-sage text-sm">
+                ({milesToKm(filters.radius!)} km)
+              </Text>
+            </View>
+            
+            <View className="mb-4">
+              <Slider
+                style={{ width: '100%', height: 40 }}
+                minimumValue={0.5}
+                maximumValue={20}
+                value={filters.radius}
+                onValueChange={(value: number) => setFilters(prev => ({ ...prev, radius: Math.round(value * 2) / 2 }))}
+                minimumTrackTintColor="#3c7660"
+                maximumTrackTintColor="#f8f2d5"
+                thumbTintColor="#3c7660"
+                step={0.5}
+              />
+              
+              <View className="flex-row justify-between">
+                <Text className="text-xs text-brand-sage">0.5 mi</Text>
+                <Text className="text-xs text-brand-sage">20 mi</Text>
+              </View>
+            </View>
+            
+            <View className="flex-row items-center justify-center bg-brand-cream rounded-lg p-3">
+              <Text className="text-lg mr-2">{getTransportSuggestion(filters.radius!).icon}</Text>
+              <Text className="text-brand-sage text-sm font-medium">
+                {getTransportSuggestion(filters.radius!).text}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Budget Selector */}
+        <View className="mb-4">
+          <Text 
+            className="text-brand-sage text-base font-semibold mb-2"
+            style={{ fontFamily: 'Inter_600SemiBold' }}
+          >
+            Budget
+          </Text>
+          <View className="flex-row justify-between px-1">
+            {[
+              { key: 'budget', label: '$', desc: 'Budget' },
+              { key: 'moderate', label: '$$', desc: 'Moderate' },
+              { key: 'premium', label: '$$$', desc: 'Premium' }
+            ].map((budget) => (
+              <Button
+                key={budget.key}
+                title={budget.label}
+                description={budget.desc}
+                onPress={() => setFilters(prev => ({ ...prev, budget: budget.key as any }))}
+                variant="filter-action"
+                isSelected={filters.budget === budget.key}
+                className="flex-1 mx-0.5"
+              />
+            ))}
+          </View>
+        </View>
+
+        {/* Dietary Restrictions */}
+        <View className="mb-4">
+          <Text 
+            className="text-brand-sage text-base font-semibold mb-2"
+            style={{ fontFamily: 'Inter_600SemiBold' }}
+          >
+            🚨 Dietary Restrictions
+          </Text>
+          <Text className="text-xs text-text-secondary mb-3">
+            Select any allergies or strict dietary requirements
+          </Text>
+          <View className="flex-row flex-wrap justify-center mb-3">
+            {dietaryRestrictions.map((restriction) => (
+              <Button
+                key={restriction}
+                title={restriction}
+                onPress={() => toggleArraySelection(filters.dietaryRestrictions || [], 
+                  restriction, 
+                  (newRestrictions) => setFilters(prev => ({ ...prev, dietaryRestrictions: newRestrictions })))}
+                variant="filter-restriction"
+                size="sm"
+                isSelected={filters.dietaryRestrictions?.includes(restriction)}
+              />
+            ))}
+          </View>
+          
+          <TextInput
+            className="bg-white border border-brand-light rounded-lg p-3 text-brand-sage"
+            placeholder="Other restriction (max 20 characters)"
+            placeholderTextColor="#999999"
+            value={filters.otherRestriction}
+            onChangeText={(text) => setFilters(prev => ({ ...prev, otherRestriction: text.slice(0, 20) }))}
+            maxLength={20}
+          />
+        </View>
+
+        {/* Food Preferences */}
+        <View className="mb-6">
+          <Text 
+            className="text-brand-sage text-base font-semibold mb-2"
+            style={{ fontFamily: 'Inter_600SemiBold' }}
+          >
+            🌱 Food Preferences
+          </Text>
+          <Text className="text-xs text-text-secondary mb-3">
+            Select food styles you prefer (optional)
+          </Text>
+          <View className="flex-row flex-wrap justify-center">
+            {foodPreferences.map((preference) => (
+              <Button
+                key={preference}
+                title={preference}
+                onPress={() => toggleArraySelection(
+                  filters.foodPreferences || [],
+                  preference,
+                  (newPreferences) => setFilters(prev => ({ ...prev, foodPreferences: newPreferences }))
+                )}
+                variant="filter-preference"
+                size="sm"
+                isSelected={filters.foodPreferences?.includes(preference)}
+              />
+            ))}
+          </View>
+        </View>
+        
+        {/* Generate Button */}
+        <Button 
+          title={isGenerating ? "Creating Your Adventure..." : "✨ Generate Adventure"}
+          onPress={onGenerateAdventure} 
+          variant="primary"
+          size="lg"
+          isLoading={isGenerating}
+          leftIcon={!isGenerating ? <Text className="text-xl">🤖</Text> : undefined}
+        />
+      </Card>
+    </ScrollView>
+  );
+};
+
+export default AdventureFilters;
