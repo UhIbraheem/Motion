@@ -1,5 +1,6 @@
 // frontend/src/services/aiService.ts - COMPLETE UPDATED VERSION
 import { supabase } from './supabase';
+import { getAIDefinitionsForSelectedTypes } from '../data/experienceTypes';
 
 export interface AdventureFilters {
   location?: string;
@@ -548,6 +549,14 @@ async getCommunityAdventures(): Promise<{
 }
 
   // Helper methods
+  private formatTimeDisplay(time: string): string {
+    const hour = parseInt(time.split(':')[0]);
+    if (hour === 0) return '12:00 AM';
+    if (hour < 12) return `${hour}:00 AM`;
+    if (hour === 12) return '12:00 PM';
+    return `${hour - 12}:00 PM`;
+  }
+
   private formatFiltersForBackend(filters: AdventureFilters): string {
     const parts: string[] = [];
 
@@ -580,14 +589,17 @@ async getCommunityAdventures(): Promise<{
       parts.push(`Location: ${filters.location}`);
     }
 
-    // Experience types
+    // Experience types with AI definitions
     if (filters.experienceTypes && filters.experienceTypes.length > 0) {
-      parts.push(`Experience types: ${filters.experienceTypes.join(', ')}`);
+      const aiDefinitions = getAIDefinitionsForSelectedTypes(filters.experienceTypes);
+      if (aiDefinitions.length > 0) {
+        parts.push(`Experience types and preferences:\n${aiDefinitions.join('\n')}`);
+      }
     }
 
     // Group size
     if (filters.groupSize) {
-      parts.push(`Group size: ${filters.groupSize} ${filters.groupSize === 1 ? 'person' : 'people'}`);
+      parts.push(`Group size: ${filters.groupSize}`);
     }
 
     // Budget
@@ -622,17 +634,6 @@ async getCommunityAdventures(): Promise<{
 
     return parts.join('\n');
   }
-
-  // Add this helper method right after formatFiltersForBackend
-  private formatTimeDisplay(time: string): string {
-    const hour = parseInt(time.split(':')[0]);
-    if (hour === 0) return '12:00 AM';
-    if (hour < 12) return `${hour}:00 AM`;
-    if (hour === 12) return '12:00 PM';
-    return `${hour - 12}:00 PM`;
-  }
-
-  
 
   private calculateDuration(steps: any[]): string {
     if (steps.length <= 2) return '2 hours';

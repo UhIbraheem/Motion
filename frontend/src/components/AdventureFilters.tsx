@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, TextInput, ScrollView, Alert } from 'react-native';
 import Slider from '@react-native-community/slider';
 import Button from './Button';
@@ -6,6 +6,7 @@ import Input from './Input';
 import Card from './Card';
 import TimingSection from './TimingSection';
 import { AdventureFilters as AdventureFiltersType } from '../services/aiService';
+import { experienceTypes } from '../data/experienceTypes'; // Add this import
 
 interface AdventureFiltersProps {
   greeting: string;
@@ -26,12 +27,9 @@ const AdventureFilters: React.FC<AdventureFiltersProps> = ({
   onStartTimeChange,
   onDurationChange,
 }) => {
-  // Experience Types with selection limit
-  const experienceTypes = [
-    'Hidden Gem', 'Explorer', 'Nature', 'Partier', 'Solo Freestyle', 
-    'Academic Weapon', 'Special Occasion', 'Artsy', 'Foodie Adventure', 'Culture Dive'
-  ];
   const maxExperienceSelection = 4;
+  const [isDietaryExpanded, setIsDietaryExpanded] = useState(false); // Add this state
+
 
   // Dietary options
   const dietaryRestrictions = ['Nut Allergy', 'Gluten-Free', 'Dairy-Free', 'Soy-Free', 'Shellfish Allergy'];
@@ -128,18 +126,18 @@ const AdventureFilters: React.FC<AdventureFiltersProps> = ({
           <View className="flex-row flex-wrap justify-center">
             {experienceTypes.map((type) => (
               <Button
-                key={type}
-                title={type}
+                key={type.id}
+                title={type.name}
                 onPress={() => toggleArraySelection(
                   filters.experienceTypes || [],
-                  type,
+                  type.name, // Use type.name for compatibility
                   (newTypes) => setFilters(prev => ({ ...prev, experienceTypes: newTypes })),
                   maxExperienceSelection
                 )}
                 variant="filter"
                 size="sm"
-                isSelected={filters.experienceTypes?.includes(type)}
-                disabled={!filters.experienceTypes?.includes(type) && 
+                isSelected={filters.experienceTypes?.includes(type.name)}
+                disabled={!filters.experienceTypes?.includes(type.name) && 
                           (filters.experienceTypes?.length || 0) >= maxExperienceSelection}
               />
             ))}
@@ -251,69 +249,102 @@ const AdventureFilters: React.FC<AdventureFiltersProps> = ({
           </View>
         </View>
 
-        {/* Dietary Restrictions */}
+                {/* Collapsible Dietary Section */}
         <View className="mb-4">
-          <Text 
-            className="text-brand-sage text-base font-semibold mb-2"
-            style={{ fontFamily: 'Inter_600SemiBold' }}
+          <TouchableOpacity
+            onPress={() => setIsDietaryExpanded(!isDietaryExpanded)}
+            className="flex-row items-center justify-between mb-2"
           >
-            🚨 Dietary Restrictions
-          </Text>
-          <Text className="text-xs text-text-secondary mb-3">
-            Select any allergies or strict dietary requirements
-          </Text>
-          <View className="flex-row flex-wrap justify-center mb-3">
-            {dietaryRestrictions.map((restriction) => (
-              <Button
-                key={restriction}
-                title={restriction}
-                onPress={() => toggleArraySelection(filters.dietaryRestrictions || [], 
-                  restriction, 
-                  (newRestrictions) => setFilters(prev => ({ ...prev, dietaryRestrictions: newRestrictions })))}
-                variant="filter-restriction"
-                size="sm"
-                isSelected={filters.dietaryRestrictions?.includes(restriction)}
-              />
-            ))}
-          </View>
+            <Text 
+              className="text-brand-sage text-base font-semibold"
+              style={{ fontFamily: 'Inter_600SemiBold' }}
+            >
+              Dietary Preferences
+            </Text>
+            <Text className="text-brand-sage text-lg">
+              {isDietaryExpanded ? '▼' : '▶'}
+            </Text>
+          </TouchableOpacity>
           
-          <TextInput
-            className="bg-white border border-brand-light rounded-lg p-3 text-brand-sage"
-            placeholder="Other restriction (max 20 characters)"
-            placeholderTextColor="#999999"
-            value={filters.otherRestriction}
-            onChangeText={(text) => setFilters(prev => ({ ...prev, otherRestriction: text.slice(0, 20) }))}
-            maxLength={20}
-          />
-        </View>
+          {/* Show selected count when collapsed */}
+          {!isDietaryExpanded && (
+            <Text className="text-xs text-text-secondary mb-2">
+              {((filters.dietaryRestrictions?.length || 0) + (filters.foodPreferences?.length || 0)) > 0
+                ? `${(filters.dietaryRestrictions?.length || 0) + (filters.foodPreferences?.length || 0)} selected`
+                : 'Tap to set dietary preferences (optional)'
+              }
+            </Text>
+          )}
 
-        {/* Food Preferences */}
-        <View className="mb-6">
-          <Text 
-            className="text-brand-sage text-base font-semibold mb-2"
-            style={{ fontFamily: 'Inter_600SemiBold' }}
-          >
-            🌱 Food Preferences
-          </Text>
-          <Text className="text-xs text-text-secondary mb-3">
-            Select food styles you prefer (optional)
-          </Text>
-          <View className="flex-row flex-wrap justify-center">
-            {foodPreferences.map((preference) => (
-              <Button
-                key={preference}
-                title={preference}
-                onPress={() => toggleArraySelection(
-                  filters.foodPreferences || [],
-                  preference,
-                  (newPreferences) => setFilters(prev => ({ ...prev, foodPreferences: newPreferences }))
-                )}
-                variant="filter-preference"
-                size="sm"
-                isSelected={filters.foodPreferences?.includes(preference)}
-              />
-            ))}
-          </View>
+          {/* Expanded content */}
+          {isDietaryExpanded && (
+            <View>
+              {/* Dietary Restrictions */}
+              <View className="mb-4">
+                <Text 
+                  className="text-brand-sage text-sm font-medium mb-2"
+                  style={{ fontFamily: 'Inter_500Medium' }}
+                >
+                  🚨 Dietary Restrictions
+                </Text>
+                <Text className="text-xs text-text-secondary mb-3">
+                  Select any allergies or strict dietary requirements
+                </Text>
+                <View className="flex-row flex-wrap justify-center mb-3">
+                  {dietaryRestrictions.map((restriction) => (
+                    <Button
+                      key={restriction}
+                      title={restriction}
+                      onPress={() => toggleArraySelection(filters.dietaryRestrictions || [], 
+                        restriction, 
+                        (newRestrictions) => setFilters(prev => ({ ...prev, dietaryRestrictions: newRestrictions })))}
+                      variant="filter-restriction"
+                      size="sm"
+                      isSelected={filters.dietaryRestrictions?.includes(restriction)}
+                    />
+                  ))}
+                </View>
+                
+                <TextInput
+                  className="bg-white border border-brand-light rounded-lg p-3 text-brand-sage"
+                  placeholder="Other restriction (max 20 characters)"
+                  placeholderTextColor="#999999"
+                  value={filters.otherRestriction}
+                  onChangeText={(text) => setFilters(prev => ({ ...prev, otherRestriction: text.slice(0, 20) }))}
+                  maxLength={20}
+                />
+              </View>
+
+              {/* Food Preferences */}
+              <View className="mb-4">
+                <Text 
+                  className="text-brand-sage text-sm font-medium mb-2"
+                  style={{ fontFamily: 'Inter_500Medium' }}
+                >
+                  🌱 Food Preferences
+                </Text>
+                <Text className="text-xs text-text-secondary mb-3">
+                  Select food styles you prefer (optional)
+                </Text>
+                <View className="flex-row flex-wrap justify-center">
+                  {foodPreferences.map((preference) => (
+                    <Button
+                      key={preference}
+                      title={preference}
+                      onPress={() => toggleArraySelection(
+                        filters.foodPreferences || [],
+                        preference,
+                        (newPreferences) => setFilters(prev => ({ ...prev, foodPreferences: newPreferences }))
+                      )}
+                      variant="filter-preference"
+                      size="sm"
+                      isSelected={filters.foodPreferences?.includes(preference)}
+                    />
+                  ))}
+                </View>
+              </View>
+            </View>
+          )}
         </View>
         
         {/* Generate Button */}

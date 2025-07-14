@@ -38,6 +38,7 @@ Rules:
 - Incorporate user's dietary, ethical, or vibe preferences into all choices.
 - Add optional transitions like "Enjoy a short walk to…" to make it feel curated.
 - Make sure all recommendations are open during time of planning
+- Consider the user's budget when formulating your response, if premium, give a more expensive experience if budget, try to save money where you can with your suggestions. etc.
 
 User Filters:
 ${app_filter}
