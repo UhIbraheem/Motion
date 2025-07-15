@@ -18,9 +18,8 @@ type RootStackParamList = {
 const Stack = createStackNavigator<RootStackParamList>();
 
 const RootNavigator: React.FC = () => {
-  const { user, loading } = useAuth(); // Removed signOut since we're not using it here
+  const { user, loading } = useAuth();
   const [bypassAuth, setBypassAuth] = useState(false);
-  const [showDevScreen, setShowDevScreen] = useState(__DEV__);
 
   // Show a loading screen while checking auth state
   if (loading) {
@@ -39,8 +38,8 @@ const RootNavigator: React.FC = () => {
     );
   }
 
-  // Development screen - only show if explicitly requested
-  if (!user && !bypassAuth && showDevScreen && __DEV__) {
+  // Development screen - only show in dev mode when not authenticated
+  if (!user && !bypassAuth && __DEV__) {
     return (
       <View className="flex-1 bg-brand-cream px-8 justify-center">
         {/* Logo Section */}
@@ -58,11 +57,7 @@ const RootNavigator: React.FC = () => {
         <View className="space-y-4 mb-8">
           <Button 
             title="Test with Real Authentication" 
-            onPress={() => {
-              console.log('🔐 Navigating to real auth...');
-              setShowDevScreen(false);
-              setBypassAuth(false);
-            }}
+            onPress={() => setBypassAuth(false)}
             variant="primary"
             size="lg"
             leftIcon={<Text className="text-xl">🔐</Text>}
@@ -70,11 +65,7 @@ const RootNavigator: React.FC = () => {
           
           <Button 
             title="Skip Auth (Browse App Only)" 
-            onPress={() => {
-              console.log('🔧 Bypassing auth...');
-              setBypassAuth(true);
-              setShowDevScreen(false);
-            }}
+            onPress={() => setBypassAuth(true)}
             variant="outline"
             size="lg"
             leftIcon={<Text className="text-xl">🔧</Text>}

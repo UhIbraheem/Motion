@@ -47,7 +47,7 @@ export const experienceTypes: ExperienceType[] = [
     name: 'Academic Weapon',
     icon: '📚',
     description: 'Educational and intellectual pursuits',
-    aiDefinition: 'Academic Weapon: Focus on intellectually stimulating activities like museums, libraries, lectures, bookstores, educational tours, historical sites, science centers, study cafes, cultural institutions, and thought-provoking experiences that involve learning and intellectual engagement.'
+    aiDefinition: 'Academic Weapon: Focus on intellectually stimulating activities like museums, libraries, lectures, bookstores, educational tours, historical sites, science centers, study cafes, cultural institutions, and thought-provoking experiences that involve learning and intellectual engagement. Include study sessions and recommendations for them (places).'
   },
   {
     id: 'special-occasion',
@@ -76,7 +76,29 @@ export const experienceTypes: ExperienceType[] = [
     icon: '🏛️',
     description: 'Deep cultural immersion',
     aiDefinition: 'Culture Dive: Focus on deep cultural immersion and authentic local experiences. Include cultural centers, traditional markets, local festivals, community events, ethnic neighborhoods, cultural performances, historical sites, and activities that provide genuine insight into local culture and traditions.'
-  }
+  },
+    {
+    id: 'sweet-treat',
+    name: 'Sweet Treat',
+    icon: '🍰',
+    description: 'Indulging in desserts and sweet experiences',
+    aiDefinition: 'Sweet Treat: Focus on delightful desserts and sweet experiences. Include bakeries, dessert shops, ice cream parlors, candy stores, and unique sweet treats that showcase local flavors and creativity. If paired with other things this would be included around the end.'
+  },
+    {
+    id: 'puzzle-solver',
+    name: 'Puzzle Solver',
+    icon: '🧩',
+    description: 'Engaging in problem-solving and challenges',
+    aiDefinition: 'Puzzle Solver: Focus on engaging problem-solving activities and challenges. Include escape rooms, puzzle cafes, trivia nights, board game cafes, interactive experiences, and activities that involve critical thinking, teamwork, and mental challenges. Ideal for those who enjoy intellectual stimulation and hands-on problem-solving.'
+  },
+  {
+    id: 'wellness',
+    name: 'Wellness',
+    icon: '🧘‍♀️',
+    description: 'Relaxation and self-care experiences',
+    aiDefinition: 'Wellness: Focus on relaxation, self-care, and rejuvenation. Include spas, wellness centers, yoga studios, meditation spaces, nature retreats, and activities that promote mental and physical well-being. Ideal for those looking to unwind and recharge.'
+  },
+  
 ];
 
 export const getExperienceTypeById = (id: string): ExperienceType | undefined => {

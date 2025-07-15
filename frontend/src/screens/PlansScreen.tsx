@@ -1,4 +1,4 @@
-// src/screens/PlansScreen.tsx - COMPLETE VERSION WITH SHARE FEATURE
+// src/screens/PlansScreen.tsx - Netflix-style Horizontal Scrolling
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
@@ -8,7 +8,9 @@ import {
   RefreshControl, 
   Alert,
   StyleSheet,
-  TouchableOpacity 
+  TouchableOpacity,
+  FlatList,
+  Dimensions
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Button from '../components/Button';
@@ -18,6 +20,8 @@ import { ShareAdventureModal } from '../components/ShareAdventureModal';
 import { aiService } from '../services/aiService';
 import { useAuth } from '../context/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 
 // Updated interface to match GradientAdventureCard
@@ -269,6 +273,62 @@ const PlansScreen: React.FC = () => {
     );
   };
 
+  // Render horizontal adventure list
+  const renderHorizontalAdventureList = (adventures: SavedAdventure[], showShareButton: boolean = false) => {
+    const cardWidth = SCREEN_WIDTH * 0.75; // 75% of screen width
+
+    return (
+      <FlatList
+        data={adventures}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{
+          paddingHorizontal: 16,
+          paddingVertical: 8,
+        }}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item: adventure }) => (
+          <View>
+            <GradientAdventureCard
+              adventure={adventure}
+              onPress={viewAdventureDetails}
+              onDelete={handleDeleteAdventure}
+              onEdit={handleEditAdventure}
+              formatDuration={formatDuration}
+              formatCost={formatCost}
+              formatDate={formatDate}
+              cardWidth={cardWidth}
+            />
+            
+            {/* Share button for completed adventures */}
+            {showShareButton && (
+              <TouchableOpacity
+                onPress={() => handleShareAdventure(adventure)}
+                style={{
+                  backgroundColor: '#f2cc6c',
+                  paddingVertical: 12,
+                  paddingHorizontal: 20,
+                  borderRadius: 20,
+                  marginTop: 8,
+                  marginHorizontal: 4,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: cardWidth - 8,
+                }}
+              >
+                <Text style={{ fontSize: 14, fontWeight: '600', color: '#3c7660', marginRight: 8 }}>
+                  Share to Community
+                </Text>
+                <Text style={{ fontSize: 16 }}>✨</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      />
+    );
+  };
+
   const upcomingAdventures = getUpcomingAdventures();
   const completedAdventures = getCompletedAdventures();
 
@@ -333,19 +393,11 @@ const PlansScreen: React.FC = () => {
                   <Text style={styles.sectionTitle}>
                     🎯 Upcoming Adventures ({upcomingAdventures.length})
                   </Text>
+                  <Text style={styles.sectionSubtitle}>
+                    Swipe left/right to browse • Swipe up/down on cards to edit/delete
+                  </Text>
                   
-                  {upcomingAdventures.map((adventure) => (
-                    <GradientAdventureCard
-                      key={adventure.id}
-                      adventure={adventure}
-                      onPress={viewAdventureDetails}
-                      onDelete={handleDeleteAdventure}
-                      onEdit={handleEditAdventure}
-                      formatDuration={formatDuration}
-                      formatCost={formatCost}
-                      formatDate={formatDate}
-                    />
-                  ))}
+                  {renderHorizontalAdventureList(upcomingAdventures, false)}
                 </View>
               )}
 
@@ -355,42 +407,11 @@ const PlansScreen: React.FC = () => {
                   <Text style={styles.sectionTitle}>
                     ✅ Completed Adventures ({completedAdventures.length})
                   </Text>
+                  <Text style={styles.sectionSubtitle}>
+                    Swipe left/right to browse • Tap share button to inspire others
+                  </Text>
                   
-                  {completedAdventures.map((adventure) => (
-                    <View key={adventure.id}>
-                      <GradientAdventureCard
-                        adventure={adventure}
-                        onPress={viewAdventureDetails}
-                        onDelete={handleDeleteAdventure}
-                        onEdit={handleEditAdventure}
-                        formatDuration={formatDuration}
-                        formatCost={formatCost}
-                        formatDate={formatDate}
-                      />
-                      
-                      {/* Share button for completed adventures */}
-                      <TouchableOpacity
-                        onPress={() => handleShareAdventure(adventure)}
-                        style={{
-                          backgroundColor: '#f2cc6c',
-                          paddingVertical: 12,
-                          paddingHorizontal: 20,
-                          borderRadius: 20,
-                          marginTop: -10,
-                          marginBottom: 16,
-                          marginHorizontal: 16,
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
-                      >
-                        <Text style={{ fontSize: 16, fontWeight: '600', color: '#3c7660', marginRight: 8 }}>
-                          Share to Community
-                        </Text>
-                        <Text style={{ fontSize: 18 }}>✨</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ))}
+                  {renderHorizontalAdventureList(completedAdventures, true)}
                 </View>
               )}
             </>
@@ -469,7 +490,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#3c7660',
+    marginBottom: 4,
+    paddingHorizontal: 16,
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    color: '#999',
     marginBottom: 16,
+    paddingHorizontal: 16,
   },
   emptyState: {
     alignItems: 'center',

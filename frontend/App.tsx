@@ -1,8 +1,9 @@
-// Updated App.tsx to include ThemeProvider
+// Updated App.tsx to include SafeAreaProvider for floating glass navigation
 import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Platform } from 'react-native';
 import * as Font from 'expo-font';
+import { SafeAreaProvider } from 'react-native-safe-area-context'; // ADD this import
 import { AuthProvider } from './src/context/AuthContext';
 import { ThemeProvider } from './src/context/ThemeContext';
 import RootNavigator from './src/navigation/RootNavigator';
@@ -39,17 +40,17 @@ export default function App() {
   }
 
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <StatusBar 
-          style="dark" 
-          backgroundColor="#f8f2d5" 
-          translucent={Platform.OS === 'android'}
-        />
-        <RootNavigator />
-      </AuthProvider>
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <StatusBar 
+            style="dark" 
+            backgroundColor="#f8f2d5" 
+            translucent={Platform.OS === 'android'}
+          />
+          <RootNavigator />
+        </AuthProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }
-
-// Add ThemeToggle to ProfileScreen.tsx
