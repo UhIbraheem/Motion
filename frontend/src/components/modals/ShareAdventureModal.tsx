@@ -15,9 +15,9 @@ import {
   Platform
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import Button from './Button';
-import { aiService } from '../services/aiService';
-import { useAuth } from '../context/AuthContext';
+import Button from '../Button';
+import { aiService } from '../../services/aiService';
+import { useAuth } from '../../context/AuthContext';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 

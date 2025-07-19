@@ -8,12 +8,8 @@ import {
   Dimensions,
   Platform,
   ImageBackground,
+  Alert,
 } from 'react-native';
-import {
-  PanGestureHandler,
-  State,
-  GestureHandlerRootView,
-} from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
@@ -46,7 +42,6 @@ interface GradientAdventureCardProps {
   adventure: Adventure;
   onPress: (adventure: Adventure) => void;
   onDelete: (adventureId: string) => void;
-  onEdit: (adventure: Adventure) => void;
   formatDuration: (hours: number) => string;
   formatCost: (cost: number) => string;
   formatDate: (dateString: string) => string;
@@ -60,8 +55,6 @@ const CARD_WIDTH = 280;
 const CARD_HEIGHT = 380;
 const IMAGE_HEIGHT = CARD_HEIGHT * 0.4; // 40% for image
 const CONTENT_HEIGHT = CARD_HEIGHT * 0.6; // 60% for content
-
-const SWIPE_THRESHOLD = 100;
 
 // Experience type to image mapping
 const getExperienceImage = (adventure: Adventure): string => {
@@ -104,56 +97,28 @@ export const GradientAdventureCard: React.FC<GradientAdventureCardProps> = ({
   adventure,
   onPress,
   onDelete,
-  onEdit,
   formatDuration,
   formatCost,
   formatDate,
   cardWidth = CARD_WIDTH,
 }) => {
-  const translateX = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
-  // Handle pan gesture for swipe actions
-  const handleGestureEvent = Animated.event(
-    [{ nativeEvent: { translationX: translateX } }],
-    { useNativeDriver: true }
-  );
-
-  const handleGestureStateChange = (event: any) => {
-    if (event.nativeEvent.oldState === State.ACTIVE) {
-      const { translationX } = event.nativeEvent;
-
-      if (translationX > SWIPE_THRESHOLD) {
-        // Swipe right - Delete
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        Animated.timing(translateX, {
-          toValue: cardWidth,
-          duration: 200,
-          useNativeDriver: true,
-        }).start(() => {
-          onDelete(adventure.id);
-          translateX.setValue(0);
-        });
-      } else if (translationX < -SWIPE_THRESHOLD) {
-        // Swipe left - Edit
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        Animated.timing(translateX, {
-          toValue: -cardWidth,
-          duration: 200,
-          useNativeDriver: true,
-        }).start(() => {
-          onEdit(adventure);
-          translateX.setValue(0);
-        });
-      } else {
-        // Spring back to center
-        Animated.spring(translateX, {
-          toValue: 0,
-          useNativeDriver: true,
-          friction: 5,
-        }).start();
-      }
-    }
+  // Handle long press for delete
+  const handleLongPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert(
+      'Delete Adventure',
+      'Are you sure you want to delete this adventure?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive',
+          onPress: () => onDelete(adventure.id)
+        }
+      ]
+    );
   };
 
   // Press animation
@@ -173,25 +138,19 @@ export const GradientAdventureCard: React.FC<GradientAdventureCardProps> = ({
 
   return (
     <View style={{ width: cardWidth, marginRight: 16 }}>
-      <PanGestureHandler
-        onGestureEvent={handleGestureEvent}
-        onHandlerStateChange={handleGestureStateChange}
-        activeOffsetX={[-10, 10]}
-        failOffsetY={[-30, 30]}
+      <Animated.View
+        style={{
+          transform: [
+            { scale: scaleAnim }
+          ],
+        }}
       >
-        <Animated.View
-          style={{
-            transform: [
-              { translateX },
-              { scale: scaleAnim }
-            ],
-          }}
-        >
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={() => onPress(adventure)}
-            onPressIn={handlePressIn}
-            onPressOut={handlePressOut}
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => onPress(adventure)}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          onLongPress={handleLongPress}
           >
             {/* Glass Card Container */}
             <View
@@ -429,7 +388,6 @@ export const GradientAdventureCard: React.FC<GradientAdventureCardProps> = ({
             </View>
           </TouchableOpacity>
         </Animated.View>
-      </PanGestureHandler>
     </View>
   );
 };

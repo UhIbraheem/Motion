@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { aiService } from '../services/aiService';
 import { useAuth } from '../context/AuthContext';
-import { AdventureDetailModal } from '../components/AdventureDetailModal';
+import { AdventureDetailModal } from '../components/modals/AdventureDetailModal';
 
 interface CommunityAdventure {
   id: string;

@@ -12,11 +12,10 @@ import {
   FlatList,
   Dimensions
 } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Button from '../components/Button';
 import { GradientAdventureCard } from '../components/GradientAdventureCard';
-import { AdventureDetailModal } from '../components/AdventureDetailModal';
-import { ShareAdventureModal } from '../components/ShareAdventureModal';
+import { AdventureDetailModal } from '../components/modals/AdventureDetailModal';
+import { ShareAdventureModal } from '../components/modals/ShareAdventureModal';
 import { aiService } from '../services/aiService';
 import { useAuth } from '../context/AuthContext';
 import { useFocusEffect } from '@react-navigation/native';
@@ -264,13 +263,46 @@ const PlansScreen: React.FC = () => {
     setShareModalVisible(true);
   };
 
-  // Handle adventure editing (placeholder for now)
-  const handleEditAdventure = (adventure: SavedAdventure) => {
-    Alert.alert(
-      'Edit Adventure', 
-      'Edit functionality coming soon! You\'ll be able to modify adventure details and regenerate specific steps.',
-      [{ text: 'Got it', style: 'default' }]
-    );
+  // Handle scheduled date update
+  const handleUpdateScheduledDate = async (adventureId: string, scheduledDate: string) => {
+    try {
+      console.log('📅 Updating scheduled date for adventure:', adventureId, 'to:', scheduledDate);
+      
+      // Update local state immediately for better UX
+      setAdventures(prev => prev.map(adventure => {
+        if (adventure.id === adventureId) {
+          return {
+            ...adventure,
+            scheduled_date: scheduledDate
+          };
+        }
+        return adventure;
+      }));
+
+      // Update in database
+      const { error } = await aiService.updateAdventureSchedule(adventureId, scheduledDate);
+      
+      if (error) {
+        console.error('Error updating scheduled date:', error);
+        // Revert local state on error
+        setAdventures(prev => prev.map(adventure => {
+          if (adventure.id === adventureId) {
+            return {
+              ...adventure,
+              scheduled_date: undefined
+            };
+          }
+          return adventure;
+        }));
+        Alert.alert('Error', 'Failed to schedule adventure');
+        return;
+      }
+
+      console.log('✅ Adventure scheduled successfully');
+    } catch (error) {
+      console.error('Error scheduling adventure:', error);
+      Alert.alert('Error', 'Failed to schedule adventure');
+    }
   };
 
   // Render horizontal adventure list
@@ -293,7 +325,6 @@ const PlansScreen: React.FC = () => {
               adventure={adventure}
               onPress={viewAdventureDetails}
               onDelete={handleDeleteAdventure}
-              onEdit={handleEditAdventure}
               formatDuration={formatDuration}
               formatCost={formatCost}
               formatDate={formatDate}
@@ -343,8 +374,7 @@ const PlansScreen: React.FC = () => {
   }
 
   return (
-    <GestureHandlerRootView style={styles.container}>
-      <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container}>
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
@@ -394,7 +424,7 @@ const PlansScreen: React.FC = () => {
                     🎯 Upcoming Adventures ({upcomingAdventures.length})
                   </Text>
                   <Text style={styles.sectionSubtitle}>
-                    Swipe left/right to browse • Swipe up/down on cards to edit/delete
+                    Swipe left/right to browse • Long press to delete
                   </Text>
                   
                   {renderHorizontalAdventureList(upcomingAdventures, false)}
@@ -425,6 +455,7 @@ const PlansScreen: React.FC = () => {
           onClose={closeModal}
           onMarkComplete={handleMarkAdventureComplete}
           onUpdateStepCompletion={handleUpdateStepCompletion}
+          onUpdateScheduledDate={handleUpdateScheduledDate}
           formatDate={formatDate}
           formatDuration={formatDuration}
           formatCost={formatCost}
@@ -443,7 +474,6 @@ const PlansScreen: React.FC = () => {
           }}
         />
       </SafeAreaView>
-    </GestureHandlerRootView>
   );
 };
 

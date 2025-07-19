@@ -288,6 +288,35 @@ export class AIAdventureService {
   }
 
   /**
+   * Update adventure schedule/date
+   */
+  async updateAdventureSchedule(adventureId: string, newDate: string): Promise<{
+    error: string | null;
+  }> {
+    try {
+      console.log('📅 Updating adventure schedule...', { adventureId, newDate });
+
+      const { error } = await supabase
+        .from('plans')
+        .update({ 
+          scheduled_for: new Date(newDate).toISOString()
+        })
+        .eq('id', adventureId);
+
+      if (error) {
+        console.error('❌ Supabase schedule update error:', error);
+        return { error: error.message };
+      }
+
+      console.log('✅ Adventure schedule updated successfully');
+      return { error: null };
+    } catch (error) {
+      console.error('❌ Unexpected schedule update error:', error);
+      return { error: 'Failed to update adventure schedule' };
+    }
+  }
+
+  /**
    * Mark entire adventure as completed
    */
   async markAdventureComplete(adventureId: string): Promise<{
