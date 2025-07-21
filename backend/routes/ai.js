@@ -39,7 +39,10 @@ Rules:
 - Add optional transitions like "Enjoy a short walk to…" to make it feel curated.
 - Make sure all recommendations are open during time of planning
 - Consider the user's budget when formulating your response, if premium, give a more expensive experience if budget, try to save money where you can with your suggestions. etc.
-
+- Make sure all filters are coherant with each other, for example, if the user wants a vegan restaurant, don't suggest a steakhouse,
+if multiple filters are put in place make sure not to put two restaurants after each other, instead put a placeholder/filler or activity in between.
+- Be as diverse as you can with the filters and locations and always explore new combinations, an exact plan replica with the same filters should be rare.
+- MAKE SURE ALL PLACES RECOMMENDED ARE REAL BUSINESSES/LOCATIONS, AND ARE NOT PERMANENTLY CLOSED OR OUT OF SERVICE DO NOT MAKE UP PLACES.
 User Filters:
 ${app_filter}
 
@@ -52,8 +55,8 @@ CRITICAL TIMING REQUIREMENTS:
 
 Create a JSON response with:
 {
-  "title": "Adventure name",
-  "description": "Brief description", 
+  "title": "Adventure name (based on adventure)",
+  "description": "Brief description,", 
   "estimatedDuration": "X hours",
   "estimatedCost": "$X range",
   "steps": [

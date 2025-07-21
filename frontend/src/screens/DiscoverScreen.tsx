@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Alert 
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { aiService } from '../services/aiService';
 import { useAuth } from '../context/AuthContext';
 import { AdventureDetailModal } from '../components/modals/AdventureDetailModal';
@@ -46,6 +47,13 @@ const DiscoverScreen: React.FC = () => {
   useEffect(() => {
     loadCommunityAdventures();
   }, []);
+
+  // Reload adventures when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      loadCommunityAdventures();
+    }, [])
+  );
 
   const loadCommunityAdventures = async (showRefreshSpinner = false) => {
     if (showRefreshSpinner) {
@@ -266,6 +274,7 @@ const DiscoverScreen: React.FC = () => {
     <View className="flex-1 bg-background-light">
       <ScrollView 
         className="flex-1 p-4"
+        contentContainerStyle={{ flexGrow: 1 }}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -343,6 +352,7 @@ const DiscoverScreen: React.FC = () => {
         onClose={closeModal}
         onMarkComplete={handleMarkAdventureComplete}
         onUpdateStepCompletion={handleUpdateStepCompletion}
+        onUpdateScheduledDate={() => {}} // Empty function for community adventures
         formatDate={formatDate}
         formatDuration={formatDuration}
         formatCost={formatCost}

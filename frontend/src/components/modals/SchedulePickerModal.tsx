@@ -54,7 +54,6 @@ const SchedulePickerModal: React.FC<SchedulePickerModalProps> = ({
   }, [visible, slideAnim]);
 
   const handleUpdateScheduledDate = (date: string) => {
-    console.log('📅 Date selected:', date);
     onUpdateScheduledDate(date);
     onClose();
   };

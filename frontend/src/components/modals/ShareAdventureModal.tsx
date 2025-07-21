@@ -46,16 +46,15 @@ export const ShareAdventureModal: React.FC<ShareAdventureModalProps> = ({
   useEffect(() => {
     if (visible) {
       setCustomTitle(adventure?.title || '');
-      Animated.spring(slideAnim, {
+      Animated.timing(slideAnim, {
         toValue: 0,
+        duration: 250,
         useNativeDriver: true,
-        tension: 100,
-        friction: 8,
       }).start();
     } else {
       Animated.timing(slideAnim, {
         toValue: SCREEN_HEIGHT,
-        duration: 300,
+        duration: 250,
         useNativeDriver: true,
       }).start();
     }
@@ -116,7 +115,7 @@ export const ShareAdventureModal: React.FC<ShareAdventureModalProps> = ({
   const animateClose = () => {
     Animated.timing(slideAnim, {
       toValue: SCREEN_HEIGHT,
-      duration: 300,
+      duration: 250,
       useNativeDriver: true,
     }).start(() => onClose());
   };
@@ -145,159 +144,123 @@ export const ShareAdventureModal: React.FC<ShareAdventureModalProps> = ({
           }}
         >
           <SafeAreaView>
-            {/* Handle */}
-            <View style={{ alignItems: 'center', paddingTop: 8, paddingBottom: 4 }}>
-              <View style={{
-                width: 40,
-                height: 4,
-                backgroundColor: '#E5E5E5',
-                borderRadius: 2,
-              }} />
+            {/* Header */}
+            <View className="flex-row items-center justify-between p-4 border-b border-gray-100">
+              <TouchableOpacity onPress={animateClose}>
+                <Text className="text-gray-500 text-lg">Cancel</Text>
+              </TouchableOpacity>
+              <Text className="text-xl font-bold text-brand-sage">Share Adventure</Text>
+              <View className="w-16" />
             </View>
 
-            {/* Header */}
-            <View style={{ paddingHorizontal: 24, paddingBottom: 8 }}>
-              <Text style={{
-                fontSize: 20,
-                fontWeight: 'bold',
-                color: '#3c7660',
-                marginBottom: 8,
-                textAlign: 'center'
-              }}>
-                Share Your Adventure
-              </Text>
+            <ScrollView 
+              className="px-4 py-2"
+              showsVerticalScrollIndicator={false}
+              style={{ maxHeight: SCREEN_HEIGHT * 0.7 }}
+            >
               {/* Custom Title */}
-              <View style={{ marginBottom: 10 }}>
-                <Text style={{ fontSize: 15, fontWeight: '600', marginBottom: 4 }}>
-                  Give it a memorable title
+              <View className="mb-4">
+                <Text className="text-base font-semibold text-gray-800 mb-2">
+                  Title
                 </Text>
                 <TextInput
                   value={customTitle}
                   onChangeText={setCustomTitle}
-                  placeholder="e.g., Amazing Coffee Crawl in Downtown"
-                  style={{
-                    borderWidth: 1,
-                    borderColor: '#E5E5E5',
-                    borderRadius: 10,
-                    padding: 12,
-                    fontSize: 15
-                  }}
+                  placeholder="Give your adventure a memorable title..."
+                  className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-base text-gray-800"
+                  placeholderTextColor="#9CA3AF"
                 />
               </View>
+
               {/* Description */}
-              <View style={{ marginBottom: 10 }}>
-                <Text style={{ fontSize: 15, fontWeight: '600', marginBottom: 4 }}>
-                  What made it special?
+              <View className="mb-4">
+                <Text className="text-base font-semibold text-gray-800 mb-2">
+                  Description
                 </Text>
                 <TextInput
                   value={description}
                   onChangeText={setDescription}
                   placeholder="Share highlights, tips, or memorable moments..."
                   multiline
-                  numberOfLines={3}
-                  style={{
-                    borderWidth: 1,
-                    borderColor: '#E5E5E5',
-                    borderRadius: 10,
-                    padding: 12,
-                    fontSize: 15,
-                    height: 70,
-                    textAlignVertical: 'top'
-                  }}
+                  numberOfLines={4}
+                  className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-base text-gray-800"
+                  style={{ height: 100, textAlignVertical: 'top' }}
+                  placeholderTextColor="#9CA3AF"
                 />
               </View>
+
               {/* Rating */}
-              <View style={{ marginBottom: 10 }}>
-                <Text style={{ fontSize: 15, fontWeight: '600', marginBottom: 4 }}>
-                  Rate your experience
+              <View className="mb-4">
+                <Text className="text-base font-semibold text-gray-800 mb-2">
+                  Rating
                 </Text>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
+                <View className="flex-row items-center space-x-2">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <TouchableOpacity
                       key={star}
                       onPress={() => setRating(star)}
+                      className="p-1"
                     >
-                      <Text style={{ fontSize: 26 }}>
+                      <Text className="text-2xl">
                         {star <= rating ? '⭐' : '☆'}
                       </Text>
                     </TouchableOpacity>
                   ))}
+                  <Text className="text-gray-600 ml-2">({rating}/5)</Text>
                 </View>
               </View>
-              {/* Divider */}
-              <View style={{
-                height: 1,
-                backgroundColor: '#E5E5E5',
-                marginVertical: 8,
-                marginHorizontal: -24 // full width
-              }} />
-            </View>
 
-            {/* Scrollable Content */}
-            <ScrollView style={{ paddingHorizontal: 24, paddingBottom: 20 }}>
               {/* Photos */}
-              <View style={{ marginBottom: 30 }}>
-                <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 8 }}>
-                  Add photos (optional)
+              <View className="mb-6">
+                <Text className="text-base font-semibold text-gray-800 mb-2">
+                  Photos (Optional)
                 </Text>
-                <View style={{ flexDirection: 'row', gap: 12 }}>
+                <View className="flex-row space-x-3">
                   {photos.map((photo, index) => (
-                    <View key={index} style={{
-                      width: 100,
-                      height: 100,
-                      borderRadius: 12,
-                      backgroundColor: '#F5F5F5'
-                    }}>
-                      {/* Photo preview would go here */}
+                    <View key={index} className="relative">
+                      <View className="w-20 h-20 rounded-xl bg-gray-100">
+                        {/* Photo preview would go here */}
+                      </View>
                       <TouchableOpacity
-                        style={{ position: 'absolute', top: 4, right: 4 }}
+                        className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full items-center justify-center"
                         onPress={() => setPhotos(photos.filter((_, i) => i !== index))}
                       >
-                        <Text>❌</Text>
+                        <Text className="text-white text-xs">✕</Text>
                       </TouchableOpacity>
                     </View>
                   ))}
                   {photos.length < 3 && (
                     <TouchableOpacity
                       onPress={pickImage}
-                      style={{
-                        width: 100,
-                        height: 100,
-                        borderRadius: 12,
-                        borderWidth: 2,
-                        borderColor: '#f2cc6c',
-                        borderStyle: 'dashed',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}
+                      className="w-20 h-20 rounded-xl border-2 border-dashed border-brand-gold items-center justify-center bg-gray-50"
                     >
-                      <Text style={{ fontSize: 24 }}>📷</Text>
-                      <Text style={{ fontSize: 12, color: '#666' }}>Add Photo</Text>
+                      <Text className="text-2xl">📷</Text>
+                      <Text className="text-xs text-gray-600 mt-1">Add</Text>
                     </TouchableOpacity>
                   )}
                 </View>
               </View>
-
-              {/* Action Buttons */}
-              <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
-                <View style={{ flex: 1 }}>
-                  <Button
-                    title="Cancel"
-                    onPress={animateClose}
-                    variant="outline"
-                    disabled={isSharing}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Button
-                    title={isSharing ? "Sharing..." : "Share Adventure"}
-                    onPress={handleShare}
-                    variant="primary"
-                    isLoading={isSharing}
-                  />
-                </View>
-              </View>
             </ScrollView>
+
+            {/* Fixed bottom action buttons */}
+            <View className="flex-row space-x-3 p-4 bg-white border-t border-gray-100">
+              <View className="flex-1">
+                <Button
+                  title="Cancel"
+                  onPress={animateClose}
+                  variant="outline"
+                  disabled={isSharing}
+                />
+              </View>
+              <View className="flex-1">
+                <Button
+                  title={isSharing ? "Sharing..." : "Share Adventure"}
+                  onPress={handleShare}
+                  variant="primary"
+                  isLoading={isSharing}
+                />
+              </View>
+            </View>
           </SafeAreaView>
         </Animated.View>
       </KeyboardAvoidingView>

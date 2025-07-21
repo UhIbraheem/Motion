@@ -365,18 +365,18 @@ const PlansScreen: React.FC = () => {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View className="flex-1 bg-background-light">
         <View style={styles.centerContent}>
           <Text style={styles.loadingText}>Loading your adventures...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View className="flex-1 bg-background-light">
         <ScrollView
-          style={styles.scrollView}
+          className="flex-1"
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -473,7 +473,7 @@ const PlansScreen: React.FC = () => {
             loadAdventures(); // Refresh the list
           }}
         />
-      </SafeAreaView>
+      </View>
   );
 };
 

@@ -7,4 +7,7 @@ export { default as StepCard } from './StepCard';
 export { default as StepDetailModal } from './StepDetailModal';
 export { default as HorizontalStepsSection } from './HorizontalStepsSection';
 export { default as AdventureInfoSection } from './AdventureInfoSection';
+export { default as EditProfileModal } from './EditProfileModal';
+export { default as PreferencesModal } from './PreferencesModal';
+export { default as PrivacyModal } from './PrivacyModal';
 export * from './types';

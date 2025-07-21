@@ -71,13 +71,11 @@ export const AdventureDetailModal: React.FC<AdventureDetailModalProps> = ({
 
   // Handle schedule button press
   const handleSchedulePress = () => {
-    console.log('📅 Schedule button pressed');
     setIsSchedulePickerVisible(true);
   };
 
   // Handle view all steps button press
   const handleViewAllStepsPress = () => {
-    console.log('👀 View All Steps button pressed');
     setShowAllStepsModal(true);
   };
 

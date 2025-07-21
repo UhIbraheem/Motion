@@ -78,29 +78,9 @@ const GeneratedAdventureView: React.FC<GeneratedAdventureViewProps> = ({
     }
   };
 
-  const getQuickEditSuggestions = (step: AdventureStep) => {
-    const suggestions = [];
-    
-    if (step.title.toLowerCase().includes('restaurant') || step.title.toLowerCase().includes('cafe')) {
-      suggestions.push('Make it more budget-friendly');
-      suggestions.push('Try a different cuisine');
-      suggestions.push('Find something with outdoor seating');
-    } else if (step.title.toLowerCase().includes('walk') || step.title.toLowerCase().includes('park')) {
-      suggestions.push('Find an indoor alternative');
-      suggestions.push('Make it more active');
-      suggestions.push('Add shopping nearby');
-    } else {
-      suggestions.push('Find something more relaxing');
-      suggestions.push('Make it more interactive');
-      suggestions.push('Try a different vibe');
-    }
-    
-    return suggestions.slice(0, 3);
-  };
-
   return (
     <SafeAreaView className="flex-1 bg-background-light">
-      <ScrollView className="flex-1 p-4">
+      <ScrollView className="flex-1 p-4" contentContainerStyle={{ flexGrow: 1 }}>
         <View className="flex-row items-center justify-between mb-4">
           <TouchableOpacity onPress={onBack}>
             <Text className="text-brand-sage text-lg">← Back to Filters</Text>
@@ -164,62 +144,123 @@ const GeneratedAdventureView: React.FC<GeneratedAdventureViewProps> = ({
       <Modal
         visible={editingStepIndex !== null}
         transparent={true}
-        animationType="slide"
+        animationType="fade"
+        statusBarTranslucent
       >
-        <View className="flex-1 justify-end bg-black bg-opacity-50">
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 20,
+        }}>
           <TouchableOpacity 
-            className="flex-1" 
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+            }}
             onPress={() => setEditingStepIndex(null)}
+            activeOpacity={1}
           />
-          <View className="bg-white rounded-t-lg p-4">
-            <Text className="text-lg font-bold mb-4">
-              Edit Step {editingStepIndex !== null ? editingStepIndex + 1 : ''}
-            </Text>
-            
-            {/* Quick Edit Suggestions */}
-            {editingStepIndex !== null && (
-              <View className="mb-4">
-                <Text className="text-sm font-medium text-gray-700 mb-2">
-                  Quick suggestions:
+          
+          <View style={{
+            backgroundColor: 'white',
+            borderRadius: 16,
+            padding: 24,
+            width: '100%',
+            maxWidth: 400,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.25,
+            shadowRadius: 12,
+            elevation: 12,
+          }}>
+            {/* Header */}
+            <View style={{ alignItems: 'center', marginBottom: 24 }}>
+              <Text style={{
+                fontSize: 20,
+                fontWeight: '600',
+                color: '#3c7660',
+                marginBottom: 8,
+              }}>
+                Edit Step {editingStepIndex !== null ? editingStepIndex + 1 : ''}
+              </Text>
+              {editingStepIndex !== null && (
+                <Text style={{
+                  fontSize: 14,
+                  color: '#666',
+                  textAlign: 'center',
+                  lineHeight: 20,
+                }}>
+                  {adventure.steps[editingStepIndex].title}
                 </Text>
-                <View className="flex-row flex-wrap mb-4">
-                  {getQuickEditSuggestions(adventure.steps[editingStepIndex]).map((suggestion, index) => (
-                    <TouchableOpacity
-                      key={index}
-                      onPress={() => {
-                        setEditRequest(suggestion);
-                      }}
-                      className="bg-white border border-gray-200 rounded-full px-3 py-2 mr-2 mb-2"
-                    >
-                      <Text className="text-brand-sage text-sm">{suggestion}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            )}
+              )}
+            </View>
             
+            {/* Input Field */}
             <TextInput
-              className="border border-gray-300 rounded-lg p-3 mb-4 min-h-[80px]"
-              placeholder="What would you like to change?"
+              style={{
+                borderWidth: 1.5,
+                borderColor: '#e0e0e0',
+                borderRadius: 12,
+                padding: 16,
+                fontSize: 16,
+                minHeight: 100,
+                textAlignVertical: 'top',
+                backgroundColor: '#fafafa',
+                marginBottom: 20,
+              }}
+              placeholder="What would you like to change about this step?"
+              placeholderTextColor="#999"
               value={editRequest}
               onChangeText={setEditRequest}
               multiline
-              textAlignVertical="top"
+              autoFocus
             />
             
-            <View className="flex-row justify-between">
+            {/* Buttons */}
+            <View style={{
+              flexDirection: 'row',
+              gap: 12,
+            }}>
               <TouchableOpacity
                 onPress={() => setEditingStepIndex(null)}
-                className="bg-gray-200 rounded-lg px-4 py-2 flex-1 mr-2"
+                style={{
+                  flex: 1,
+                  paddingVertical: 14,
+                  borderRadius: 12,
+                  backgroundColor: '#f5f5f5',
+                  alignItems: 'center',
+                }}
               >
-                <Text className="text-center">Cancel</Text>
+                <Text style={{
+                  fontSize: 16,
+                  fontWeight: '500',
+                  color: '#666',
+                }}>
+                  Cancel
+                </Text>
               </TouchableOpacity>
+              
               <TouchableOpacity
                 onPress={regenerateStep}
-                className="bg-brand-sage rounded-lg px-4 py-2 flex-1 ml-2"
                 disabled={isRegeneratingStep || !editRequest.trim()}
+                style={{
+                  flex: 1,
+                  paddingVertical: 14,
+                  borderRadius: 12,
+                  backgroundColor: !editRequest.trim() ? '#ccc' : '#3c7660',
+                  alignItems: 'center',
+                }}
               >
-                <Text className="text-white text-center">
+                <Text style={{
+                  fontSize: 16,
+                  fontWeight: '600',
+                  color: 'white',
+                }}>
                   {isRegeneratingStep ? 'Updating...' : 'Update Step'}
                 </Text>
               </TouchableOpacity>
