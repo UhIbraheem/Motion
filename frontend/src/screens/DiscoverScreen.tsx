@@ -6,9 +6,11 @@ import {
   ScrollView, 
   RefreshControl, 
   TouchableOpacity,
-  Alert 
+  Alert,
+  FlatList 
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { aiService } from '../services/aiService';
 import { useAuth } from '../context/AuthContext';
 import { AdventureDetailModal } from '../components/modals/AdventureDetailModal';
@@ -34,7 +36,7 @@ interface CommunityAdventure {
   };
 }
 
-const DiscoverScreen: React.FC = () => {
+const DiscoverScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const { user } = useAuth();
   const [communityAdventures, setCommunityAdventures] = useState<CommunityAdventure[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,6 +45,38 @@ const DiscoverScreen: React.FC = () => {
   // Modal state
   const [selectedAdventure, setSelectedAdventure] = useState<any>(null);
   const [modalVisible, setModalVisible] = useState(false);
+
+  // Category data
+  const categories = [
+    { 
+      id: 'food', 
+      title: 'Food & Drink', 
+      icon: 'restaurant', 
+      color: '#FF6B6B',
+      iconFamily: 'Ionicons' 
+    },
+    { 
+      id: 'culture', 
+      title: 'Culture', 
+      icon: 'museum', 
+      color: '#4ECDC4',
+      iconFamily: 'MaterialIcons' 
+    },
+    { 
+      id: 'outdoor', 
+      title: 'Outdoors', 
+      icon: 'tree', 
+      color: '#45B7D1',
+      iconFamily: 'FontAwesome5' 
+    },
+    { 
+      id: 'party', 
+      title: 'Nightlife', 
+      icon: 'musical-notes', 
+      color: '#96CEB4',
+      iconFamily: 'Ionicons' 
+    }
+  ];
 
   useEffect(() => {
     loadCommunityAdventures();
@@ -129,7 +163,43 @@ const DiscoverScreen: React.FC = () => {
   };
 
   const renderStars = (rating: number) => {
-    return '⭐'.repeat(Math.max(1, Math.min(5, rating)));
+    const stars = [];
+    for (let i = 1; i <= 5; i++) {
+      stars.push(
+        <Ionicons
+          key={i}
+          name={i <= rating ? 'star' : 'star-outline'}
+          size={14}
+          color={i <= rating ? '#FFD700' : '#D1D5DB'}
+        />
+      );
+    }
+    return stars;
+  };
+
+  const handleCategoryPress = (category: any) => {
+    if (!navigation) {
+      Alert.alert('Coming Soon', `${category.title} adventures will be available soon!`);
+      return;
+    }
+
+    // Navigate to category-specific screens
+    switch (category.id) {
+      case 'food':
+        navigation.navigate('FoodCategory');
+        break;
+      case 'culture':
+        navigation.navigate('CultureCategory');
+        break;
+      case 'outdoor':
+        navigation.navigate('OutdoorCategory');
+        break;
+      case 'party':
+        navigation.navigate('NightlifeCategory');
+        break;
+      default:
+        Alert.alert('Coming Soon', `${category.title} adventures will be available soon!`);
+    }
   };
 
   // Format functions for modal
@@ -193,66 +263,87 @@ const DiscoverScreen: React.FC = () => {
 
   const CommunityAdventureCard = ({ adventure }: { adventure: CommunityAdventure }) => (
     <TouchableOpacity
-      className="bg-white rounded-2xl p-4 mb-4 shadow-sm border border-gray-100"
+      className="bg-white rounded-2xl mr-4 shadow-sm border border-gray-100"
+      style={{ width: 280 }}
       onPress={() => handleAdventurePress(adventure)}
       activeOpacity={0.7}
     >
-      {/* Header with user info */}
-      <View className="flex-row items-center mb-3">
-        <View className="w-8 h-8 bg-brand-sage rounded-full items-center justify-center mr-3">
-          <Text className="text-white text-xs font-semibold">
-            {getUserInitials(adventure.profiles.first_name, adventure.profiles.last_name)}
-          </Text>
-        </View>
-        <View className="flex-1">
-          <Text className="text-sm font-medium text-gray-900">
-            {getDisplayName(adventure.profiles.first_name, adventure.profiles.last_name)}
-          </Text>
-          <Text className="text-xs text-gray-500">
-            {formatTimeAgo(adventure.created_at)}
-          </Text>
-        </View>
-        <View className="flex-row items-center">
-          <Text className="text-sm mr-1">{renderStars(adventure.rating)}</Text>
-          <Text className="text-xs text-gray-500">({adventure.rating}/5)</Text>
-        </View>
+      {/* Photo placeholder - will show user photos when available */}
+      <View className="h-40 bg-gradient-to-br from-green-200 to-green-600 rounded-t-2xl items-center justify-center">
+        <Ionicons name="image-outline" size={40} color="white" />
+        <Text className="text-white text-sm mt-2">Adventure Photo</Text>
       </View>
 
-      {/* Adventure content */}
-      <Text className="text-lg font-semibold text-gray-900 mb-2">
-        {adventure.custom_title}
-      </Text>
-      <Text className="text-gray-600 mb-3 leading-5">
-        {adventure.custom_description}
-      </Text>
+      <View className="p-4">
+        {/* Header with user info */}
+        <View className="flex-row items-center mb-3">
+          <View className="w-8 h-8 bg-green-600 rounded-full items-center justify-center mr-3">
+            <Text className="text-white text-xs font-semibold">
+              {getUserInitials(adventure.profiles.first_name, adventure.profiles.last_name)}
+            </Text>
+          </View>
+          <View className="flex-1">
+            <Text className="text-sm font-medium text-gray-900">
+              {getDisplayName(adventure.profiles.first_name, adventure.profiles.last_name)}
+            </Text>
+            <Text className="text-xs text-gray-500">
+              {formatTimeAgo(adventure.created_at)}
+            </Text>
+          </View>
+          <View className="flex-row items-center">
+            <View className="flex-row mr-1">
+              {renderStars(adventure.rating)}
+            </View>
+            <Text className="text-xs text-gray-500">({adventure.rating})</Text>
+          </View>
+        </View>
 
-      {/* Location */}
-      <Text className="text-sm text-brand-sage mb-3">
-        📍 {adventure.location}
-      </Text>
+        {/* Adventure content */}
+        <Text className="text-lg font-semibold text-gray-900 mb-2 leading-tight">
+          {adventure.custom_title}
+        </Text>
+        <Text className="text-gray-600 mb-3 leading-5" numberOfLines={2}>
+          {adventure.custom_description}
+        </Text>
 
-      {/* Adventure meta */}
-      <View className="flex-row items-center justify-between">
-        <View className="flex-row items-center space-x-4">
-          <Text className="text-sm text-gray-500">
-            {formatDuration(adventure.duration_hours)}
-          </Text>
-          <Text className="text-sm text-gray-500">
-            {formatCost(adventure.estimated_cost)}
-          </Text>
-          <Text className="text-sm text-gray-500">
-            {adventure.steps.length} steps
+        {/* Location */}
+        <View className="flex-row items-center mb-3">
+          <Ionicons name="location" size={16} color="#3c7660" />
+          <Text className="text-sm text-green-600 ml-1">
+            {adventure.location}
           </Text>
         </View>
 
-        {/* Interaction buttons */}
-        <View className="flex-row items-center space-x-3">
+        {/* Adventure meta */}
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center space-x-4">
+            <View className="flex-row items-center">
+              <Ionicons name="time" size={14} color="#9CA3AF" />
+              <Text className="text-sm text-gray-500 ml-1">
+                {formatDuration(adventure.duration_hours)}
+              </Text>
+            </View>
+            <View className="flex-row items-center">
+              <Ionicons name="wallet" size={14} color="#9CA3AF" />
+              <Text className="text-sm text-gray-500 ml-1">
+                {formatCost(adventure.estimated_cost)}
+              </Text>
+            </View>
+            <View className="flex-row items-center">
+              <Ionicons name="list" size={14} color="#9CA3AF" />
+              <Text className="text-sm text-gray-500 ml-1">
+                {adventure.steps.length}
+              </Text>
+            </View>
+          </View>
+
+          {/* Heart button */}
           <TouchableOpacity
             onPress={() => handleHeartPress(adventure.id)}
             className="flex-row items-center"
           >
-            <Text className="text-lg mr-1">🤍</Text>
-            <Text className="text-sm text-gray-500">0</Text>
+            <Ionicons name="heart-outline" size={18} color="#9CA3AF" />
+            <Text className="text-sm text-gray-500 ml-1">0</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -261,19 +352,19 @@ const DiscoverScreen: React.FC = () => {
 
   if (isLoading) {
     return (
-      <View className="flex-1 bg-background-light">
+      <View className="flex-1 bg-gray-50">
         <View className="flex-1 items-center justify-center">
-          <Text className="text-4xl mb-4">🌊</Text>
-          <Text className="text-gray-600 text-lg">Loading community adventures...</Text>
+          <Ionicons name="compass" size={48} color="#3c7660" />
+          <Text className="text-gray-600 text-lg mt-4">Loading adventures...</Text>
         </View>
       </View>
     );
   }
 
   return (
-    <View className="flex-1 bg-background-light">
+    <View className="flex-1 bg-gray-50">
       <ScrollView 
-        className="flex-1 p-4"
+        className="flex-1"
         contentContainerStyle={{ flexGrow: 1 }}
         refreshControl={
           <RefreshControl
@@ -285,64 +376,96 @@ const DiscoverScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View className="mb-6">
-          <Text className="text-2xl font-bold text-brand-sage">Community Adventures</Text>
-          <Text className="text-text-secondary">
-            {communityAdventures.length > 0 
-              ? `${communityAdventures.length} adventures shared by fellow explorers`
-              : 'Discover adventures shared by fellow explorers'
-            }
+        <View className="p-4 pb-2">
+          <Text className="text-2xl font-bold text-gray-800">Discover</Text>
+          <Text className="text-gray-600">
+            Explore adventures by category
           </Text>
         </View>
 
-        {/* Community adventures feed */}
-        {communityAdventures.length === 0 ? (
-          <View className="items-center justify-center py-12">
-            <Text className="text-4xl mb-4">🗺️</Text>
-            <Text className="text-lg font-semibold text-gray-700 mb-2">
-              No community adventures yet
-            </Text>
-            <Text className="text-gray-500 text-center px-8 leading-6">
-              Be the first to share an adventure! Complete an adventure from your plans and tap "Share to Community" to inspire others.
-            </Text>
-          </View>
-        ) : (
-          <>
-            {communityAdventures.map((adventure) => (
-              <CommunityAdventureCard key={adventure.id} adventure={adventure} />
+        {/* Categories Grid */}
+        <View className="px-4 mb-6">
+          <Text className="text-lg font-semibold text-gray-800 mb-3">Categories</Text>
+          <View className="flex-row flex-wrap justify-between">
+            {categories.map((category) => (
+              <TouchableOpacity
+                key={category.id}
+                className="bg-white rounded-2xl shadow-sm border border-gray-100 items-center justify-center mb-3"
+                style={{ 
+                  width: '48%', 
+                  height: 100,
+                  backgroundColor: `${category.color}15` 
+                }}
+                onPress={() => handleCategoryPress(category)}
+              >
+                <View className="items-center">
+                  {category.iconFamily === 'Ionicons' ? (
+                    <Ionicons name={category.icon as any} size={32} color={category.color} />
+                  ) : category.iconFamily === 'MaterialIcons' ? (
+                    <MaterialIcons name={category.icon as any} size={32} color={category.color} />
+                  ) : (
+                    <FontAwesome5 name={category.icon} size={28} color={category.color} />
+                  )}
+                  <Text className="text-gray-800 font-semibold mt-2 text-sm">
+                    {category.title}
+                  </Text>
+                </View>
+              </TouchableOpacity>
             ))}
+          </View>
+        </View>
 
-            {/* Footer message */}
-            <View className="items-center py-8">
-              <Text className="text-gray-400 text-center">
-                🎉 You've seen all community adventures!
+        {/* Recently Shared Adventures */}
+        <View className="mb-6">
+          <View className="flex-row items-center justify-between px-4 mb-3">
+            <Text className="text-lg font-semibold text-gray-800">Recent Adventures</Text>
+            {communityAdventures.length > 3 && (
+              <TouchableOpacity>
+                <Text className="text-green-600 font-medium">See All</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          
+          {communityAdventures.length === 0 ? (
+            <View className="items-center justify-center py-12 mx-4">
+              <Ionicons name="map-outline" size={48} color="#9CA3AF" />
+              <Text className="text-lg font-semibold text-gray-700 mb-2 mt-4">
+                No adventures shared yet
               </Text>
-              <Text className="text-gray-400 text-center mt-1">
-                Pull down to refresh for new ones.
+              <Text className="text-gray-500 text-center px-8 leading-6">
+                Be the first to share an adventure! Complete one from your plans and share it with the community.
               </Text>
             </View>
-          </>
-        )}
+          ) : (
+            <FlatList
+              data={communityAdventures}
+              renderItem={({ item }) => <CommunityAdventureCard adventure={item} />}
+              keyExtractor={(item) => item.id}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingLeft: 16, paddingRight: 16 }}
+            />
+          )}
+        </View>
 
-        {/* Popular categories placeholder for future */}
-        {communityAdventures.length > 3 && (
-          <View className="mt-8 mb-6">
-            <Text className="text-lg font-semibold text-text-primary mb-3">
-              Explore by Category
-            </Text>
-            <View className="flex-row flex-wrap justify-between">
-              {['Food & Drink', 'Outdoors', 'Cultural', 'Nightlife'].map((category) => (
-                <TouchableOpacity
-                  key={category}
-                  className="bg-brand-cream rounded-lg w-[48%] h-20 mb-3 items-center justify-center"
-                  onPress={() => Alert.alert('Coming Soon', `${category} filtering will be available soon!`)}
-                >
-                  <Text className="text-brand-sage font-semibold">{category}</Text>
-                </TouchableOpacity>
-              ))}
+        {/* Popular This Week - Placeholder for future */}
+        {communityAdventures.length > 0 && (
+          <View className="px-4 mb-6">
+            <Text className="text-lg font-semibold text-gray-800 mb-3">Trending This Week</Text>
+            <View className="bg-gradient-to-r from-green-100 to-green-200 rounded-2xl p-6 items-center">
+              <Ionicons name="trending-up" size={32} color="#3c7660" />
+              <Text className="text-green-600 font-semibold text-center mt-2">
+                Coming Soon
+              </Text>
+              <Text className="text-gray-600 text-sm text-center mt-1">
+                Discover what's trending in your area
+              </Text>
             </View>
           </View>
         )}
+
+        {/* Footer spacing */}
+        <View className="h-20" />
       </ScrollView>
 
       {/* Adventure Detail Modal */}

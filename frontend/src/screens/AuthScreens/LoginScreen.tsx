@@ -1,6 +1,7 @@
 // src/screens/AuthScreens/LoginScreen.tsx - Simple Email Auth
 import React, { useState } from 'react';
 import { View, Text, ScrollView, SafeAreaView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
 import MotionLogo from '../../components/shared/MotionLogo';
 import Button from '../../components/Button';
@@ -102,7 +103,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             {__DEV__ && (
               <View className="mt-8 bg-brand-light rounded-xl p-4">
                 <Text className="text-brand-sage text-center text-sm font-medium">
-                  🎯 Real Supabase Auth Active!
+                  <Ionicons name="compass" size={16} color="#2F4F4F" /> Real Supabase Auth Active!
                 </Text>
                 <Text className="text-brand-sage text-center text-xs mt-1">
                   Create a real account to test

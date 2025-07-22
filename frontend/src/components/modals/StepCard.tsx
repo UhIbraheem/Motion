@@ -9,6 +9,7 @@ import {
   Linking,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { Ionicons } from '@expo/vector-icons';
 import { AdventureStep } from './types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -139,7 +140,7 @@ export const StepCard: React.FC<StepCardProps> = ({ step, index, themeColors, on
               }}
               numberOfLines={2}
             >
-              📍 {step.location}
+              <Ionicons name="location" size={14} color="#6B7280" /> {step.location}
             </Text>
           )}
         </View>
@@ -238,7 +239,7 @@ export const StepCard: React.FC<StepCardProps> = ({ step, index, themeColors, on
             fontSize: 14,
             textAlign: 'center',
           }}>
-            📍 Open in Google Maps
+            <Ionicons name="location" size={14} color="white" /> Open in Google Maps
           </Text>
         </TouchableOpacity>
 

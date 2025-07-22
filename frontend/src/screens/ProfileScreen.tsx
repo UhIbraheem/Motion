@@ -10,6 +10,7 @@ import {
   Image,
   Platform
 } from 'react-native';
+import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import Button from '../components/Button';
 import Card from '../components/Card';
@@ -184,7 +185,7 @@ const ProfileScreen: React.FC = () => {
         // Auto-save profile picture
         await updateUserProfile({ ...editForm, profile_picture_url: imageUri });
         
-        Alert.alert('Success! 📸', 'Profile picture updated!');
+        Alert.alert('Success!', 'Profile picture updated!');
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to update profile picture');
@@ -221,7 +222,7 @@ const ProfileScreen: React.FC = () => {
       setUserProfile(profileToUpdate);
       if (!updatedProfile) {
         setEditProfileVisible(false);
-        Alert.alert('Success! 🎉', 'Profile updated successfully!');
+        Alert.alert('Success!', 'Profile updated successfully!');
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to update profile');
@@ -325,10 +326,10 @@ const ProfileScreen: React.FC = () => {
 
   if (!user) {
     return (
-      <SafeAreaView className="flex-1 bg-background-light">
+      <SafeAreaView className="flex-1 bg-gray-50">
         <View className="flex-1 justify-center items-center p-6">
-          <Text className="text-xl mb-4">🔐</Text>
-          <Text className="text-brand-sage text-lg text-center">
+          <MaterialIcons name="security" size={32} color="#3c7660" />
+          <Text className="text-green-600 text-lg text-center mt-4">
             Please sign in to view your profile
           </Text>
         </View>
@@ -337,7 +338,7 @@ const ProfileScreen: React.FC = () => {
   }
 
   return (
-    <View className="flex-1 bg-background-light">
+    <View className="flex-1 bg-gray-50">
       <ScrollView 
         className="flex-1 p-4"
         showsVerticalScrollIndicator={false}
@@ -382,7 +383,7 @@ const ProfileScreen: React.FC = () => {
             
             {/* Camera Icon Overlay */}
             <View className="absolute bottom-0 right-0 bg-brand-gold rounded-full w-8 h-8 items-center justify-center border-2 border-white">
-              <Text className="text-white text-sm">📷</Text>
+              <Ionicons name="camera" size={14} color="white" />
             </View>
             
             {isUploadingImage && (
@@ -394,7 +395,7 @@ const ProfileScreen: React.FC = () => {
 
           {/* User Info */}
           <View className="items-center">
-            <Text className="text-xl font-bold text-text-primary mb-1">
+            <Text className="text-xl font-bold text-gray-800 mb-1">
               {getDisplayName()}
             </Text>
             <Text className="text-text-secondary text-base mb-1">
@@ -402,7 +403,10 @@ const ProfileScreen: React.FC = () => {
             </Text>
             {userProfile.home_city && (
               <Text className="text-brand-teal text-sm mb-1">
-                📍 {userProfile.home_city}
+              <View className="flex-row items-center">
+                <Ionicons name="location" size={16} color="#6B7280" />
+                <Text className="text-gray-600 ml-1">{userProfile.home_city}</Text>
+              </View>
               </Text>
             )}
             {userProfile.bio && (
@@ -418,7 +422,10 @@ const ProfileScreen: React.FC = () => {
 
         {/* Stats Cards */}
         <View className="mb-6">
-          <Text className="text-lg font-semibold text-text-primary mb-3">📊 Your Journey</Text>
+          <View className="flex-row items-center mb-3">
+            <MaterialIcons name="analytics" size={18} color="#6B7280" />
+            <Text className="text-lg font-semibold text-gray-800 ml-2">Your Journey</Text>
+          </View>
           <View className="flex-row justify-between">
             <View className="bg-white rounded-xl shadow-sm p-4 w-[31%] items-center border border-brand-light">
               <Text className="text-2xl font-bold text-brand-gold mb-1">
@@ -451,41 +458,41 @@ const ProfileScreen: React.FC = () => {
         <Card title="Account Settings" elevated={true}>
           <View className="space-y-3">
             <TouchableOpacity 
-              className="flex-row justify-between items-center py-3 px-2 rounded-lg bg-background-subtle"
+              className="flex-row justify-between items-center py-3 px-2 rounded-lg bg-gray-100"
               onPress={() => setEditProfileVisible(true)}
             >
               <View className="flex-row items-center">
-                <Text className="text-lg mr-3">👤</Text>
-                <Text className="text-base font-medium text-text-primary">Edit Profile</Text>
+                <Ionicons name="person" size={18} color="#6B7280" />
+                <Text className="text-base font-medium text-gray-800 ml-3">Edit Profile</Text>
               </View>
-              <Text className="text-text-secondary">{'>'}</Text>
+              <Ionicons name="chevron-forward" size={16} color="#6B7280" />
             </TouchableOpacity>
 
             <TouchableOpacity 
-              className="flex-row justify-between items-center py-3 px-2 rounded-lg bg-background-subtle"
+              className="flex-row justify-between items-center py-3 px-2 rounded-lg bg-gray-100"
               onPress={() => setShowPreferencesModal(true)}
             >
               <View className="flex-row items-center">
-                <Text className="text-lg mr-3">🎯</Text>
-                <Text className="text-base font-medium text-text-primary">Preferences</Text>
+                <Ionicons name="settings" size={18} color="#6B7280" />
+                <Text className="text-base font-medium text-gray-800 ml-3">Preferences</Text>
               </View>
-              <Text className="text-text-secondary">{'>'}</Text>
+              <Ionicons name="chevron-forward" size={16} color="#6B7280" />
             </TouchableOpacity>
 
-            <TouchableOpacity className="flex-row justify-between items-center py-3 px-2 rounded-lg bg-background-subtle">
+            <TouchableOpacity className="flex-row justify-between items-center py-3 px-2 rounded-lg bg-gray-100">
               <View className="flex-row items-center">
-                <Text className="text-lg mr-3">🔔</Text>
-                <Text className="text-base font-medium text-text-primary">Notifications</Text>
+                <Ionicons name="notifications" size={18} color="#6B7280" />
+                <Text className="text-base font-medium text-gray-800 ml-3">Notifications</Text>
               </View>
-              <Text className="text-text-secondary">{'>'}</Text>
+              <Ionicons name="chevron-forward" size={16} color="#6B7280" />
             </TouchableOpacity>
 
-            <TouchableOpacity className="flex-row justify-between items-center py-3 px-2 rounded-lg bg-background-subtle">
+            <TouchableOpacity className="flex-row justify-between items-center py-3 px-2 rounded-lg bg-gray-100">
               <View className="flex-row items-center">
-                <Text className="text-lg mr-3">🛡️</Text>
-                <Text className="text-base font-medium text-text-primary">Privacy & Security</Text>
+                <Ionicons name="shield-checkmark" size={18} color="#6B7280" />
+                <Text className="text-base font-medium text-gray-800 ml-3">Privacy & Security</Text>
               </View>
-              <Text className="text-text-secondary">{'>'}</Text>
+              <Ionicons name="chevron-forward" size={16} color="#6B7280" />
             </TouchableOpacity>
           </View>
         </Card>
@@ -493,20 +500,20 @@ const ProfileScreen: React.FC = () => {
         {/* App Info */}
         <Card title="About Motion" elevated={true}>
           <View className="space-y-3">
-            <TouchableOpacity className="flex-row justify-between items-center py-3 px-2 rounded-lg bg-background-subtle">
+            <TouchableOpacity className="flex-row justify-between items-center py-3 px-2 rounded-lg bg-gray-100">
               <View className="flex-row items-center">
-                <Text className="text-lg mr-3">💬</Text>
-                <Text className="text-base font-medium text-text-primary">Send Feedback</Text>
+                <Ionicons name="chatbubble-ellipses" size={18} color="#6B7280" />
+                <Text className="text-base font-medium text-gray-800 ml-3">Send Feedback</Text>
               </View>
-              <Text className="text-text-secondary">{'>'}</Text>
+              <Ionicons name="chevron-forward" size={16} color="#6B7280" />
             </TouchableOpacity>
 
-            <TouchableOpacity className="flex-row justify-between items-center py-3 px-2 rounded-lg bg-background-subtle">
+            <TouchableOpacity className="flex-row justify-between items-center py-3 px-2 rounded-lg bg-gray-100">
               <View className="flex-row items-center">
-                <Text className="text-lg mr-3">📋</Text>
-                <Text className="text-base font-medium text-text-primary">Terms & Privacy</Text>
+                <Ionicons name="document-text" size={18} color="#6B7280" />
+                <Text className="text-base font-medium text-gray-800 ml-3">Terms & Privacy</Text>
               </View>
-              <Text className="text-text-secondary">{'>'}</Text>
+              <Ionicons name="chevron-forward" size={16} color="#6B7280" />
             </TouchableOpacity>
 
             <View className="py-3 px-2">
@@ -525,7 +532,7 @@ const ProfileScreen: React.FC = () => {
             variant="outline"
             size="lg"
             isLoading={isSigningOut}
-            leftIcon={!isSigningOut ? <Text className="text-lg">🚪</Text> : undefined}
+            leftIcon={!isSigningOut ? <Ionicons name="log-out" size={18} color="#EF4444" /> : undefined}
           />
         </View>
       </ScrollView>

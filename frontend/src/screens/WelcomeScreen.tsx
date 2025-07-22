@@ -1,6 +1,7 @@
 // src/screens/WelcomeScreen.tsx - Onboarding screen with logo
 import React from 'react';
 import { View, Text, ScrollView, SafeAreaView } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import MotionLogo from '../components/shared/MotionLogo';
 import Button from '../components/Button';
 
@@ -30,7 +31,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGetStarted }) => {
           <View className="bg-white rounded-2xl p-6 shadow-lg border border-brand-light mb-8">
             <View className="flex-row items-center mb-4">
               <View className="w-12 h-12 bg-brand-light rounded-full items-center justify-center mr-4">
-                <Text className="text-2xl">✨</Text>
+                <Ionicons name="sparkles" size={24} color="#D4AF37" />
               </View>
               <View className="flex-1">
                 <Text className="text-lg font-semibold text-brand-sage">
@@ -58,7 +59,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGetStarted }) => {
 
             <View className="flex-row items-center">
               <View className="w-12 h-12 bg-brand-light rounded-full items-center justify-center mr-4">
-                <Text className="text-2xl">🎯</Text>
+                <Ionicons name="compass" size={24} color="#2F4F4F" />
               </View>
               <View className="flex-1">
                 <Text className="text-lg font-semibold text-brand-sage">

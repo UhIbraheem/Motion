@@ -13,6 +13,7 @@ import {
   Linking,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { Ionicons } from '@expo/vector-icons';
 import { typography, spacing, borderRadius, getCurrentTheme } from '../../constants/Theme';
 import { useTheme } from '../../context/ThemeContext';
 import { AdventureStep } from './types';
@@ -224,7 +225,7 @@ export const StepDetailModal: React.FC<StepDetailModalProps> = ({
                   color: themeColors.text.primary,
                   marginBottom: spacing.sm,
                 }}>
-                  📍 Location
+                  <Ionicons name="location" size={16} color="#2F4F4F" /> Location
                 </Text>
                 <Text style={{
                   ...typography.body,
@@ -363,7 +364,7 @@ export const StepDetailModal: React.FC<StepDetailModalProps> = ({
                     color: themeColors.text?.primary || '#3c7660',
                     textAlign: 'center',
                   }}>
-                    📍 Open in Google Maps
+                    <Ionicons name="location" size={16} color="white" /> Open in Google Maps
                   </Text>
                 </TouchableOpacity>
 

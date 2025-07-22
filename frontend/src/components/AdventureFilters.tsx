@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, TextInput, ScrollView, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import Button from './Button';
 import Input from './Input';
@@ -49,10 +50,10 @@ const AdventureFilters: React.FC<AdventureFiltersProps> = ({
   };
 
   const getTransportSuggestion = (radius: number): { icon: string; text: string } => {
-    if (radius <= 2) return { icon: '🚶', text: 'Walking distance' };
-    if (radius <= 5) return { icon: '🚲', text: 'Bike/scooter friendly' };
-    if (radius <= 15) return { icon: '🚗', text: 'Uber/driving recommended' };
-    return { icon: '🛣️', text: 'Road trip territory' };
+    if (radius <= 2) return { icon: 'walk', text: 'Walking distance' };
+    if (radius <= 5) return { icon: 'bicycle', text: 'Bike/scooter friendly' };
+    if (radius <= 15) return { icon: 'car', text: 'Uber/driving recommended' };
+    return { icon: 'car-sport', text: 'Road trip territory' };
   };
 
   const milesToKm = (miles: number): number => {
@@ -114,7 +115,7 @@ const AdventureFilters: React.FC<AdventureFiltersProps> = ({
               className="text-brand-sage text-base font-semibold"
               style={{ fontFamily: 'Inter_600SemiBold' }}
             >
-              🏷️ Experience Types
+              <Ionicons name="pricetags" size={16} color="#2F4F4F" /> Experience Types
             </Text>
             <Text className="text-brand-teal text-xs">
               {filters.experienceTypes?.length || 0}/{maxExperienceSelection} selected
@@ -128,6 +129,7 @@ const AdventureFilters: React.FC<AdventureFiltersProps> = ({
               <Button
                 key={type.id}
                 title={type.name}
+                leftIcon={<Ionicons name={type.icon as keyof typeof Ionicons.glyphMap} size={14} color="#2F4F4F" />}
                 onPress={() => toggleArraySelection(
                   filters.experienceTypes || [],
                   type.name, // Use type.name for compatibility
@@ -214,7 +216,7 @@ const AdventureFilters: React.FC<AdventureFiltersProps> = ({
             </View>
             
             <View className="flex-row items-center justify-center bg-brand-cream rounded-lg p-3">
-              <Text className="text-lg mr-2">{getTransportSuggestion(filters.radius!).icon}</Text>
+              <Ionicons name={getTransportSuggestion(filters.radius!).icon as keyof typeof Ionicons.glyphMap} size={18} color="#2F4F4F" />
               <Text className="text-brand-sage text-sm font-medium">
                 {getTransportSuggestion(filters.radius!).text}
               </Text>
@@ -349,12 +351,12 @@ const AdventureFilters: React.FC<AdventureFiltersProps> = ({
         
         {/* Generate Button */}
         <Button 
-          title={isGenerating ? "Creating Your Adventure..." : "✨ Generate Adventure"}
+          title={isGenerating ? "Creating Your Adventure..." : "Generate Adventure"}
           onPress={onGenerateAdventure} 
           variant="primary"
           size="lg"
           isLoading={isGenerating}
-          leftIcon={!isGenerating ? <Text className="text-xl">🤖</Text> : undefined}
+          leftIcon={isGenerating ? undefined : <Ionicons name="sparkles" size={16} color="white" />}
         />
       </Card>
     </ScrollView>

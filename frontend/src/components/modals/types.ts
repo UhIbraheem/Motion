@@ -29,6 +29,13 @@ export interface Adventure {
   scheduled_by_user_id?: string;
   schedule_reminder_sent?: boolean;
   step_completions?: { [stepIndex: number]: boolean };
+  // Additional properties for category screens and discovery
+  location?: string;
+  rating?: number;
+  price_range?: string;
+  category?: string;
+  subcategory?: string;
+  images?: string[];
 }
 
 export interface ScheduleOption {

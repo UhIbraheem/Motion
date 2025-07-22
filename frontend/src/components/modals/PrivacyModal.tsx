@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 interface PrivacyModalProps {
   visible: boolean;
@@ -95,7 +96,10 @@ const PrivacyModal: React.FC<PrivacyModalProps> = ({
 
             {/* Account Management */}
             <View className="mb-6">
-              <Text className="text-lg font-bold text-text-primary mb-4">👤 Account Management</Text>
+              <View className="flex-row items-center mb-4">
+                <Ionicons name="person" size={20} color="#2F4F4F" />
+                <Text className="text-lg font-bold text-gray-800 ml-2">Account Management</Text>
+              </View>
               
               <TouchableOpacity className="bg-background-subtle rounded-xl p-4 mb-3">
                 <Text className="text-text-primary font-medium">Export My Data</Text>
@@ -110,7 +114,10 @@ const PrivacyModal: React.FC<PrivacyModalProps> = ({
 
             {/* Legal */}
             <View className="mb-6">
-              <Text className="text-lg font-bold text-text-primary mb-4">📋 Legal</Text>
+              <View className="flex-row items-center mb-4">
+                <Ionicons name="document-text" size={20} color="#2F4F4F" />
+                <Text className="text-lg font-bold text-gray-800 ml-2">Legal</Text>
+              </View>
               
               <TouchableOpacity className="bg-background-subtle rounded-xl p-4 mb-3">
                 <Text className="text-text-primary font-medium">Privacy Policy</Text>

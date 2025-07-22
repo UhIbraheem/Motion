@@ -10,14 +10,14 @@ export const experienceTypes: ExperienceType[] = [
   {
     id: 'hidden-gem',
     name: 'Hidden Gem',
-    icon: '💎',
+    icon: 'diamond',
     description: 'Off-the-beaten-path discoveries',
     aiDefinition: 'Hidden Gem: Focus on lesser-known, authentic local spots that aren\'t tourist traps. Prioritize neighborhood favorites, hole-in-the-wall restaurants, secret viewpoints, small local businesses, and places locals actually go. Avoid chain restaurants and major tourist attractions. Something you\'d only find if you really knew the area well.'
   },
   {
     id: 'explorer',
     name: 'Explorer',
-    icon: '🗺️',
+    icon: 'map',
     description: 'Adventure and discovery focused',
     aiDefinition: 'Explorer: Emphasize adventure, discovery, and exploration. Include museums, historical sites, walking tours, hikes, scenic viewpoints, parks, unique neighborhoods to wander, markets to explore, and activities that involve learning about the local area and culture.'
   },
@@ -38,7 +38,7 @@ export const experienceTypes: ExperienceType[] = [
   {
     id: 'solo-freestyle',
     name: 'Solo Freestyle',
-    icon: '🎭',
+    icon: 'theater',
     description: 'Flexible solo-friendly activities',
     aiDefinition: 'Solo Freestyle: Design for independent exploration with flexible timing. Include solo-friendly activities like coffee shops with good vibes, bookstores, art galleries, walking routes, markets, museums, and places where being alone feels natural and comfortable.'
   },
@@ -59,7 +59,7 @@ export const experienceTypes: ExperienceType[] = [
   {
     id: 'artsy',
     name: 'Artsy',
-    icon: '🎨',
+    icon: 'color-palette',
     description: 'Creative and artistic experiences',
     aiDefinition: 'Artsy: Emphasize creative and artistic experiences including art galleries, street art tours, creative workshops, artist studios, design shops, creative districts, craft markets, performance venues, and spaces that showcase local creativity and artistic expression.'
   },
@@ -73,7 +73,7 @@ export const experienceTypes: ExperienceType[] = [
   {
     id: 'culture-dive',
     name: 'Culture Dive',
-    icon: '🏛️',
+    icon: 'library',
     description: 'Deep cultural immersion',
     aiDefinition: 'Culture Dive: Focus on deep cultural immersion and authentic local experiences. Include cultural centers, traditional markets, local festivals, community events, ethnic neighborhoods, cultural performances, historical sites, and activities that provide genuine insight into local culture and traditions.'
   },
@@ -94,7 +94,7 @@ export const experienceTypes: ExperienceType[] = [
   {
     id: 'wellness',
     name: 'Wellness',
-    icon: '🧘‍♀️',
+    icon: 'body',
     description: 'Relaxation and self-care experiences',
     aiDefinition: 'Wellness: Focus on relaxation, self-care, and rejuvenation. Include spas, wellness centers, yoga studios, meditation spaces, nature retreats, and activities that promote mental and physical well-being. Ideal for those looking to unwind and recharge.'
   },

@@ -197,7 +197,7 @@ const [filters, setFilters] = useState<AdventureFiltersType>({
       }
 
       Alert.alert(
-        'Adventure Saved! 🎉', 
+        'Adventure Saved!', 
         `"${generatedAdventure.title}" has been saved to your plans.`,
         [
           { 

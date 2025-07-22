@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 interface PreferencesModalProps {
   visible: boolean;
@@ -46,7 +47,10 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({
           >
             {/* Adventure Preferences */}
             <View className="mb-6">
-              <Text className="text-lg font-bold text-text-primary mb-4">🎯 Adventure Preferences</Text>
+              <View className="flex-row items-center mb-4">
+                <Ionicons name="settings" size={20} color="#2F4F4F" />
+                <Text className="text-lg font-bold text-gray-800 ml-2">Adventure Preferences</Text>
+              </View>
               
               <View className="bg-background-subtle rounded-xl p-4 mb-4">
                 <Text className="text-text-primary font-medium mb-2">Preferred Adventure Types</Text>
@@ -83,7 +87,10 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({
 
             {/* Notification Preferences */}
             <View className="mb-6">
-              <Text className="text-lg font-bold text-text-primary mb-4">🔔 Notifications</Text>
+              <View className="flex-row items-center mb-4">
+                <Ionicons name="notifications" size={20} color="#2F4F4F" />
+                <Text className="text-lg font-bold text-gray-800 ml-2">Notifications</Text>
+              </View>
               
               <View className="bg-background-subtle rounded-xl p-4">
                 <TouchableOpacity className="flex-row justify-between items-center py-2">

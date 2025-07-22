@@ -10,6 +10,7 @@ import {
   ImageBackground,
   Alert,
 } from 'react-native';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
@@ -222,7 +223,17 @@ export const GradientAdventureCard: React.FC<GradientAdventureCardProps> = ({
                         color: adventure.is_completed ? '#10b981' : '#f2cc6c',
                       }}
                     >
-                      {adventure.is_completed ? '✓ Completed' : '⏳ Upcoming'}
+                      {adventure.is_completed ? (
+                        <View className="flex-row items-center">
+                          <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+                          <Text> Completed</Text>
+                        </View>
+                      ) : (
+                        <View className="flex-row items-center">
+                          <Ionicons name="time" size={16} color="#f59e0b" />
+                          <Text> Upcoming</Text>
+                        </View>
+                      )}
                     </Text>
                   </View>
 
@@ -252,7 +263,7 @@ export const GradientAdventureCard: React.FC<GradientAdventureCardProps> = ({
                           bottom: 0,
                         }}
                       />
-                      <Text style={{ fontSize: 16 }}>⭐</Text>
+                      <Ionicons name="star" size={16} color="#f59e0b" />
                     </View>
                   )}
                 </ImageBackground>

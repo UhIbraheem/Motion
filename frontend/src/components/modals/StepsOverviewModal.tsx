@@ -12,6 +12,7 @@ import {
   Alert,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { Ionicons } from '@expo/vector-icons';
 import { typography, spacing, borderRadius, getCurrentTheme } from '../../constants/Theme';
 import { useTheme } from '../../context/ThemeContext';
 import { Adventure, AdventureStep } from './types';
@@ -479,7 +480,7 @@ const StepsOverviewModal: React.FC<StepsOverviewModalProps> = ({
                         alignItems: 'center',
                         marginBottom: spacing.sm,
                       }}>
-                        <Text style={{ fontSize: 16, marginRight: spacing.sm }}>📍</Text>
+                        <Ionicons name="location" size={16} color="#6B7280" style={{ marginRight: 8 }} />
                         <Text style={{
                           ...typography.body,
                           color: themeColors.text.secondary,

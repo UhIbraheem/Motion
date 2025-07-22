@@ -11,6 +11,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { typography, spacing, borderRadius, getCurrentTheme } from '../../constants/Theme';
 import { useTheme } from '../../context/ThemeContext';
 import { Adventure } from './types';

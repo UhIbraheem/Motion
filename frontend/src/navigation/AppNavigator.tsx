@@ -7,7 +7,7 @@ import FloatingTabBar from './FloatingTabBar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Import screens
-import DiscoverScreen from '../screens/DiscoverScreen';
+import DiscoverNavigator from './DiscoverNavigator';
 import CurateScreen from '../screens/CurateScreen';
 import PlansScreen from '../screens/PlansScreen';
 import ProfileScreen from '../screens/ProfileScreen';
@@ -145,7 +145,7 @@ const CollapsibleHeader = ({ title, children }: { title: string; children: React
                   fontFamily: 'System'
                 }}
               >
-                {getGreeting()} ✨
+                {getGreeting()}
               </Text>
             </Animated.View>
           </Animated.View>
@@ -208,7 +208,7 @@ const CollapsibleHeader = ({ title, children }: { title: string; children: React
 // Wrapper components for each screen
 const DiscoverScreenWrapper = () => (
   <CollapsibleHeader title="Discover">
-    <DiscoverScreen />
+    <DiscoverNavigator />
   </CollapsibleHeader>
 );
 

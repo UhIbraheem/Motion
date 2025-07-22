@@ -10,6 +10,10 @@ export type DiscoverStackParamList = {
   DiscoverHome: undefined;
   AdventureDetails: { id: string };
   Category: { name: string };
+  FoodCategory: undefined;
+  CultureCategory: undefined;
+  OutdoorCategory: undefined;
+  NightlifeCategory: undefined;
 };
 
 export type CurateStackParamList = {

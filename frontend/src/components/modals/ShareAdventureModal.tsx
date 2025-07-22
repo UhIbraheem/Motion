@@ -14,6 +14,7 @@ import {
   KeyboardAvoidingView,
   Platform
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import Button from '../Button';
 import { aiService } from '../../services/aiService';
@@ -202,7 +203,11 @@ export const ShareAdventureModal: React.FC<ShareAdventureModalProps> = ({
                       className="p-1"
                     >
                       <Text className="text-2xl">
-                        {star <= rating ? '⭐' : '☆'}
+                        <Ionicons 
+                          name={star <= rating ? "star" : "star-outline"} 
+                          size={20} 
+                          color="#f59e0b" 
+                        />
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -225,7 +230,7 @@ export const ShareAdventureModal: React.FC<ShareAdventureModalProps> = ({
                         className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full items-center justify-center"
                         onPress={() => setPhotos(photos.filter((_, i) => i !== index))}
                       >
-                        <Text className="text-white text-xs">✕</Text>
+                        <Ionicons name="close" size={12} color="white" />
                       </TouchableOpacity>
                     </View>
                   ))}
@@ -234,7 +239,7 @@ export const ShareAdventureModal: React.FC<ShareAdventureModalProps> = ({
                       onPress={pickImage}
                       className="w-20 h-20 rounded-xl border-2 border-dashed border-brand-gold items-center justify-center bg-gray-50"
                     >
-                      <Text className="text-2xl">📷</Text>
+                      <Ionicons name="camera" size={24} color="#9CA3AF" />
                       <Text className="text-xs text-gray-600 mt-1">Add</Text>
                     </TouchableOpacity>
                   )}

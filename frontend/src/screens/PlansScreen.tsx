@@ -12,6 +12,7 @@ import {
   FlatList,
   Dimensions
 } from 'react-native';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import Button from '../components/Button';
 import { GradientAdventureCard } from '../components/GradientAdventureCard';
 import { AdventureDetailModal } from '../components/modals/AdventureDetailModal';
@@ -209,7 +210,7 @@ const PlansScreen: React.FC = () => {
 
       // Show success message
       Alert.alert(
-        '🎉 Congratulations!', 
+        'Congratulations!', 
         'Adventure completed! Great job exploring.',
         [{ text: 'Awesome!', style: 'default' }]
       );
@@ -351,7 +352,7 @@ const PlansScreen: React.FC = () => {
                 <Text style={{ fontSize: 14, fontWeight: '600', color: '#3c7660', marginRight: 8 }}>
                   Share to Community
                 </Text>
-                <Text style={{ fontSize: 16 }}>✨</Text>
+                <Ionicons name="sparkles" size={16} color="#f59e0b" />
               </TouchableOpacity>
             )}
           </View>
@@ -402,7 +403,7 @@ const PlansScreen: React.FC = () => {
           {/* Content */}
           {adventures.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyStateEmoji}>🗺️</Text>
+              <MaterialIcons name="explore" size={48} color="#D1D5DB" />
               <Text style={styles.emptyStateTitle}>No Adventures Yet</Text>
               <Text style={styles.emptyStateText}>
                 Create your first AI-powered adventure in the Curate tab to see it here.
@@ -421,7 +422,10 @@ const PlansScreen: React.FC = () => {
               {upcomingAdventures.length > 0 && (
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>
-                    🎯 Upcoming Adventures ({upcomingAdventures.length})
+                  <View className="flex-row items-center">
+                    <Ionicons name="time" size={16} color="#f59e0b" />
+                    <Text style={styles.sectionTitle}> Upcoming Adventures ({upcomingAdventures.length})</Text>
+                  </View>
                   </Text>
                   <Text style={styles.sectionSubtitle}>
                     Swipe left/right to browse • Long press to delete
@@ -435,7 +439,10 @@ const PlansScreen: React.FC = () => {
               {completedAdventures.length > 0 && (
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>
-                    ✅ Completed Adventures ({completedAdventures.length})
+                  <View className="flex-row items-center">
+                    <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+                    <Text style={styles.sectionTitle}> Completed Adventures ({completedAdventures.length})</Text>
+                  </View>
                   </Text>
                   <Text style={styles.sectionSubtitle}>
                     Swipe left/right to browse • Tap share button to inspire others
