@@ -338,17 +338,20 @@ const ProfileScreen: React.FC = () => {
   }
 
   return (
-    <View className="flex-1 bg-gray-50">
+    <SafeAreaView className="flex-1 bg-gray-50">
       <ScrollView 
-        className="flex-1 p-4"
+        className="flex-1"
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <View className="mb-6">
-          <Text className="text-2xl font-bold text-brand-sage">Profile</Text>
+        <View className="p-4 pb-2">
+          <Text className="text-2xl font-bold text-gray-800">Profile</Text>
+          <Text className="text-gray-600">
+            Manage your account and preferences
+          </Text>
         </View>
         {/* Profile Header */}
-        <View className="items-center mb-6">
+        <View className="items-center mb-6 px-4">
           <TouchableOpacity onPress={pickProfileImage} className="relative mb-4">
             {userProfile.profile_picture_url ? (
               <View className="w-24 h-24 rounded-full"
@@ -398,30 +401,28 @@ const ProfileScreen: React.FC = () => {
             <Text className="text-xl font-bold text-gray-800 mb-1">
               {getDisplayName()}
             </Text>
-            <Text className="text-text-secondary text-base mb-1">
+            <Text className="text-gray-500 text-base mb-1">
               {user.email}
             </Text>
             {userProfile.home_city && (
-              <Text className="text-brand-teal text-sm mb-1">
-              <View className="flex-row items-center">
+              <View className="flex-row items-center mb-1">
                 <Ionicons name="location" size={16} color="#6B7280" />
                 <Text className="text-gray-600 ml-1">{userProfile.home_city}</Text>
               </View>
-              </Text>
             )}
             {userProfile.bio && (
-              <Text className="text-text-secondary text-sm text-center mt-2 px-4 leading-5">
+              <Text className="text-gray-500 text-sm text-center mt-2 px-4 leading-5">
                 {userProfile.bio}
               </Text>
             )}
-            <Text className="text-text-secondary text-sm mt-2">
+            <Text className="text-gray-500 text-sm mt-2">
               Member since {formatJoinDate(userStats.joinedDate)}
             </Text>
           </View>
         </View>
 
         {/* Stats Cards */}
-        <View className="mb-6">
+        <View className="mb-6 px-4">
           <View className="flex-row items-center mb-3">
             <MaterialIcons name="analytics" size={18} color="#6B7280" />
             <Text className="text-lg font-semibold text-gray-800 ml-2">Your Journey</Text>
@@ -455,77 +456,91 @@ const ProfileScreen: React.FC = () => {
         </View>
 
         {/* Account Settings */}
-        <Card title="Account Settings" elevated={true}>
-          <View className="space-y-3">
+        <View className="px-4">
+          <Card title="Account Settings" elevated={true}>
+          <View className="space-y-1">
             <TouchableOpacity 
-              className="flex-row justify-between items-center py-3 px-2 rounded-lg bg-gray-100"
+              className="flex-row justify-between items-center py-4 px-2"
               onPress={() => setEditProfileVisible(true)}
             >
               <View className="flex-row items-center">
-                <Ionicons name="person" size={18} color="#6B7280" />
+                <Ionicons name="person" size={20} color="#3c7660" />
                 <Text className="text-base font-medium text-gray-800 ml-3">Edit Profile</Text>
               </View>
-              <Ionicons name="chevron-forward" size={16} color="#6B7280" />
+              <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
             </TouchableOpacity>
 
+            <View className="h-px bg-gray-100 mx-2" />
+
             <TouchableOpacity 
-              className="flex-row justify-between items-center py-3 px-2 rounded-lg bg-gray-100"
+              className="flex-row justify-between items-center py-4 px-2"
               onPress={() => setShowPreferencesModal(true)}
             >
               <View className="flex-row items-center">
-                <Ionicons name="settings" size={18} color="#6B7280" />
+                <Ionicons name="settings" size={20} color="#3c7660" />
                 <Text className="text-base font-medium text-gray-800 ml-3">Preferences</Text>
               </View>
-              <Ionicons name="chevron-forward" size={16} color="#6B7280" />
+              <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
             </TouchableOpacity>
 
-            <TouchableOpacity className="flex-row justify-between items-center py-3 px-2 rounded-lg bg-gray-100">
+            <View className="h-px bg-gray-100 mx-2" />
+
+            <TouchableOpacity className="flex-row justify-between items-center py-4 px-2">
               <View className="flex-row items-center">
-                <Ionicons name="notifications" size={18} color="#6B7280" />
+                <Ionicons name="notifications" size={20} color="#3c7660" />
                 <Text className="text-base font-medium text-gray-800 ml-3">Notifications</Text>
               </View>
-              <Ionicons name="chevron-forward" size={16} color="#6B7280" />
+              <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
             </TouchableOpacity>
 
-            <TouchableOpacity className="flex-row justify-between items-center py-3 px-2 rounded-lg bg-gray-100">
+            <View className="h-px bg-gray-100 mx-2" />
+
+            <TouchableOpacity className="flex-row justify-between items-center py-4 px-2">
               <View className="flex-row items-center">
-                <Ionicons name="shield-checkmark" size={18} color="#6B7280" />
+                <Ionicons name="shield-checkmark" size={20} color="#3c7660" />
                 <Text className="text-base font-medium text-gray-800 ml-3">Privacy & Security</Text>
               </View>
-              <Ionicons name="chevron-forward" size={16} color="#6B7280" />
+              <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
             </TouchableOpacity>
           </View>
         </Card>
+        </View>
 
         {/* App Info */}
-        <Card title="About Motion" elevated={true}>
-          <View className="space-y-3">
-            <TouchableOpacity className="flex-row justify-between items-center py-3 px-2 rounded-lg bg-gray-100">
+        <View className="px-4">
+          <Card title="About Motion" elevated={true}>
+          <View className="space-y-1">
+            <TouchableOpacity className="flex-row justify-between items-center py-4 px-2">
               <View className="flex-row items-center">
-                <Ionicons name="chatbubble-ellipses" size={18} color="#6B7280" />
+                <Ionicons name="chatbubble-ellipses" size={20} color="#3c7660" />
                 <Text className="text-base font-medium text-gray-800 ml-3">Send Feedback</Text>
               </View>
-              <Ionicons name="chevron-forward" size={16} color="#6B7280" />
+              <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
             </TouchableOpacity>
 
-            <TouchableOpacity className="flex-row justify-between items-center py-3 px-2 rounded-lg bg-gray-100">
+            <View className="h-px bg-gray-100 mx-2" />
+
+            <TouchableOpacity className="flex-row justify-between items-center py-4 px-2">
               <View className="flex-row items-center">
-                <Ionicons name="document-text" size={18} color="#6B7280" />
+                <Ionicons name="document-text" size={20} color="#3c7660" />
                 <Text className="text-base font-medium text-gray-800 ml-3">Terms & Privacy</Text>
               </View>
-              <Ionicons name="chevron-forward" size={16} color="#6B7280" />
+              <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
             </TouchableOpacity>
 
-            <View className="py-3 px-2">
-              <Text className="text-text-secondary text-sm">
+            <View className="h-px bg-gray-100 mx-2" />
+
+            <View className="py-4 px-2">
+              <Text className="text-gray-500 text-sm">
                 Motion v1.0.0 • AI-Powered Adventures
               </Text>
             </View>
           </View>
         </Card>
+        </View>
 
         {/* Sign Out Button */}
-        <View className="mt-6 mb-8">
+        <View className="mt-6 mb-6 px-4">
           <Button
             title={isSigningOut ? "Signing Out..." : "Sign Out"}
             onPress={handleSignOut}
@@ -535,6 +550,9 @@ const ProfileScreen: React.FC = () => {
             leftIcon={!isSigningOut ? <Ionicons name="log-out" size={18} color="#EF4444" /> : undefined}
           />
         </View>
+
+        {/* Footer spacing for floating tab bar */}
+        <View className="h-20" />
       </ScrollView>
 
       {/* Modals */}
@@ -563,7 +581,7 @@ const ProfileScreen: React.FC = () => {
         onClose={() => setShowPrivacyModal(false)}
         onBackToPreferences={() => setShowPreferencesModal(true)}
       />
-    </View>
+    </SafeAreaView>
   );
 };
 

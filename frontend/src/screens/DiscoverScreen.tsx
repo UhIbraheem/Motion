@@ -325,6 +325,7 @@ const DiscoverScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
             horizontal 
             showsHorizontalScrollIndicator={false}
             className="mb-4"
+            contentContainerStyle={{ paddingHorizontal: 24 }}
           >
             {experienceTypes.map((experience) => (
               <CategoryCard 
@@ -336,8 +337,8 @@ const DiscoverScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
         </View>
 
         {/* Community Adventures Section */}
-        <View className="px-6 mb-8">
-          <View className="flex-row items-center justify-between mb-4">
+        <View className="mb-8">
+          <View className="flex-row items-center justify-between mb-4 px-6">
             <Text className="text-xl font-bold text-gray-900">Community Adventures</Text>
             <TouchableOpacity>
               <Text className="text-green-600 font-medium">View All</Text>
@@ -346,7 +347,7 @@ const DiscoverScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
 
           {/* Community Adventures List */}
           {communityAdventures.length === 0 ? (
-            <View className="h-40 items-center justify-center bg-gray-100 rounded-xl">
+            <View className="h-40 items-center justify-center bg-gray-100 rounded-xl mx-6">
               <Ionicons name="compass" size={32} color="#9CA3AF" />
               <Text className="text-gray-500 text-center mt-2">No community adventures yet</Text>
               <Text className="text-gray-400 text-sm text-center mt-1">Be the first to share an adventure!</Text>
@@ -356,6 +357,7 @@ const DiscoverScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
               horizontal 
               showsHorizontalScrollIndicator={false}
               className="pb-4"
+              contentContainerStyle={{ paddingHorizontal: 24 }}
             >
               {communityAdventures.map((adventure) => (
                 <CommunityAdventureCard key={adventure.id} adventure={adventure} />

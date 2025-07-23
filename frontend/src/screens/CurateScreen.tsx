@@ -221,7 +221,7 @@ const [filters, setFilters] = useState<AdventureFiltersType>({
   // Only show filters if no adventure is generated
   if (!generatedAdventure) {
     return (
-      <SafeAreaView className="flex-1 bg-background-light">
+      <SafeAreaView className="flex-1 bg-gray-50">
         <AdventureFilters
           greeting={greeting}
           filters={filters}

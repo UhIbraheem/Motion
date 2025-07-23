@@ -1,4 +1,4 @@
-// src/screens/PlansScreen.tsx - Netflix-style Horizontal Scrolling
+// src/screens/PlansScreen.tsx - Clean Modern Design
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
@@ -7,7 +7,6 @@ import {
   SafeAreaView, 
   RefreshControl, 
   Alert,
-  StyleSheet,
   TouchableOpacity,
   FlatList,
   Dimensions
@@ -366,46 +365,46 @@ const PlansScreen: React.FC = () => {
 
   if (isLoading) {
     return (
-      <View className="flex-1 bg-background-light">
-        <View style={styles.centerContent}>
-          <Text style={styles.loadingText}>Loading your adventures...</Text>
+      <SafeAreaView className="flex-1 bg-gray-50">
+        <View className="flex-1 items-center justify-center">
+          <Ionicons name="calendar" size={48} color="#3c7660" />
+          <Text className="text-gray-600 text-lg mt-4">Loading your adventures...</Text>
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View className="flex-1 bg-background-light">
-        <ScrollView
-          className="flex-1"
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={() => loadAdventures(true)}
-              colors={['#3c7660']} // brand-sage
-              tintColor="#3c7660"
-            />
-          }
-        >
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>Your Adventures</Text>
-            <Text style={styles.headerSubtitle}>
-              {adventures.length === 0 
-                ? 'No adventures yet' 
-                : `${adventures.length} adventure${adventures.length === 1 ? '' : 's'} saved`
-              }
-            </Text>
-          </View>
+    <SafeAreaView className="flex-1 bg-gray-50">
+      <ScrollView
+        className="flex-1"
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => loadAdventures(true)}
+            tintColor="#3c7660"
+          />
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View className="p-4 pb-2">
+          <Text className="text-2xl font-bold text-gray-800">My Adventures</Text>
+          <Text className="text-gray-600">
+            {adventures.length === 0 
+              ? 'No adventures yet' 
+              : `${adventures.length} adventure${adventures.length === 1 ? '' : 's'} saved`
+            }
+          </Text>
+        </View>
 
-          {/* Content */}
-          {adventures.length === 0 ? (
-            <View style={styles.emptyState}>
-              <MaterialIcons name="explore" size={48} color="#D1D5DB" />
-              <Text style={styles.emptyStateTitle}>No Adventures Yet</Text>
-              <Text style={styles.emptyStateText}>
+        {/* Content */}
+        {adventures.length === 0 ? (
+          <View className="px-6 mb-8">
+            <View className="h-60 items-center justify-center bg-gray-100 rounded-xl">
+              <MaterialIcons name="explore" size={48} color="#9CA3AF" />
+              <Text className="text-lg font-semibold text-gray-700 mb-2 mt-4">No Adventures Yet</Text>
+              <Text className="text-gray-500 text-center px-8 leading-6 mb-6">
                 Create your first AI-powered adventure in the Curate tab to see it here.
               </Text>
               <Button
@@ -416,149 +415,76 @@ const PlansScreen: React.FC = () => {
                 variant="primary"
               />
             </View>
-          ) : (
-            <>
-              {/* Upcoming Adventures */}
-              {upcomingAdventures.length > 0 && (
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>
-                  <View className="flex-row items-center">
-                    <Ionicons name="time" size={16} color="#f59e0b" />
-                    <Text style={styles.sectionTitle}> Upcoming Adventures ({upcomingAdventures.length})</Text>
-                  </View>
+          </View>
+        ) : (
+          <>
+            {/* Upcoming Adventures */}
+            {upcomingAdventures.length > 0 && (
+              <View className="px-6 mb-8">
+                <View className="flex-row items-center mb-2">
+                  <Ionicons name="time" size={18} color="#f59e0b" />
+                  <Text className="text-xl font-bold text-gray-900 ml-2">
+                    Upcoming Adventures ({upcomingAdventures.length})
                   </Text>
-                  <Text style={styles.sectionSubtitle}>
-                    Swipe left/right to browse • Long press to delete
-                  </Text>
-                  
-                  {renderHorizontalAdventureList(upcomingAdventures, false)}
                 </View>
-              )}
+                <Text className="text-gray-500 text-sm mb-4">
+                  Swipe left/right to browse • Long press to delete
+                </Text>
+                
+                {renderHorizontalAdventureList(upcomingAdventures, false)}
+              </View>
+            )}
 
-              {/* Completed Adventures */}
-              {completedAdventures.length > 0 && (
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>
-                  <View className="flex-row items-center">
-                    <Ionicons name="checkmark-circle" size={16} color="#10b981" />
-                    <Text style={styles.sectionTitle}> Completed Adventures ({completedAdventures.length})</Text>
-                  </View>
+            {/* Completed Adventures */}
+            {completedAdventures.length > 0 && (
+              <View className="px-6 mb-8">
+                <View className="flex-row items-center mb-2">
+                  <Ionicons name="checkmark-circle" size={18} color="#10b981" />
+                  <Text className="text-xl font-bold text-gray-900 ml-2">
+                    Completed Adventures ({completedAdventures.length})
                   </Text>
-                  <Text style={styles.sectionSubtitle}>
-                    Swipe left/right to browse • Tap share button to inspire others
-                  </Text>
-                  
-                  {renderHorizontalAdventureList(completedAdventures, true)}
                 </View>
-              )}
-            </>
-          )}
-        </ScrollView>
+                <Text className="text-gray-500 text-sm mb-4">
+                  Swipe left/right to browse • Tap share button to inspire others
+                </Text>
+                
+                {renderHorizontalAdventureList(completedAdventures, true)}
+              </View>
+            )}
+          </>
+        )}
 
-        {/* Adventure Detail Modal */}
-        <AdventureDetailModal
-          visible={modalVisible}
-          adventure={selectedAdventure}
-          onClose={closeModal}
-          onMarkComplete={handleMarkAdventureComplete}
-          onUpdateStepCompletion={handleUpdateStepCompletion}
-          onUpdateScheduledDate={handleUpdateScheduledDate}
-          formatDate={formatDate}
-          formatDuration={formatDuration}
-          formatCost={formatCost}
-        />
+        {/* Footer spacing */}
+        <View className="h-20" />
+      </ScrollView>
 
-        {/* Share Adventure Modal */}
-        <ShareAdventureModal
-          visible={shareModalVisible}
-          adventure={adventureToShare}
-          onClose={() => {
-            setShareModalVisible(false);
-            setAdventureToShare(null);
-          }}
-          onSuccess={() => {
-            loadAdventures(); // Refresh the list
-          }}
-        />
-      </View>
+      {/* Adventure Detail Modal */}
+      <AdventureDetailModal
+        visible={modalVisible}
+        adventure={selectedAdventure}
+        onClose={closeModal}
+        onMarkComplete={handleMarkAdventureComplete}
+        onUpdateStepCompletion={handleUpdateStepCompletion}
+        onUpdateScheduledDate={handleUpdateScheduledDate}
+        formatDate={formatDate}
+        formatDuration={formatDuration}
+        formatCost={formatCost}
+      />
+
+      {/* Share Adventure Modal */}
+      <ShareAdventureModal
+        visible={shareModalVisible}
+        adventure={adventureToShare}
+        onClose={() => {
+          setShareModalVisible(false);
+          setAdventureToShare(null);
+        }}
+        onSuccess={() => {
+          loadAdventures(); // Refresh the list
+        }}
+      />
+    </SafeAreaView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8f8f8',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 100, // Extra space for tab bar
-  },
-  centerContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#3c7660',
-    fontWeight: '500',
-  },
-  header: {
-    marginBottom: 24,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#3c7660',
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: '#666',
-  },
-  section: {
-    marginBottom: 32,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#3c7660',
-    marginBottom: 4,
-    paddingHorizontal: 16,
-  },
-  sectionSubtitle: {
-    fontSize: 12,
-    color: '#999',
-    marginBottom: 16,
-    paddingHorizontal: 16,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 32,
-  },
-  emptyStateEmoji: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  emptyStateTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#3c7660',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  emptyStateText: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 32,
-  },
-});
 
 export default PlansScreen;

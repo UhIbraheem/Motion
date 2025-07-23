@@ -62,13 +62,11 @@ const AdventureFilters: React.FC<AdventureFiltersProps> = ({
 
   return (
     <ScrollView className="flex-1 p-4">
-      {/* Random Greeting Header */}
-      <View className="mb-2">
-        <Text
-          className="text-3xl font-bold text-brand-sage mb-1"
-          style={{ fontFamily: 'Poppins_700', letterSpacing: -0.5 }}
-        >
-          {greeting}
+      {/* Header */}
+      <View className="mb-6">
+        <Text className="text-2xl font-bold text-gray-800">Create Plan</Text>
+        <Text className="text-gray-600">
+          {greeting}! Tell us what you're in the mood for
         </Text>
       </View>
 
@@ -360,6 +358,9 @@ const AdventureFilters: React.FC<AdventureFiltersProps> = ({
           leftIcon={isGenerating ? undefined : <Ionicons name="sparkles" size={16} color="white" />}
         />
       </Card>
+      
+      {/* Footer spacing for floating tab bar */}
+      <View className="h-20" />
     </ScrollView>
   );
 };

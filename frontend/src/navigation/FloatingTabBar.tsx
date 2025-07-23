@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: '50%',
     height: TAB_BAR_HEIGHT * 0.8,
-    backgroundColor: 'rgba(120, 120, 120, 0.2)',
+    backgroundColor: 'rgba(60, 118, 96, 0.85)',
     borderRadius: (TAB_BAR_HEIGHT * 0.8) / 2,
     marginTop: -(TAB_BAR_HEIGHT * 0.8) / 2,
     zIndex: 1,
