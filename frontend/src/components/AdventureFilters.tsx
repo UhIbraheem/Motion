@@ -91,7 +91,7 @@ const AdventureFilters: React.FC<AdventureFiltersProps> = ({
             className="text-brand-sage text-base font-semibold mb-2"
             style={{ fontFamily: 'Inter_600SemiBold' }}
           >
-            🕐 Adventure Timing
+            <Ionicons name="time" size={16} color="#2F4F4F" /> Adventure Timing
           </Text>
           
           <TimingSection
@@ -183,7 +183,7 @@ const AdventureFilters: React.FC<AdventureFiltersProps> = ({
             className="text-brand-sage text-base font-semibold mb-2"
             style={{ fontFamily: 'Inter_600SemiBold' }}
           >
-            📏 Max Distance
+            <Ionicons name="resize" size={16} color="#2F4F4F" /> Max Distance
           </Text>
           
           <View className="bg-brand-light rounded-lg p-4">
@@ -287,7 +287,8 @@ const AdventureFilters: React.FC<AdventureFiltersProps> = ({
                   className="text-brand-sage text-sm font-medium mb-2"
                   style={{ fontFamily: 'Inter_500Medium' }}
                 >
-                  🚨 Dietary Restrictions
+                  <Ionicons name="warning" size={16} color="#EF4444" />
+                  <Text className="ml-1">Dietary Restrictions</Text>
                 </Text>
                 <Text className="text-xs text-text-secondary mb-3">
                   Select any allergies or strict dietary requirements

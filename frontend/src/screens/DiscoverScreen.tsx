@@ -1,4 +1,3 @@
-// src/screens/DiscoverScreen.tsx - WITH ADVENTURE DETAIL MODAL (NO ICONS CHANGED)
 import React, { useState, useEffect } from 'react';
 import { 
   View, 
@@ -7,13 +6,14 @@ import {
   RefreshControl, 
   TouchableOpacity,
   Alert,
-  FlatList 
+  FlatList,
+  SafeAreaView 
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { aiService } from '../services/aiService';
 import { useAuth } from '../context/AuthContext';
-import { AdventureDetailModal } from '../components/modals/AdventureDetailModal';
+import { experienceTypes } from '../data/experienceTypes';
 
 interface CommunityAdventure {
   id: string;
@@ -41,42 +41,6 @@ const DiscoverScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const [communityAdventures, setCommunityAdventures] = useState<CommunityAdventure[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  
-  // Modal state
-  const [selectedAdventure, setSelectedAdventure] = useState<any>(null);
-  const [modalVisible, setModalVisible] = useState(false);
-
-  // Category data
-  const categories = [
-    { 
-      id: 'food', 
-      title: 'Food & Drink', 
-      icon: 'restaurant', 
-      color: '#FF6B6B',
-      iconFamily: 'Ionicons' 
-    },
-    { 
-      id: 'culture', 
-      title: 'Culture', 
-      icon: 'museum', 
-      color: '#4ECDC4',
-      iconFamily: 'MaterialIcons' 
-    },
-    { 
-      id: 'outdoor', 
-      title: 'Outdoors', 
-      icon: 'tree', 
-      color: '#45B7D1',
-      iconFamily: 'FontAwesome5' 
-    },
-    { 
-      id: 'party', 
-      title: 'Nightlife', 
-      icon: 'musical-notes', 
-      color: '#96CEB4',
-      iconFamily: 'Ionicons' 
-    }
-  ];
 
   useEffect(() => {
     loadCommunityAdventures();
@@ -103,6 +67,7 @@ const DiscoverScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
       if (error) {
         console.error('❌ Error loading community adventures:', error);
         Alert.alert('Error', 'Failed to load community adventures');
+        setCommunityAdventures([]);
         return;
       }
 
@@ -110,6 +75,7 @@ const DiscoverScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
       setCommunityAdventures(data || []);
     } catch (error) {
       console.error('❌ Unexpected error loading community adventures:', error);
+      setCommunityAdventures([]);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -177,89 +143,30 @@ const DiscoverScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
     return stars;
   };
 
-  const handleCategoryPress = (category: any) => {
-    if (!navigation) {
-      Alert.alert('Coming Soon', `${category.title} adventures will be available soon!`);
-      return;
-    }
-
-    // Navigate to category-specific screens
-    switch (category.id) {
-      case 'food':
-        navigation.navigate('FoodCategory');
-        break;
-      case 'culture':
-        navigation.navigate('CultureCategory');
-        break;
-      case 'outdoor':
-        navigation.navigate('OutdoorCategory');
-        break;
-      case 'party':
-        navigation.navigate('NightlifeCategory');
-        break;
-      default:
-        Alert.alert('Coming Soon', `${category.title} adventures will be available soon!`);
-    }
-  };
-
-  // Format functions for modal
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
+  const handleCategoryPress = (experience: any) => {
+    Alert.alert('Coming Soon', `${experience.name} adventures will be available soon!`);
   };
 
   const handleAdventurePress = (adventure: CommunityAdventure) => {
-    // Transform community adventure to match AdventureDetailModal format
-    const transformedAdventure = {
-      id: adventure.id,
-      title: adventure.custom_title || 'Community Adventure',
-      description: adventure.custom_description || 'A shared adventure from the community',
-      duration_hours: adventure.duration_hours || 2,
-      estimated_cost: typeof adventure.estimated_cost === 'string'
-        ? parseInt((adventure.estimated_cost as string).replace(/\$/g, '')) || 25
-        : typeof adventure.estimated_cost === 'number'
-          ? adventure.estimated_cost
-          : 25,
-      steps: adventure.steps || [],
-      is_completed: true, // Community adventures are already completed
-      is_favorite: false,
-      created_at: adventure.created_at || new Date().toISOString(),
-      step_completions: {}
-    };
-    
-    setSelectedAdventure(transformedAdventure);
-    setModalVisible(true);
+    Alert.alert(
+      adventure.custom_title,
+      adventure.custom_description,
+      [{ text: 'OK' }]
+    );
   };
 
-  // Close modal
-  const closeModal = () => {
-    setModalVisible(false);
-    setSelectedAdventure(null);
-  };
-
-  // Placeholder functions for AdventureDetailModal
-  const handleMarkAdventureComplete = (adventureId: string) => {
-    Alert.alert('Info', 'This adventure is already completed by the original creator!');
-    closeModal();
-  };
-
-  const handleUpdateStepCompletion = (adventureId: string, stepIndex: number, completed: boolean) => {
-    // No-op for community adventures - they're read-only
-  };
-
-  const handleSaveAdventure = (adventure: CommunityAdventure) => {
-    // TODO: Implement saving community adventure to user's plans
-    Alert.alert('Feature Coming Soon', 'Saving community adventures to your plans will be available soon!');
-  };
-
-  const handleHeartPress = (adventureId: string) => {
-    // TODO: Implement liking adventures
-    Alert.alert('Feature Coming Soon', 'Liking adventures will be available soon!');
-  };
+  const CategoryCard = ({ experience }: { experience: any }) => (
+    <TouchableOpacity
+      className="bg-white rounded-2xl mr-4 shadow-sm border border-gray-100 items-center justify-center"
+      style={{ width: 140, height: 100 }}
+      onPress={() => handleCategoryPress(experience)}
+    >
+      <Ionicons name={experience.icon} size={32} color="#3c7660" />
+      <Text className="text-gray-800 font-semibold mt-2 text-sm text-center">
+        {experience.name}
+      </Text>
+    </TouchableOpacity>
+  );
 
   const CommunityAdventureCard = ({ adventure }: { adventure: CommunityAdventure }) => (
     <TouchableOpacity
@@ -268,8 +175,8 @@ const DiscoverScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
       onPress={() => handleAdventurePress(adventure)}
       activeOpacity={0.7}
     >
-      {/* Photo placeholder - will show user photos when available */}
-      <View className="h-40 bg-gradient-to-br from-green-200 to-green-600 rounded-t-2xl items-center justify-center">
+      {/* Photo placeholder */}
+      <View className="h-40 bg-green-500 rounded-t-2xl items-center justify-center">
         <Ionicons name="image-outline" size={40} color="white" />
         <Text className="text-white text-sm mt-2">Adventure Photo</Text>
       </View>
@@ -338,10 +245,7 @@ const DiscoverScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
           </View>
 
           {/* Heart button */}
-          <TouchableOpacity
-            onPress={() => handleHeartPress(adventure.id)}
-            className="flex-row items-center"
-          >
+          <TouchableOpacity className="flex-row items-center">
             <Ionicons name="heart-outline" size={18} color="#9CA3AF" />
             <Text className="text-sm text-gray-500 ml-1">0</Text>
           </TouchableOpacity>
@@ -352,20 +256,19 @@ const DiscoverScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
 
   if (isLoading) {
     return (
-      <View className="flex-1 bg-gray-50">
+      <SafeAreaView className="flex-1 bg-gray-50">
         <View className="flex-1 items-center justify-center">
           <Ionicons name="compass" size={48} color="#3c7660" />
           <Text className="text-gray-600 text-lg mt-4">Loading adventures...</Text>
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View className="flex-1 bg-gray-50">
+    <SafeAreaView className="flex-1 bg-gray-50">
       <ScrollView 
         className="flex-1"
-        contentContainerStyle={{ flexGrow: 1 }}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -383,104 +286,88 @@ const DiscoverScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
           </Text>
         </View>
 
-        {/* Categories Grid */}
-        <View className="px-4 mb-6">
-          <Text className="text-lg font-semibold text-gray-800 mb-3">Categories</Text>
-          <View className="flex-row flex-wrap justify-between">
-            {categories.map((category) => (
-              <TouchableOpacity
-                key={category.id}
-                className="bg-white rounded-2xl shadow-sm border border-gray-100 items-center justify-center mb-3"
-                style={{ 
-                  width: '48%', 
-                  height: 100,
-                  backgroundColor: `${category.color}15` 
-                }}
-                onPress={() => handleCategoryPress(category)}
-              >
-                <View className="items-center">
-                  {category.iconFamily === 'Ionicons' ? (
-                    <Ionicons name={category.icon as any} size={32} color={category.color} />
-                  ) : category.iconFamily === 'MaterialIcons' ? (
-                    <MaterialIcons name={category.icon as any} size={32} color={category.color} />
-                  ) : (
-                    <FontAwesome5 name={category.icon} size={28} color={category.color} />
-                  )}
-                  <Text className="text-gray-800 font-semibold mt-2 text-sm">
-                    {category.title}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
+        {/* Adventure Curation Button */}
+        <View className="px-6 mb-6">
+          <TouchableOpacity
+            className="bg-green-500 rounded-2xl p-6 shadow-sm"
+            style={{
+              backgroundColor: '#10b981', // Fallback color
+              borderRadius: 16,
+              padding: 24,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 4,
+              elevation: 3,
+            }}
+            onPress={() => navigation?.navigate?.('Curate')}
+          >
+            <View className="flex-row items-center justify-between">
+              <View className="flex-1">
+                <Text className="text-white text-xl font-bold mb-2">
+                  Curate Your Next Adventure
+                </Text>
+                <Text className="text-green-100 text-sm leading-relaxed">
+                  Tell us what you're in the mood for and we'll create a personalized adventure just for you
+                </Text>
+              </View>
+              <View className="ml-4">
+                <Ionicons name="add-circle" size={32} color="white" />
+              </View>
+            </View>
+          </TouchableOpacity>
         </View>
 
-        {/* Recently Shared Adventures */}
-        <View className="mb-6">
-          <View className="flex-row items-center justify-between px-4 mb-3">
-            <Text className="text-lg font-semibold text-gray-800">Recent Adventures</Text>
-            {communityAdventures.length > 3 && (
-              <TouchableOpacity>
-                <Text className="text-green-600 font-medium">See All</Text>
-              </TouchableOpacity>
-            )}
+        {/* Categories Section */}
+        <View className="px-6 mb-6">
+          <Text className="text-xl font-bold text-gray-900 mb-4">Explore by Category</Text>
+          <ScrollView 
+            horizontal 
+            showsHorizontalScrollIndicator={false}
+            className="mb-4"
+          >
+            {experienceTypes.map((experience) => (
+              <CategoryCard 
+                key={experience.id} 
+                experience={experience} 
+              />
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Community Adventures Section */}
+        <View className="px-6 mb-8">
+          <View className="flex-row items-center justify-between mb-4">
+            <Text className="text-xl font-bold text-gray-900">Community Adventures</Text>
+            <TouchableOpacity>
+              <Text className="text-green-600 font-medium">View All</Text>
+            </TouchableOpacity>
           </View>
-          
+
+          {/* Community Adventures List */}
           {communityAdventures.length === 0 ? (
-            <View className="items-center justify-center py-12 mx-4">
-              <Ionicons name="map-outline" size={48} color="#9CA3AF" />
-              <Text className="text-lg font-semibold text-gray-700 mb-2 mt-4">
-                No adventures shared yet
-              </Text>
-              <Text className="text-gray-500 text-center px-8 leading-6">
-                Be the first to share an adventure! Complete one from your plans and share it with the community.
-              </Text>
+            <View className="h-40 items-center justify-center bg-gray-100 rounded-xl">
+              <Ionicons name="compass" size={32} color="#9CA3AF" />
+              <Text className="text-gray-500 text-center mt-2">No community adventures yet</Text>
+              <Text className="text-gray-400 text-sm text-center mt-1">Be the first to share an adventure!</Text>
             </View>
           ) : (
-            <FlatList
-              data={communityAdventures}
-              renderItem={({ item }) => <CommunityAdventureCard adventure={item} />}
-              keyExtractor={(item) => item.id}
-              horizontal
+            <ScrollView 
+              horizontal 
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingLeft: 16, paddingRight: 16 }}
-            />
+              className="pb-4"
+            >
+              {communityAdventures.map((adventure) => (
+                <CommunityAdventureCard key={adventure.id} adventure={adventure} />
+              ))}
+            </ScrollView>
           )}
         </View>
-
-        {/* Popular This Week - Placeholder for future */}
-        {communityAdventures.length > 0 && (
-          <View className="px-4 mb-6">
-            <Text className="text-lg font-semibold text-gray-800 mb-3">Trending This Week</Text>
-            <View className="bg-gradient-to-r from-green-100 to-green-200 rounded-2xl p-6 items-center">
-              <Ionicons name="trending-up" size={32} color="#3c7660" />
-              <Text className="text-green-600 font-semibold text-center mt-2">
-                Coming Soon
-              </Text>
-              <Text className="text-gray-600 text-sm text-center mt-1">
-                Discover what's trending in your area
-              </Text>
-            </View>
-          </View>
-        )}
 
         {/* Footer spacing */}
         <View className="h-20" />
       </ScrollView>
-
-      {/* Adventure Detail Modal */}
-      <AdventureDetailModal
-        visible={modalVisible}
-        adventure={selectedAdventure}
-        onClose={closeModal}
-        onMarkComplete={handleMarkAdventureComplete}
-        onUpdateStepCompletion={handleUpdateStepCompletion}
-        onUpdateScheduledDate={() => {}} // Empty function for community adventures
-        formatDate={formatDate}
-        formatDuration={formatDuration}
-        formatCost={formatCost}
-      />
-    </View>
+    </SafeAreaView>
   );
 };
 

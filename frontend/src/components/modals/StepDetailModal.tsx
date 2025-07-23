@@ -364,7 +364,7 @@ export const StepDetailModal: React.FC<StepDetailModalProps> = ({
                     color: themeColors.text?.primary || '#3c7660',
                     textAlign: 'center',
                   }}>
-                    <Ionicons name="location" size={16} color="white" /> Open in Google Maps
+                    <Ionicons name="location" size={16} color="#374151" /> Open in Google Maps
                   </Text>
                 </TouchableOpacity>
 

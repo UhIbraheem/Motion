@@ -71,6 +71,8 @@ export const StepCard: React.FC<StepCardProps> = ({ step, index, themeColors, on
       backgroundColor: themeColors.background?.card || themeColors.cardBackground || '#FFFFFF',
       borderRadius: 16,
       overflow: 'hidden',
+      borderWidth: 1,
+      borderColor: '#D1D5DB',
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.1,
@@ -239,7 +241,7 @@ export const StepCard: React.FC<StepCardProps> = ({ step, index, themeColors, on
             fontSize: 14,
             textAlign: 'center',
           }}>
-            <Ionicons name="location" size={14} color="white" /> Open in Google Maps
+            <Ionicons name="location" size={14} color="#374151" /> Open in Google Maps
           </Text>
         </TouchableOpacity>
 

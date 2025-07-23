@@ -207,9 +207,7 @@ const CollapsibleHeader = ({ title, children }: { title: string; children: React
 
 // Wrapper components for each screen
 const DiscoverScreenWrapper = () => (
-  <CollapsibleHeader title="Discover">
-    <DiscoverNavigator />
-  </CollapsibleHeader>
+  <DiscoverNavigator />
 );
 
 const CurateScreenWrapper = () => (

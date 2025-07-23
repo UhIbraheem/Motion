@@ -160,6 +160,8 @@ export const GradientAdventureCard: React.FC<GradientAdventureCardProps> = ({
                 height: CARD_HEIGHT,
                 borderRadius: 20,
                 overflow: 'hidden',
+                borderWidth: 1,
+                borderColor: '#D1D5DB',
                 shadowColor: '#000',
                 shadowOffset: {
                   width: 0,
