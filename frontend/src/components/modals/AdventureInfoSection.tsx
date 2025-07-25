@@ -120,7 +120,7 @@ export const AdventureInfoSection: React.FC<AdventureInfoSectionProps> = ({
         </View>
 
         {/* Scheduled Date (if exists) */}
-        {adventure.scheduled_date && (
+        {adventure.scheduled_for && (
           <View style={{
             backgroundColor: themeColors.brand.sage + '10',
             padding: spacing.md,
@@ -135,32 +135,34 @@ export const AdventureInfoSection: React.FC<AdventureInfoSectionProps> = ({
               color: themeColors.brand.sage,
               textAlign: 'center',
             }}>
-              📅 Scheduled for {formatDate(adventure.scheduled_date)}
+              📅 Scheduled for {formatDate(adventure.scheduled_for)}
             </Text>
           </View>
         )}
 
-        {/* Schedule Button */}
-        <TouchableOpacity
-          onPress={onSchedulePress}
-          style={{
-            backgroundColor: 'rgba(255, 255, 255, 0.15)',
-            borderWidth: 1.5,
-            borderColor: 'rgba(60, 118, 96, 0.5)',
-            paddingVertical: spacing.md,
-            borderRadius: borderRadius.lg,
-            alignItems: 'center',
-            marginBottom: spacing.sm,
-          }}
-        >
-          <Text style={{
-            ...typography.body,
-            fontWeight: '600',
-            color: themeColors.text?.primary || '#3c7660',
-          }}>
-            {adventure.scheduled_date ? 'Reschedule Adventure' : 'Schedule Adventure'}
-          </Text>
-        </TouchableOpacity>
+        {/* Schedule Button - Only show for non-completed adventures */}
+        {!adventure.is_completed && (
+          <TouchableOpacity
+            onPress={onSchedulePress}
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.15)',
+              borderWidth: 1.5,
+              borderColor: 'rgba(60, 118, 96, 0.5)',
+              paddingVertical: spacing.md,
+              borderRadius: borderRadius.lg,
+              alignItems: 'center',
+              marginBottom: spacing.sm,
+            }}
+          >
+            <Text style={{
+              ...typography.body,
+              fontWeight: '600',
+              color: themeColors.text?.primary || '#3c7660',
+            }}>
+              {adventure.scheduled_for ? 'Reschedule Adventure' : 'Schedule Adventure'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );

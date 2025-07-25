@@ -13,7 +13,6 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { aiService } from '../services/aiService';
-import { adventureInteractionService } from '../services/adventureInteractionService';
 import { useAuth } from '../context/AuthContext';
 import { usePreferences } from '../context/PreferencesContext';
 import { experienceTypes } from '../data/experienceTypes';
@@ -47,7 +46,6 @@ const DiscoverScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const [communityAdventures, setCommunityAdventures] = useState<CommunityAdventure[]>([]);
   const [filteredAdventures, setFilteredAdventures] = useState<CommunityAdventure[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [userInteractions, setUserInteractions] = useState<{[key: string]: {liked: boolean, saved: boolean}}>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -103,6 +101,7 @@ const DiscoverScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
     }
 
     try {
+      console.log('🌊 Loading community adventures...');
       const { data, error } = await aiService.getCommunityAdventures();
 
       if (error) {
@@ -112,63 +111,14 @@ const DiscoverScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
         return;
       }
 
+      console.log('✅ Loaded community adventures:', data?.length || 0);
       setCommunityAdventures(data || []);
-
-      // Load user interactions for these adventures
-      if (user && data) {
-        loadUserInteractions(data.map(adventure => adventure.id));
-      }
     } catch (error) {
       console.error('❌ Unexpected error loading community adventures:', error);
       setCommunityAdventures([]);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
-    }
-  };
-
-  const loadUserInteractions = async (adventureIds: string[]) => {
-    try {
-      const interactionMap: {[key: string]: {liked: boolean, saved: boolean}} = {};
-      
-      // Load interactions for each adventure
-      for (const id of adventureIds) {
-        const result = await adventureInteractionService.getUserInteractions(id);
-        interactionMap[id] = {
-          liked: result.hasLiked,
-          saved: result.hasSaved
-        };
-      }
-      
-      setUserInteractions(interactionMap);
-    } catch (error) {
-      console.error('Error loading user interactions:', error);
-    }
-  };
-
-  const handleInteraction = async (adventureId: string, type: 'heart' | 'save') => {
-    if (!user) {
-      Alert.alert('Sign In Required', 'Please sign in to save or like adventures');
-      return;
-    }
-
-    try {
-      const result = await adventureInteractionService.toggleInteraction(adventureId, type);
-      
-      if (result.success) {
-        setUserInteractions(prev => ({
-          ...prev,
-          [adventureId]: {
-            ...prev[adventureId],
-            [type === 'heart' ? 'liked' : 'saved']: result.isAdded
-          }
-        }));
-      } else {
-        Alert.alert('Error', result.error || 'Failed to update interaction');
-      }
-    } catch (error) {
-      console.error('Error handling interaction:', error);
-      Alert.alert('Error', 'Something went wrong');
     }
   };
 
@@ -282,82 +232,29 @@ const DiscoverScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
     );
   };
 
-  const CommunityAdventureCard = ({ adventure }: { adventure: CommunityAdventure }) => {
-    const isLiked = userInteractions[adventure.id]?.liked || false;
-    const isSaved = userInteractions[adventure.id]?.saved || false;
-
-    return (
-      <TouchableOpacity
-        className="bg-white rounded-2xl mr-4 shadow-sm border border-gray-100"
-        style={{ width: 280 }}
-        onPress={() => handleAdventurePress(adventure)}
-        activeOpacity={0.7}
-      >
-        {/* Adventure Photo with overlay buttons */}
-        <View className="relative">
-          {adventure.adventure_photos && adventure.adventure_photos.length > 0 ? (
-            <Image 
-              source={{ uri: adventure.adventure_photos.find(photo => photo.is_cover_photo)?.photo_url || adventure.adventure_photos[0].photo_url }}
-              className="h-40 rounded-t-2xl"
-              style={{
-                backgroundColor: '#e5e7eb' // fallback background
-              }}
-              resizeMode="cover"
-            />
-          ) : (
-            <View className="h-40 bg-green-500 rounded-t-2xl items-center justify-center">
-              <Ionicons name="image-outline" size={40} color="white" />
-              <Text className="text-white text-sm mt-2">Adventure Photo</Text>
-            </View>
-          )}
-          
-          {/* Like and Save overlay buttons */}
-          <View className="absolute top-3 right-3 flex-row space-x-2">
-            <TouchableOpacity
-              className="w-10 h-10 rounded-full items-center justify-center"
-              style={{ 
-                backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 1 },
-                shadowOpacity: 0.2,
-                shadowRadius: 2,
-                elevation: 2
-              }}
-              onPress={(e) => {
-                e.stopPropagation();
-                handleInteraction(adventure.id, 'heart');
-              }}
-            >
-              <Ionicons 
-                name={isLiked ? "heart" : "heart-outline"} 
-                size={20} 
-                color={isLiked ? "#ef4444" : "#6B7280"} 
-              />
-            </TouchableOpacity>
-            
-            <TouchableOpacity
-              className="w-10 h-10 rounded-full items-center justify-center"
-              style={{ 
-                backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 1 },
-                shadowOpacity: 0.2,
-                shadowRadius: 2,
-                elevation: 2
-              }}
-              onPress={(e) => {
-                e.stopPropagation();
-                handleInteraction(adventure.id, 'save');
-              }}
-            >
-              <Ionicons 
-                name={isSaved ? "bookmark" : "bookmark-outline"} 
-                size={20} 
-                color={isSaved ? "#D4AF37" : "#6B7280"} 
-              />
-            </TouchableOpacity>
-          </View>
+  const CommunityAdventureCard = ({ adventure }: { adventure: CommunityAdventure }) => (
+    <TouchableOpacity
+      className="bg-white rounded-2xl mr-4 shadow-sm border border-gray-100"
+      style={{ width: 280 }}
+      onPress={() => handleAdventurePress(adventure)}
+      activeOpacity={0.7}
+    >
+      {/* Adventure Photo */}
+      {adventure.adventure_photos && adventure.adventure_photos.length > 0 ? (
+        <Image 
+          source={{ uri: adventure.adventure_photos.find(photo => photo.is_cover_photo)?.photo_url || adventure.adventure_photos[0].photo_url }}
+          className="h-40 rounded-t-2xl"
+          style={{
+            backgroundColor: '#e5e7eb' // fallback background
+          }}
+          resizeMode="cover"
+        />
+      ) : (
+        <View className="h-40 bg-green-500 rounded-t-2xl items-center justify-center">
+          <Ionicons name="image-outline" size={40} color="white" />
+          <Text className="text-white text-sm mt-2">Adventure Photo</Text>
         </View>
+      )}
 
       <View className="p-4">
         {/* Header with user info */}
@@ -420,8 +317,7 @@ const DiscoverScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
         </View>
       </View>
     </TouchableOpacity>
-    );
-  };
+  );
 
   if (isLoading) {
     return (

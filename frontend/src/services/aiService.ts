@@ -44,6 +44,7 @@ export interface GeneratedAdventure {
   isCompleted?: boolean;
   isFavorite?: boolean;
   filtersUsed?: AdventureFilters;
+  scheduledFor?: string; // Add scheduled date field
 }
 
 interface ShareAdventureData {
@@ -549,7 +550,7 @@ async getCommunityAdventures(): Promise<{
       
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, first_name, last_name')
+        .select('id, first_name, last_name, profile_picture_url')
         .in('id', userIds);
 
       if (profilesError) {
@@ -563,7 +564,7 @@ async getCommunityAdventures(): Promise<{
         const profile = profilesData?.find(p => p.id === adventure.user_id);
         return {
           ...adventure,
-          profiles: profile || { first_name: null, last_name: null }
+          profiles: profile || { first_name: null, last_name: null, profile_picture_url: null }
         };
       });
 

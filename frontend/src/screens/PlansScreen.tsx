@@ -9,7 +9,8 @@ import {
   Alert,
   TouchableOpacity,
   FlatList,
-  Dimensions
+  Dimensions,
+  Image
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import Button from '../components/Button';
@@ -17,7 +18,10 @@ import { GradientAdventureCard } from '../components/GradientAdventureCard';
 import { AdventureDetailModal } from '../components/modals/AdventureDetailModal';
 import { ShareAdventureModal } from '../components/modals/ShareAdventureModal';
 import { aiService } from '../services/aiService';
+import { adventureInteractionService } from '../services/adventureInteractionService';
 import { useAuth } from '../context/AuthContext';
+import { usePreferences } from '../context/PreferencesContext';
+import { formatBudget, formatDistance, formatDuration } from '../utils/formatters';
 import { useFocusEffect } from '@react-navigation/native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -34,13 +38,16 @@ interface SavedAdventure {
   is_completed: boolean;
   is_favorite: boolean; // Required, not optional
   created_at: string;
+  scheduled_for?: string; // Add scheduled date field
   filters_used?: any;
   step_completions?: { [stepIndex: number]: boolean }; // Add step completion tracking
 }
 
 const PlansScreen: React.FC = () => {
   const { user } = useAuth();
+  const { preferences } = usePreferences();
   const [adventures, setAdventures] = useState<SavedAdventure[]>([]);
+  const [savedCommunityAdventures, setSavedCommunityAdventures] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [shareModalVisible, setShareModalVisible] = useState(false);
@@ -60,7 +67,7 @@ const PlansScreen: React.FC = () => {
     }
 
     try {
-      console.log('📖 Loading adventures for user:', user.email);
+      // Load personal adventures
       const { data, error } = await aiService.getUserAdventures(user.id);
 
       if (error) {
@@ -68,8 +75,6 @@ const PlansScreen: React.FC = () => {
         Alert.alert('Error', 'Failed to load your adventures');
         return;
       }
-
-      console.log('✅ Loaded adventures:', data?.length || 0);
       
       // Ensure all adventures have required fields with defaults
       const processedAdventures = (data || []).map(adventure => ({
@@ -79,12 +84,30 @@ const PlansScreen: React.FC = () => {
       }));
       
       setAdventures(processedAdventures);
+
+      // Load saved community adventures
+      await loadSavedCommunityAdventures();
     } catch (error) {
       console.error('❌ Unexpected error loading adventures:', error);
       Alert.alert('Error', 'Something went wrong loading your adventures');
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
+    }
+  };
+
+  const loadSavedCommunityAdventures = async () => {
+    try {
+      const { data, error } = await adventureInteractionService.getUserSavedAdventures();
+      
+      if (error) {
+        console.error('❌ Error loading saved community adventures:', error);
+        return;
+      }
+
+      setSavedCommunityAdventures(data || []);
+    } catch (error) {
+      console.error('❌ Unexpected error loading saved community adventures:', error);
     }
   };
 
@@ -104,17 +127,12 @@ const PlansScreen: React.FC = () => {
     });
   };
 
-  const formatDuration = (hours: number) => {
-    if (hours <= 2) return `${hours} hour${hours === 1 ? '' : 's'}`;
-    if (hours <= 6) return `${hours} hours`;
-    return 'Full day';
+  const formatDurationLocal = (hours: number) => {
+    return formatDuration(hours, preferences);
   };
 
   const formatCost = (cost: number) => {
-    // Fixed cost formatting based on stored values
-    if (cost <= 25) return '$';        // Budget: exactly $25 
-    if (cost <= 75) return '$$';       // Moderate: exactly $75
-    return '$$$';                      // Premium: $150+
+    return formatBudget(cost, preferences);
   };
 
   const getUpcomingAdventures = () => {
@@ -263,17 +281,76 @@ const PlansScreen: React.FC = () => {
     setShareModalVisible(true);
   };
 
+  // Component for saved community adventures
+  const SavedCommunityAdventureCard = ({ adventure }: { adventure: any }) => (
+    <TouchableOpacity
+      className="bg-white rounded-2xl mr-4 shadow-sm border border-gray-100 mb-3"
+      style={{ width: 280 }}
+      activeOpacity={0.7}
+    >
+      {/* Adventure Photo */}
+      {adventure.adventure_photos && adventure.adventure_photos.length > 0 ? (
+        <Image 
+          source={{ uri: adventure.adventure_photos.find((photo: any) => photo.is_cover_photo)?.photo_url || adventure.adventure_photos[0].photo_url }}
+          className="h-32 rounded-t-2xl"
+          style={{
+            backgroundColor: '#e5e7eb'
+          }}
+          resizeMode="cover"
+        />
+      ) : (
+        <View className="h-32 bg-green-500 rounded-t-2xl items-center justify-center">
+          <Ionicons name="image-outline" size={32} color="white" />
+          <Text className="text-white text-sm mt-1">Adventure Photo</Text>
+        </View>
+      )}
+
+      <View className="p-4">
+        <Text className="text-lg font-bold text-gray-900 mb-1" numberOfLines={2}>
+          {adventure.custom_title}
+        </Text>
+        <Text className="text-gray-600 mb-3" numberOfLines={2}>
+          {adventure.custom_description}
+        </Text>
+
+        {/* Adventure details */}
+        <View className="flex-row items-center justify-between">
+          <View className="flex-row items-center">
+            <Ionicons name="time" size={14} color="#9CA3AF" />
+            <Text className="text-sm text-gray-500 ml-1">
+              {formatDurationLocal(adventure.duration_hours)}
+            </Text>
+          </View>
+          <View className="flex-row items-center">
+            <Ionicons name="wallet" size={14} color="#9CA3AF" />
+            <Text className="text-sm text-gray-500 ml-1">
+              {formatCost(adventure.estimated_cost)}
+            </Text>
+          </View>
+          <View className="flex-row items-center">
+            <Ionicons name="location" size={14} color="#9CA3AF" />
+            <Text className="text-sm text-gray-500 ml-1" numberOfLines={1}>
+              {adventure.location}
+            </Text>
+          </View>
+        </View>
+        
+        <Text className="text-xs text-gray-400 mt-2">
+          Saved on {formatDate(adventure.saved_at)}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+
   // Handle scheduled date update
   const handleUpdateScheduledDate = async (adventureId: string, scheduledDate: string) => {
     try {
-      console.log('📅 Updating scheduled date for adventure:', adventureId, 'to:', scheduledDate);
-      
       // Update local state immediately for better UX
       setAdventures(prev => prev.map(adventure => {
         if (adventure.id === adventureId) {
           return {
             ...adventure,
-            scheduled_date: scheduledDate
+            scheduled_for: scheduledDate
           };
         }
         return adventure;
@@ -289,7 +366,7 @@ const PlansScreen: React.FC = () => {
           if (adventure.id === adventureId) {
             return {
               ...adventure,
-              scheduled_date: undefined
+              scheduled_for: undefined
             };
           }
           return adventure;
@@ -297,8 +374,6 @@ const PlansScreen: React.FC = () => {
         Alert.alert('Error', 'Failed to schedule adventure');
         return;
       }
-
-      console.log('✅ Adventure scheduled successfully');
     } catch (error) {
       console.error('Error scheduling adventure:', error);
       Alert.alert('Error', 'Failed to schedule adventure');
@@ -325,7 +400,7 @@ const PlansScreen: React.FC = () => {
               adventure={adventure}
               onPress={viewAdventureDetails}
               onDelete={handleDeleteAdventure}
-              formatDuration={formatDuration}
+              formatDuration={formatDurationLocal}
               formatCost={formatCost}
               formatDate={formatDate}
               cardWidth={cardWidth}
@@ -398,6 +473,26 @@ const PlansScreen: React.FC = () => {
           </Text>
         </View>
 
+        {/* Saved Community Adventures */}
+        {savedCommunityAdventures.length > 0 && (
+          <View className="px-6 mb-6">
+            <View className="flex-row items-center mb-3">
+              <Ionicons name="bookmark" size={18} color="#D4AF37" />
+              <Text className="text-xl font-bold text-gray-900 ml-2">
+                Saved from Community ({savedCommunityAdventures.length})
+              </Text>
+            </View>
+            <FlatList
+              data={savedCommunityAdventures}
+              renderItem={({ item }) => <SavedCommunityAdventureCard adventure={item} />}
+              keyExtractor={(item) => item.id}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingLeft: 0 }}
+            />
+          </View>
+        )}
+
         {/* Content */}
         {adventures.length === 0 ? (
           <View className="px-6 mb-8">
@@ -467,7 +562,7 @@ const PlansScreen: React.FC = () => {
         onUpdateStepCompletion={handleUpdateStepCompletion}
         onUpdateScheduledDate={handleUpdateScheduledDate}
         formatDate={formatDate}
-        formatDuration={formatDuration}
+        formatDuration={formatDurationLocal}
         formatCost={formatCost}
       />
 

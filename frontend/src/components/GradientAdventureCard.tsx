@@ -35,6 +35,7 @@ interface Adventure {
   is_completed: boolean;
   is_favorite: boolean;
   created_at: string;
+  scheduled_for?: string; // Add scheduled date field
   filters_used?: any;
   step_completions?: { [stepIndex: number]: boolean };
 }
@@ -349,14 +350,37 @@ export const GradientAdventureCard: React.FC<GradientAdventureCardProps> = ({
                         </Text>
                       </View>
 
-                      <View style={{ alignItems: 'center' }}>
-                        <Text style={{ fontSize: 12, color: '#999', marginBottom: 2 }}>
-                          Steps
-                        </Text>
-                        <Text style={{ fontSize: 13, fontWeight: '600', color: '#3c7660' }}>
-                          {adventure.steps.length}
-                        </Text>
-                      </View>
+                      {adventure.scheduled_for && !adventure.is_completed ? (
+                        <View style={{ alignItems: 'center' }}>
+                          <Text style={{ fontSize: 12, color: '#999', marginBottom: 2 }}>
+                            Scheduled
+                          </Text>
+                          <Text style={{ fontSize: 13, fontWeight: '600', color: '#16a34a' }}>
+                            {new Date(adventure.scheduled_for).toLocaleDateString('en-US', { 
+                              month: 'short', 
+                              day: 'numeric' 
+                            })}
+                          </Text>
+                        </View>
+                      ) : !adventure.is_completed ? (
+                        <View style={{ alignItems: 'center' }}>
+                          <Text style={{ fontSize: 12, color: '#999', marginBottom: 2 }}>
+                            Schedule
+                          </Text>
+                          <Text style={{ fontSize: 13, fontWeight: '600', color: '#3c7660' }}>
+                            Not set
+                          </Text>
+                        </View>
+                      ) : (
+                        <View style={{ alignItems: 'center' }}>
+                          <Text style={{ fontSize: 12, color: '#999', marginBottom: 2 }}>
+                            Steps
+                          </Text>
+                          <Text style={{ fontSize: 13, fontWeight: '600', color: '#3c7660' }}>
+                            {adventure.steps.length}
+                          </Text>
+                        </View>
+                      )}
                     </View>
 
                     {/* Footer */}

@@ -88,9 +88,28 @@ const StepsOverviewModal: React.FC<StepsOverviewModalProps> = ({
     return requiresReservation || hasOnlineReservation || phoneMatch;
   };
 
-  // Render reservation section with gold styling
+  // Check if this step is food/dining related
+  const isFoodRelated = (step: AdventureStep): boolean => {
+    const title = step.title?.toLowerCase() || '';
+    const location = step.location?.toLowerCase() || '';
+    const address = step.address?.toLowerCase() || '';
+    
+    const foodKeywords = [
+      'restaurant', 'cafe', 'coffee', 'lunch', 'dinner', 'brunch', 
+      'food', 'drink', 'bar', 'bistro', 'eatery', 'diner', 'grill',
+      'kitchen', 'tavern', 'pub', 'brewery', 'winery', 'bakery',
+      'pizzeria', 'taco', 'burger', 'sandwich', 'sushi', 'thai',
+      'italian', 'mexican', 'chinese', 'indian', 'japanese'
+    ];
+    
+    return foodKeywords.some(keyword => 
+      title.includes(keyword) || location.includes(keyword) || address.includes(keyword)
+    );
+  };
+
+  // Render reservation section with gold styling - Only for food/dining steps
   const renderBookingSection = (step: AdventureStep) => {
-    if (!step.booking || !shouldShowBookingInfo(step.booking)) {
+    if (!step.booking || !shouldShowBookingInfo(step.booking) || !isFoodRelated(step)) {
       return null;
     }
 
@@ -159,8 +178,8 @@ const StepsOverviewModal: React.FC<StepsOverviewModalProps> = ({
         
         {/* Action Buttons */}
         <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-          {/* Reserve Button */}
-          {hasOnlineReservation && (
+          {/* Reserve Button - Only show for food/dining steps */}
+          {hasOnlineReservation && isFoodRelated(step) && (
             <TouchableOpacity
               onPress={() => {
                 if (step.booking?.method.toLowerCase().includes('opentable')) {

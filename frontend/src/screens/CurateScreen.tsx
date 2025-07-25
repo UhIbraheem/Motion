@@ -2,8 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { SafeAreaView, Alert } from 'react-native';
 import AdventureFilters from '../components/AdventureFilters';
 import GeneratedAdventureView from '../components/GeneratedAdventureView';
+import { DatePickerModal } from '../components/modals';
 import { aiService, AdventureFilters as AdventureFiltersType, GeneratedAdventure } from '../services/aiService';
 import { useAuth } from '../context/AuthContext';
+import { usePreferences } from '../context/PreferencesContext';
+import { formatBudget, formatDistance, formatDuration } from '../utils/formatters';
 import { 
   Poppins_700Bold, 
   Poppins_600SemiBold,
@@ -22,8 +25,9 @@ const CurateScreen: React.FC = () => {
     Inter_500Medium,
   });
 
-
   const { user } = useAuth(); // Get current user
+  const { preferences } = usePreferences(); // Get user preferences
+
 const [filters, setFilters] = useState<AdventureFiltersType>({
   location: '',
   duration: 'half-day',
@@ -46,6 +50,10 @@ const [filters, setFilters] = useState<AdventureFiltersType>({
   
   const [generatedAdventure, setGeneratedAdventure] = useState<GeneratedAdventure | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  
+  // Scheduling states
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   
   // Step editing states
   const [isSaving, setIsSaving] = useState(false);
@@ -147,28 +155,17 @@ const [filters, setFilters] = useState<AdventureFiltersType>({
     setIsGenerating(true);
     
     try {
-      // DEBUG: Log the exact timing info being sent
-      console.log('🎯 Timing info being sent to AI:');
-      console.log('- Start time:', filters.startTime);
-      console.log('- End time:', filters.endTime);
-      console.log('- Duration:', filters.duration);
-      console.log('- Flexible timing:', filters.flexibleTiming);
-      console.log('- Custom end time:', filters.customEndTime);
-      console.log('🎯 Starting adventure generation with filters:', filters);
       const { data, error } = await aiService.generateAdventure(filters);
       
       if (error) {
-        console.error('❌ Generation failed:', error);
         Alert.alert('Generation Failed', error);
         return;
       }
 
       if (data) {
-        console.log('✅ Adventure generated successfully:', data.title);
         setGeneratedAdventure(data);
       }
     } catch (error) {
-      console.error('❌ Unexpected error:', error);
       Alert.alert('Error', 'An unexpected error occurred. Please try again.');
     } finally {
       setIsGenerating(false);
@@ -188,7 +185,6 @@ const [filters, setFilters] = useState<AdventureFiltersType>({
     setIsSaving(true);
     
     try {
-      console.log('💾 Saving adventure for user:', user.email);
       const { data, error } = await aiService.saveAdventure(generatedAdventure, user.id);
       
       if (error) {
@@ -203,19 +199,27 @@ const [filters, setFilters] = useState<AdventureFiltersType>({
           { 
             text: 'View My Plans', 
             onPress: () => {
-              // This will navigate to Plans tab in the future
-              console.log('Navigate to Plans tab');
+              // Navigate to Plans tab in the future
             }
           },
           { text: 'Create Another', onPress: resetForm }
         ]
       );
     } catch (error) {
-      console.error('❌ Save error:', error);
       Alert.alert('Error', 'Failed to save adventure. Please try again.');
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Date handling functions
+  const handleDateSelect = (date: Date) => {
+    setSelectedDate(date);
+    setShowDatePicker(false);
+  };
+
+  const openDatePicker = () => {
+    setShowDatePicker(true);
   };
 
   // Only show filters if no adventure is generated
@@ -231,6 +235,15 @@ const [filters, setFilters] = useState<AdventureFiltersType>({
           onStartTimeChange={handleStartTimeChange}
           onDurationChange={handleDurationChange}
         />
+        
+        <DatePickerModal
+          visible={showDatePicker}
+          onClose={() => setShowDatePicker(false)}
+          onDateSelect={handleDateSelect}
+          initialDate={selectedDate || new Date()}
+          minimumDate={new Date()}
+          title="Schedule Your Adventure"
+        />
       </SafeAreaView>
     );
   }
@@ -238,14 +251,27 @@ const [filters, setFilters] = useState<AdventureFiltersType>({
   // Show generated adventure
   if (generatedAdventure) {
     return (
-      <GeneratedAdventureView
-        adventure={generatedAdventure}
-        onBack={resetForm}
-        onSave={saveAdventure}
-        isSaving={isSaving}
-        filters={filters}
-        onAdventureUpdate={setGeneratedAdventure}
-      />
+      <>
+        <GeneratedAdventureView
+          adventure={generatedAdventure}
+          onBack={resetForm}
+          onSave={saveAdventure}
+          isSaving={isSaving}
+          userPreferences={preferences}
+          filters={filters}
+          onAdventureUpdate={setGeneratedAdventure}
+          onOpenDatePicker={openDatePicker}
+        />
+        
+        <DatePickerModal
+          visible={showDatePicker}
+          onClose={() => setShowDatePicker(false)}
+          onDateSelect={handleDateSelect}
+          initialDate={selectedDate || new Date()}
+          minimumDate={new Date()}
+          title="Schedule Your Adventure"
+        />
+      </>
     );
   }
 

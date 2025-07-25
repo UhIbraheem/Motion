@@ -6,6 +6,7 @@ import * as Font from 'expo-font';
 import { SafeAreaProvider } from 'react-native-safe-area-context'; // ADD this import
 import { AuthProvider } from './src/context/AuthContext';
 import { ThemeProvider } from './src/context/ThemeContext';
+import { PreferencesProvider } from './src/context/PreferencesContext';
 import RootNavigator from './src/navigation/RootNavigator';
 import CustomSplashScreen from './src/components/shared/SplashScreen';
 
@@ -43,12 +44,14 @@ export default function App() {
     <SafeAreaProvider>
       <ThemeProvider>
         <AuthProvider>
-          <StatusBar 
-            style="dark" 
-            backgroundColor="#f8f2d5" 
-            translucent={Platform.OS === 'android'}
-          />
-          <RootNavigator />
+          <PreferencesProvider>
+            <StatusBar 
+              style="dark" 
+              backgroundColor="#f8f2d5" 
+              translucent={Platform.OS === 'android'}
+            />
+            <RootNavigator />
+          </PreferencesProvider>
         </AuthProvider>
       </ThemeProvider>
     </SafeAreaProvider>

@@ -70,6 +70,17 @@ export const AdventureDetailModal: React.FC<AdventureDetailModalProps> = ({
     }
   }, [visible, slideAnim]);
 
+  // Handle close with animation
+  const handleClose = () => {
+    Animated.timing(slideAnim, {
+      toValue: SCREEN_HEIGHT,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(() => {
+      onClose();
+    });
+  };
+
   // Handle schedule button press
   const handleSchedulePress = () => {
     setIsSchedulePickerVisible(true);
@@ -109,7 +120,7 @@ export const AdventureDetailModal: React.FC<AdventureDetailModalProps> = ({
           <TouchableOpacity
             style={{ flex: 1 }}
             activeOpacity={1}
-            onPress={onClose}
+            onPress={handleClose}
           />
 
           {/* Modal Content - Slides up from bottom, locks in place */}
@@ -222,7 +233,7 @@ export const AdventureDetailModal: React.FC<AdventureDetailModalProps> = ({
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  onPress={onClose}
+                  onPress={handleClose}
                   style={{
                     paddingVertical: spacing.sm,
                     alignItems: 'center',

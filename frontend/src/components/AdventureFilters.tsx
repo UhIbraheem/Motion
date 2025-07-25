@@ -7,7 +7,9 @@ import Input from './Input';
 import Card from './Card';
 import TimingSection from './TimingSection';
 import { AdventureFilters as AdventureFiltersType } from '../services/aiService';
-import { experienceTypes } from '../data/experienceTypes'; // Add this import
+import { experienceTypes } from '../data/experienceTypes';
+import { usePreferences } from '../context/PreferencesContext';
+import { formatBudget } from '../utils/formatters';
 
 interface AdventureFiltersProps {
   greeting: string;
@@ -28,6 +30,7 @@ const AdventureFilters: React.FC<AdventureFiltersProps> = ({
   onStartTimeChange,
   onDurationChange,
 }) => {
+  const { preferences } = usePreferences();
   const maxExperienceSelection = 4;
   const [isDietaryExpanded, setIsDietaryExpanded] = useState(false); // Add this state
 
@@ -232,13 +235,13 @@ const AdventureFilters: React.FC<AdventureFiltersProps> = ({
           </Text>
           <View className="flex-row justify-between px-1">
             {[
-              { key: 'budget', label: '$', desc: 'Budget' },
-              { key: 'moderate', label: '$$', desc: 'Moderate' },
-              { key: 'premium', label: '$$$', desc: 'Premium' }
+              { key: 'budget', cost: 20, desc: 'Budget' },
+              { key: 'moderate', cost: 40, desc: 'Moderate' },
+              { key: 'premium', cost: 70, desc: 'Premium' }
             ].map((budget) => (
               <Button
                 key={budget.key}
-                title={budget.label}
+                title={formatBudget(budget.cost, preferences)}
                 description={budget.desc}
                 onPress={() => setFilters(prev => ({ ...prev, budget: budget.key as any }))}
                 variant="filter-action"

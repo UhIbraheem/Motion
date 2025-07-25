@@ -17,7 +17,8 @@ import Card from '../components/Card';
 import { useAuth } from '../context/AuthContext';
 import { aiService } from '../services/aiService';
 import { supabase } from '../services/supabase';
-import { EditProfileModal, PreferencesModal, PrivacyModal } from '../components/modals';
+import { EditProfileModal, NewPreferencesModal, NotificationsModal, PrivacySecurityModal, FeedbackModal } from '../components/modals';
+import { usePreferences } from '../context/PreferencesContext';
 
 interface UserStats {
   totalAdventures: number;
@@ -37,6 +38,7 @@ interface UserProfile {
 
 const ProfileScreen: React.FC = () => {
   const { user, signOut } = useAuth();
+  const { preferences, updatePreferences } = usePreferences();
   const [userStats, setUserStats] = useState<UserStats>({
     totalAdventures: 0,
     completedAdventures: 0,
@@ -55,9 +57,9 @@ const ProfileScreen: React.FC = () => {
   // Modal states
   const [editProfileVisible, setEditProfileVisible] = useState(false);
   const [showPreferencesModal, setShowPreferencesModal] = useState(false);
-  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
-  const [preferencesVisible, setPreferencesVisible] = useState(false);
-  const [privacyVisible, setPrivacyVisible] = useState(false);
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  const [showPrivacySecurityModal, setShowPrivacySecurityModal] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
 
   // Loading states
   const [isLoading, setIsLoading] = useState(true);
@@ -75,8 +77,8 @@ const ProfileScreen: React.FC = () => {
     profile_picture_url: ''
   });
 
-  // Preferences states
-  const [preferences, setPreferences] = useState({
+  // Other preferences (non-formatting)
+  const [otherPreferences, setOtherPreferences] = useState({
     adventure_notifications: true,
     community_updates: true,
     weekly_suggestions: false,
@@ -84,8 +86,6 @@ const ProfileScreen: React.FC = () => {
     public_profile: false,
     adventure_sharing_default: true,
     default_adventure_privacy: 'public',
-    distance_unit: 'miles',
-    budget_display: 'symbols', // symbols ($$$) or numbers ($50-100)
     theme_preference: 'light'
   });
 
@@ -485,7 +485,10 @@ const ProfileScreen: React.FC = () => {
 
             <View className="h-px bg-gray-100 mx-2" />
 
-            <TouchableOpacity className="flex-row justify-between items-center py-4 px-2">
+            <TouchableOpacity 
+              className="flex-row justify-between items-center py-4 px-2"
+              onPress={() => setShowNotificationsModal(true)}
+            >
               <View className="flex-row items-center">
                 <Ionicons name="notifications" size={20} color="#3c7660" />
                 <Text className="text-base font-medium text-gray-800 ml-3">Notifications</Text>
@@ -495,7 +498,10 @@ const ProfileScreen: React.FC = () => {
 
             <View className="h-px bg-gray-100 mx-2" />
 
-            <TouchableOpacity className="flex-row justify-between items-center py-4 px-2">
+            <TouchableOpacity 
+              className="flex-row justify-between items-center py-4 px-2"
+              onPress={() => setShowPrivacySecurityModal(true)}
+            >
               <View className="flex-row items-center">
                 <Ionicons name="shield-checkmark" size={20} color="#3c7660" />
                 <Text className="text-base font-medium text-gray-800 ml-3">Privacy & Security</Text>
@@ -510,7 +516,10 @@ const ProfileScreen: React.FC = () => {
         <View className="px-4">
           <Card title="About Motion" elevated={true}>
           <View className="space-y-1">
-            <TouchableOpacity className="flex-row justify-between items-center py-4 px-2">
+            <TouchableOpacity 
+              className="flex-row justify-between items-center py-4 px-2"
+              onPress={() => setShowFeedbackModal(true)}
+            >
               <View className="flex-row items-center">
                 <Ionicons name="chatbubble-ellipses" size={20} color="#3c7660" />
                 <Text className="text-base font-medium text-gray-800 ml-3">Send Feedback</Text>
@@ -570,16 +579,46 @@ const ProfileScreen: React.FC = () => {
         getInitials={getInitials}
       />
 
-      <PreferencesModal
-        visible={showPreferencesModal}
-        onClose={() => setShowPreferencesModal(false)}
-        onOpenPrivacy={() => setShowPrivacyModal(true)}
+      <NotificationsModal
+        visible={showNotificationsModal}
+        onClose={() => setShowNotificationsModal(false)}
+        onSave={(settings) => {
+          // TODO: Save notification settings to backend
+          console.log('Saving notification settings:', settings);
+          setShowNotificationsModal(false);
+        }}
       />
 
-      <PrivacyModal
-        visible={showPrivacyModal}
-        onClose={() => setShowPrivacyModal(false)}
-        onBackToPreferences={() => setShowPreferencesModal(true)}
+      <FeedbackModal
+        visible={showFeedbackModal}
+        onClose={() => setShowFeedbackModal(false)}
+        onSubmit={(feedback) => {
+          // TODO: Submit feedback to backend
+          console.log('Submitting feedback:', feedback);
+          setShowFeedbackModal(false);
+        }}
+      />
+
+      <NewPreferencesModal
+        visible={showPreferencesModal}
+        onClose={() => setShowPreferencesModal(false)}
+        initialPreferences={preferences}
+        onSave={(newPreferences) => {
+          // Update preferences context (will trigger re-renders across the app)
+          updatePreferences(newPreferences);
+          console.log('Preferences updated:', newPreferences);
+          setShowPreferencesModal(false);
+        }}
+      />
+
+      <PrivacySecurityModal
+        visible={showPrivacySecurityModal}
+        onClose={() => setShowPrivacySecurityModal(false)}
+        onSave={(settings) => {
+          // TODO: Save privacy settings to backend
+          console.log('Saving privacy settings:', settings);
+          setShowPrivacySecurityModal(false);
+        }}
       />
     </SafeAreaView>
   );

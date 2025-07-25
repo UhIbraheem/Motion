@@ -64,6 +64,25 @@ export const StepCard: React.FC<StepCardProps> = ({ step, index, themeColors, on
     }
   };
 
+  // Check if this step is food/dining related
+  const isFoodRelated = (): boolean => {
+    const title = step.title?.toLowerCase() || '';
+    const location = step.location?.toLowerCase() || '';
+    const address = step.address?.toLowerCase() || '';
+    
+    const foodKeywords = [
+      'restaurant', 'cafe', 'coffee', 'lunch', 'dinner', 'brunch', 
+      'food', 'drink', 'bar', 'bistro', 'eatery', 'diner', 'grill',
+      'kitchen', 'tavern', 'pub', 'brewery', 'winery', 'bakery',
+      'pizzeria', 'taco', 'burger', 'sandwich', 'sushi', 'thai',
+      'italian', 'mexican', 'chinese', 'indian', 'japanese'
+    ];
+    
+    return foodKeywords.some(keyword => 
+      title.includes(keyword) || location.includes(keyword) || address.includes(keyword)
+    );
+  };
+
   return (
     <View style={{
       width: SCREEN_WIDTH * 0.8,
@@ -161,8 +180,8 @@ export const StepCard: React.FC<StepCardProps> = ({ step, index, themeColors, on
 
         {/* Action Buttons */}
         <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
-          {/* Reserve Button */}
-          {step.booking && (
+          {/* Reserve Button - Only show for food/dining steps */}
+          {step.booking && isFoodRelated() && (
             <TouchableOpacity
               onPress={openReservation}
               style={{

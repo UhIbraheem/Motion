@@ -93,6 +93,26 @@ export const StepDetailModal: React.FC<StepDetailModalProps> = ({
     }
   };
 
+  // Check if this step is food/dining related
+  const isFoodRelated = (): boolean => {
+    if (!step) return false;
+    const title = step.title?.toLowerCase() || '';
+    const location = step.location?.toLowerCase() || '';
+    const address = step.address?.toLowerCase() || '';
+    
+    const foodKeywords = [
+      'restaurant', 'cafe', 'coffee', 'lunch', 'dinner', 'brunch', 
+      'food', 'drink', 'bar', 'bistro', 'eatery', 'diner', 'grill',
+      'kitchen', 'tavern', 'pub', 'brewery', 'winery', 'bakery',
+      'pizzeria', 'taco', 'burger', 'sandwich', 'sushi', 'thai',
+      'italian', 'mexican', 'chinese', 'indian', 'japanese'
+    ];
+    
+    return foodKeywords.some(keyword => 
+      title.includes(keyword) || location.includes(keyword) || address.includes(keyword)
+    );
+  };
+
   if (!step) return null;
 
   return (
@@ -324,7 +344,7 @@ export const StepDetailModal: React.FC<StepDetailModalProps> = ({
 
               {/* Action Buttons */}
               <View style={{ gap: spacing.md }}>
-                {step.booking && (
+                {step.booking && isFoodRelated() && (
                   <TouchableOpacity
                     onPress={openReservation}
                     style={{

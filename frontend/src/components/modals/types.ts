@@ -24,7 +24,7 @@ export interface Adventure {
   is_completed: boolean;
   is_favorite?: boolean;
   created_at: string;
-  scheduled_date?: string;
+  scheduled_for?: string; // Changed from scheduled_date to match database
   is_scheduled?: boolean;
   scheduled_by_user_id?: string;
   schedule_reminder_sent?: boolean;
