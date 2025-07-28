@@ -1,7 +1,8 @@
-// src/screens/WelcomeScreen.tsx - Onboarding screen with logo
+// src/screens/WelcomeScreen.tsx - Beautiful Onboarding Experience
 import React from 'react';
-import { View, Text, ScrollView, SafeAreaView } from 'react-native';
+import { View, Text, ScrollView, SafeAreaView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import MotionLogo from '../components/shared/MotionLogo';
 import Button from '../components/Button';
 
@@ -11,81 +12,127 @@ interface WelcomeScreenProps {
 
 const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGetStarted }) => {
   return (
-    <SafeAreaView className="flex-1 bg-brand-cream">
-      <ScrollView className="flex-1" contentContainerStyle={{ flexGrow: 1 }}>
-        <View className="flex-1 justify-center px-6">
-          {/* Hero Section */}
-          <View className="items-center mb-12">
-            <MotionLogo size="xl" variant="full" theme="light" />
-            
-            <Text className="text-3xl font-bold text-brand-sage text-center mt-8 mb-4">
-              Discover Life in Motion
-            </Text>
-            
-            <Text className="text-lg text-brand-teal text-center leading-7">
-              Your personal AI guide for curated local adventures that flow with your vibe and energy.
-            </Text>
+    <LinearGradient
+      colors={['#a8edea', '#fed6e3', '#ffd89b']}
+      style={{ flex: 1 }}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+    >
+      <SafeAreaView className="flex-1">
+        <ScrollView className="flex-1" contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
+          <View className="flex-1 px-8 py-12">
+            {/* Hero Section */}
+            <View className="items-center mb-16">
+              <View className="bg-white/30 backdrop-blur-lg rounded-3xl p-8 mb-8 shadow-2xl">
+                <MotionLogo size="xl" variant="full" theme="light" />
+              </View>
+              
+              <Text className="text-4xl font-bold text-white text-center mb-4 tracking-tight drop-shadow-lg">
+                Welcome to Motion
+              </Text>
+              
+              <Text className="text-xl text-white/90 text-center leading-8 max-w-sm font-medium drop-shadow-sm">
+                Your personal AI guide for curated adventures that flow with your energy
+              </Text>
+            </View>
+
+            {/* Feature Cards */}
+            <View className="space-y-4 mb-12">
+              <View className="bg-white/20 backdrop-blur-lg border border-white/30 rounded-2xl p-6 shadow-xl">
+                <View className="flex-row items-center mb-3">
+                  <View className="bg-white/30 rounded-full p-3 mr-4">
+                    <Ionicons name="sparkles" size={24} color="#fbbf24" />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-xl font-bold text-white mb-1">
+                      AI-Powered Discovery
+                    </Text>
+                    <Text className="text-white/80 text-base">
+                      Adventures curated just for your unique vibe
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              <View className="bg-white/20 backdrop-blur-lg border border-white/30 rounded-2xl p-6 shadow-xl">
+                <View className="flex-row items-center mb-3">
+                  <View className="bg-white/30 rounded-full p-3 mr-4">
+                    <Ionicons name="heart" size={24} color="#ec4899" />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-xl font-bold text-white mb-1">
+                      Mood-Based Matching
+                    </Text>
+                    <Text className="text-white/80 text-base">
+                      Experiences that align with your current energy
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              <View className="bg-white/20 backdrop-blur-lg border border-white/30 rounded-2xl p-6 shadow-xl">
+                <View className="flex-row items-center mb-3">
+                  <View className="bg-white/30 rounded-full p-3 mr-4">
+                    <Ionicons name="compass" size={24} color="#10b981" />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-xl font-bold text-white mb-1">
+                      Mindful Exploration
+                    </Text>
+                    <Text className="text-white/80 text-base">
+                      Every adventure is intentionally chosen for you
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            {/* CTA Section */}
+            <View className="space-y-6">
+              <LinearGradient
+                colors={['#ffffff', '#f0f9ff', '#dbeafe']}
+                className="rounded-2xl shadow-2xl"
+              >
+                <TouchableOpacity
+                  onPress={onGetStarted}
+                  className="py-5 px-8 rounded-2xl"
+                >
+                  <Text className="text-gray-800 text-center text-xl font-bold">
+                    Begin Your Journey
+                  </Text>
+                </TouchableOpacity>
+              </LinearGradient>
+
+              <View className="items-center">
+                <Text className="text-white/90 text-center text-base font-medium">
+                  ✨ Join thousands discovering their perfect local adventures
+                </Text>
+              </View>
+
+              {/* Trust Indicators */}
+              <View className="bg-white/10 backdrop-blur-lg rounded-2xl p-4">
+                <View className="flex-row justify-center items-center space-x-6">
+                  <View className="items-center">
+                    <Text className="text-white font-bold text-lg">1000+</Text>
+                    <Text className="text-white/70 text-xs">Adventures</Text>
+                  </View>
+                  <View className="w-px h-8 bg-white/30" />
+                  <View className="items-center">
+                    <Text className="text-white font-bold text-lg">5000+</Text>
+                    <Text className="text-white/70 text-xs">Happy Users</Text>
+                  </View>
+                  <View className="w-px h-8 bg-white/30" />
+                  <View className="items-center">
+                    <Text className="text-white font-bold text-lg">4.9★</Text>
+                    <Text className="text-white/70 text-xs">Rating</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
           </View>
-
-          {/* Feature Preview */}
-          <View className="bg-white rounded-2xl p-6 shadow-lg border border-brand-light mb-8">
-            <View className="flex-row items-center mb-4">
-              <View className="w-12 h-12 bg-brand-light rounded-full items-center justify-center mr-4">
-                <Ionicons name="sparkles" size={24} color="#D4AF37" />
-              </View>
-              <View className="flex-1">
-                <Text className="text-lg font-semibold text-brand-sage">
-                  AI-Powered Curation
-                </Text>
-                <Text className="text-brand-teal">
-                  Personalized adventures just for you
-                </Text>
-              </View>
-            </View>
-
-            <View className="flex-row items-center mb-4">
-              <View className="w-12 h-12 bg-brand-light rounded-full items-center justify-center mr-4">
-                <Text className="text-2xl">🌊</Text>
-              </View>
-              <View className="flex-1">
-                <Text className="text-lg font-semibold text-brand-sage">
-                  Flow with Your Mood
-                </Text>
-                <Text className="text-brand-teal">
-                  Adventures that match your energy
-                </Text>
-              </View>
-            </View>
-
-            <View className="flex-row items-center">
-              <View className="w-12 h-12 bg-brand-light rounded-full items-center justify-center mr-4">
-                <Ionicons name="compass" size={24} color="#2F4F4F" />
-              </View>
-              <View className="flex-1">
-                <Text className="text-lg font-semibold text-brand-sage">
-                  Mindful Discovery
-                </Text>
-                <Text className="text-brand-teal">
-                  Every experience is intentional
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* CTA */}
-          <Button
-            title="Begin Your Journey"
-            onPress={onGetStarted}
-            variant="primary"
-            size="lg"
-          />
-
-          <Text className="text-center text-text-secondary mt-6 text-sm">
-            Join thousands discovering their perfect local adventures
-          </Text>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+        </ScrollView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 };
 

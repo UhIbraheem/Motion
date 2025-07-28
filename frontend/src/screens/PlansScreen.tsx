@@ -19,6 +19,7 @@ import { AdventureDetailModal } from '../components/modals/AdventureDetailModal'
 import { ShareAdventureModal } from '../components/modals/ShareAdventureModal';
 import { aiService } from '../services/aiService';
 import { adventureInteractionService } from '../services/adventureInteractionService';
+import { supabase } from '../services/supabase';
 import { useAuth } from '../context/AuthContext';
 import { usePreferences } from '../context/PreferencesContext';
 import { formatBudget, formatDistance, formatDuration } from '../utils/formatters';
@@ -27,6 +28,16 @@ import { useFocusEffect } from '@react-navigation/native';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 
+// Adventure step interface
+interface AdventureStep {
+  id?: string;
+  time: string;
+  title: string;
+  location: string; // Make required to match Adventure type
+  notes?: string;
+  booking?: any;
+}
+
 // Updated interface to match GradientAdventureCard
 interface SavedAdventure {
   id: string;
@@ -34,7 +45,7 @@ interface SavedAdventure {
   description: string;
   duration_hours: number;
   estimated_cost: number;
-  steps: any[];
+  steps: AdventureStep[];
   is_completed: boolean;
   is_favorite: boolean; // Required, not optional
   created_at: string;
@@ -281,66 +292,74 @@ const PlansScreen: React.FC = () => {
     setShareModalVisible(true);
   };
 
-  // Component for saved community adventures
-  const SavedCommunityAdventureCard = ({ adventure }: { adventure: any }) => (
-    <TouchableOpacity
-      className="bg-white rounded-2xl mr-4 shadow-sm border border-gray-100 mb-3"
-      style={{ width: 280 }}
-      activeOpacity={0.7}
-    >
-      {/* Adventure Photo */}
-      {adventure.adventure_photos && adventure.adventure_photos.length > 0 ? (
-        <Image 
-          source={{ uri: adventure.adventure_photos.find((photo: any) => photo.is_cover_photo)?.photo_url || adventure.adventure_photos[0].photo_url }}
-          className="h-32 rounded-t-2xl"
-          style={{
-            backgroundColor: '#e5e7eb'
-          }}
-          resizeMode="cover"
+  // Component for saved community adventures - now displayed as full adventure plans
+  const SavedCommunityAdventureCard = ({ adventure }: { adventure: any }) => {
+    // Transform community adventure to match SavedAdventure interface
+    const transformedAdventure: SavedAdventure = {
+      id: adventure.id,
+      title: adventure.custom_title,
+      description: adventure.custom_description,
+      duration_hours: adventure.duration_hours,
+      estimated_cost: adventure.estimated_cost,
+      steps: adventure.steps || [],
+      is_completed: false, // Community adventures saved are not completed by default
+      is_favorite: false, // Can be enhanced later to check if user favorited
+      created_at: adventure.created_at,
+      scheduled_for: undefined,
+      step_completions: {}
+    };
+
+    return (
+      <View style={{ width: SCREEN_WIDTH * 0.75, marginRight: 16 }}>
+        <GradientAdventureCard
+          adventure={transformedAdventure}
+          onPress={() => viewAdventureDetails(transformedAdventure)}
+          onDelete={() => handleDeleteSavedAdventure(adventure.interaction_id)}
+          formatDuration={formatDurationLocal}
+          formatCost={formatCost}
+          formatDate={formatDate}
         />
-      ) : (
-        <View className="h-32 bg-green-500 rounded-t-2xl items-center justify-center">
-          <Ionicons name="image-outline" size={32} color="white" />
-          <Text className="text-white text-sm mt-1">Adventure Photo</Text>
-        </View>
-      )}
-
-      <View className="p-4">
-        <Text className="text-lg font-bold text-gray-900 mb-1" numberOfLines={2}>
-          {adventure.custom_title}
-        </Text>
-        <Text className="text-gray-600 mb-3" numberOfLines={2}>
-          {adventure.custom_description}
-        </Text>
-
-        {/* Adventure details */}
-        <View className="flex-row items-center justify-between">
-          <View className="flex-row items-center">
-            <Ionicons name="time" size={14} color="#9CA3AF" />
-            <Text className="text-sm text-gray-500 ml-1">
-              {formatDurationLocal(adventure.duration_hours)}
-            </Text>
-          </View>
-          <View className="flex-row items-center">
-            <Ionicons name="wallet" size={14} color="#9CA3AF" />
-            <Text className="text-sm text-gray-500 ml-1">
-              {formatCost(adventure.estimated_cost)}
-            </Text>
-          </View>
-          <View className="flex-row items-center">
-            <Ionicons name="location" size={14} color="#9CA3AF" />
-            <Text className="text-sm text-gray-500 ml-1" numberOfLines={1}>
-              {adventure.location}
-            </Text>
-          </View>
-        </View>
-        
-        <Text className="text-xs text-gray-400 mt-2">
-          Saved on {formatDate(adventure.saved_at)}
-        </Text>
       </View>
-    </TouchableOpacity>
-  );
+    );
+  };
+
+  // Handle unfavoriting saved community adventures
+  const handleDeleteSavedAdventure = async (interactionId: string) => {
+    Alert.alert(
+      'Remove Saved Adventure',
+      'Are you sure you want to remove this adventure from your saved list?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Delete the save interaction to unfavorite
+              const { error } = await supabase
+                .from('adventure_interactions')
+                .delete()
+                .eq('id', interactionId);
+              
+              if (error) {
+                console.error('❌ Error removing saved adventure:', error);
+                Alert.alert('Error', 'Failed to remove saved adventure');
+                return;
+              }
+
+              // Refresh saved adventures
+              await loadSavedCommunityAdventures();
+              
+              Alert.alert('Success', 'Adventure removed from saved list');
+            } catch (error) {
+              console.error('❌ Error removing saved adventure:', error);
+              Alert.alert('Error', 'Failed to remove saved adventure');
+            }
+          }
+        }
+      ]
+    );
+  };
 
   // Handle scheduled date update
   const handleUpdateScheduledDate = async (adventureId: string, scheduledDate: string) => {
@@ -380,13 +399,59 @@ const PlansScreen: React.FC = () => {
     }
   };
 
+  // Handle adventure steps update
+  const handleUpdateSteps = async (adventureId: string, steps: AdventureStep[]) => {
+    try {
+      // Update local state immediately for better UX
+      setAdventures(prev => prev.map(adventure => {
+        if (adventure.id === adventureId) {
+          return {
+            ...adventure,
+            steps: steps
+          };
+        }
+        return adventure;
+      }));
+
+      // Update in database
+      const { error } = await aiService.updateAdventureSteps(adventureId, steps);
+      
+      if (error) {
+        console.error('Error updating adventure steps:', error);
+        // Note: We don't revert here as we don't have the original steps
+        // The user would need to refresh to get the original data
+        Alert.alert('Error', 'Failed to update adventure steps');
+        return;
+      }
+
+      Alert.alert('Success', 'Adventure steps updated successfully');
+    } catch (error) {
+      console.error('Error updating adventure steps:', error);
+      Alert.alert('Error', 'Failed to update adventure steps');
+    }
+  };
+
   // Render horizontal adventure list
   const renderHorizontalAdventureList = (adventures: SavedAdventure[], showShareButton: boolean = false) => {
     const cardWidth = SCREEN_WIDTH * 0.75; // 75% of screen width
 
+    // Sort adventures: scheduled first (soonest to latest), then unscheduled
+    const sortedAdventures = [...adventures].sort((a, b) => {
+      // If both have scheduled dates, sort by date (soonest first)
+      if (a.scheduled_for && b.scheduled_for) {
+        return new Date(a.scheduled_for).getTime() - new Date(b.scheduled_for).getTime();
+      }
+      // If only a has scheduled date, it comes first
+      if (a.scheduled_for && !b.scheduled_for) return -1;
+      // If only b has scheduled date, it comes first  
+      if (!a.scheduled_for && b.scheduled_for) return 1;
+      // If neither has scheduled date, maintain original order
+      return 0;
+    });
+
     return (
       <FlatList
-        data={adventures}
+        data={sortedAdventures}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{
@@ -438,6 +503,31 @@ const PlansScreen: React.FC = () => {
   const upcomingAdventures = getUpcomingAdventures();
   const completedAdventures = getCompletedAdventures();
 
+  // Show sign-in prompt if user is not authenticated
+  if (!user) {
+    return (
+      <SafeAreaView className="flex-1 bg-gray-50">
+        <View className="flex-1 items-center justify-center px-6">
+          <Ionicons name="lock-closed" size={64} color="#9CA3AF" />
+          <Text className="text-2xl font-bold text-gray-800 mt-6 mb-2">Sign In Required</Text>
+          <Text className="text-gray-600 text-center mb-8 leading-6">
+            Please sign in to view and manage your adventures.
+          </Text>
+          <TouchableOpacity
+            className="bg-sage-600 px-8 py-4 rounded-2xl"
+            style={{ backgroundColor: '#3c7660' }}
+            onPress={() => {
+              // Navigate to auth screen - you might need to adjust this navigation
+              Alert.alert('Sign In', 'Please go to the Profile tab to sign in to your account.');
+            }}
+          >
+            <Text className="text-white font-semibold text-lg">Sign In</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (isLoading) {
     return (
       <SafeAreaView className="flex-1 bg-gray-50">
@@ -475,20 +565,26 @@ const PlansScreen: React.FC = () => {
 
         {/* Saved Community Adventures */}
         {savedCommunityAdventures.length > 0 && (
-          <View className="px-6 mb-6">
-            <View className="flex-row items-center mb-3">
+          <View className="px-6 mb-8">
+            <View className="flex-row items-center mb-2">
               <Ionicons name="bookmark" size={18} color="#D4AF37" />
               <Text className="text-xl font-bold text-gray-900 ml-2">
                 Saved from Community ({savedCommunityAdventures.length})
               </Text>
             </View>
+            <Text className="text-gray-500 text-sm mb-4">
+              Swipe left/right to browse • Tap to view details
+            </Text>
             <FlatList
               data={savedCommunityAdventures}
               renderItem={({ item }) => <SavedCommunityAdventureCard adventure={item} />}
               keyExtractor={(item) => item.id}
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingLeft: 0 }}
+              contentContainerStyle={{ 
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+              }}
             />
           </View>
         )}
@@ -561,6 +657,7 @@ const PlansScreen: React.FC = () => {
         onMarkComplete={handleMarkAdventureComplete}
         onUpdateStepCompletion={handleUpdateStepCompletion}
         onUpdateScheduledDate={handleUpdateScheduledDate}
+        onUpdateSteps={handleUpdateSteps}
         formatDate={formatDate}
         formatDuration={formatDurationLocal}
         formatCost={formatCost}

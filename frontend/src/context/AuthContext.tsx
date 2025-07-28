@@ -12,6 +12,7 @@ type AuthContextType = {
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, firstName?: string, lastName?: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
+  requestAuth: () => void;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -198,6 +199,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const requestAuth = () => {
+    // This function triggers the auth flow by effectively "signing out"
+    // which will cause the RootNavigator to show the AuthNavigator
+    console.log('🔐 Requesting authentication...');
+    setSession(null);
+    setUser(null);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -207,6 +216,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         signIn,
         signUp,
         signOut,
+        requestAuth,
       }}
     >
       {children}

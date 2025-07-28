@@ -20,6 +20,7 @@ const Stack = createStackNavigator<RootStackParamList>();
 const RootNavigator: React.FC = () => {
   const { user, loading } = useAuth();
   const [bypassAuth, setBypassAuth] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
 
   // Show a loading screen while checking auth state
   if (loading) {
@@ -39,7 +40,7 @@ const RootNavigator: React.FC = () => {
   }
 
   // Development screen - only show in dev mode when not authenticated
-  if (!user && !bypassAuth && __DEV__) {
+  if (!user && !bypassAuth && !showAuth && __DEV__) {
     return (
       <View className="flex-1 bg-brand-cream px-8 justify-center">
         {/* Logo Section */}
@@ -57,7 +58,7 @@ const RootNavigator: React.FC = () => {
         <View className="space-y-4 mb-8">
           <Button 
             title="Test with Real Authentication" 
-            onPress={() => setBypassAuth(false)}
+            onPress={() => setShowAuth(true)}
             variant="primary"
             size="lg"
             leftIcon={<Text className="text-xl">🔐</Text>}

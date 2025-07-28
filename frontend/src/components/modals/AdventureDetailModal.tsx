@@ -14,7 +14,7 @@ import { BlurView } from 'expo-blur';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { typography, spacing, borderRadius, getCurrentTheme } from '../../constants/Theme';
 import { useTheme } from '../../context/ThemeContext';
-import { Adventure } from './types';
+import { Adventure, AdventureStep } from './types';
 import SchedulePickerModal from './SchedulePickerModal';
 import { AdventureInfoSection } from './AdventureInfoSection';
 import { HorizontalStepsSection } from './HorizontalStepsSection';
@@ -29,6 +29,7 @@ interface AdventureDetailModalProps {
   onMarkComplete: (adventureId: string) => void;
   onUpdateStepCompletion: (adventureId: string, stepIndex: number, completed: boolean) => void;
   onUpdateScheduledDate: (adventureId: string, scheduledDate: string) => void;
+  onUpdateSteps?: (adventureId: string, steps: AdventureStep[]) => void;
   formatDate: (dateString: string) => string;
   formatDuration: (hours: number) => string;
   formatCost: (cost: number) => string;
@@ -41,6 +42,7 @@ export const AdventureDetailModal: React.FC<AdventureDetailModalProps> = ({
   onMarkComplete,
   onUpdateStepCompletion,
   onUpdateScheduledDate,
+  onUpdateSteps,
   formatDate,
   formatDuration,
   formatCost,
@@ -285,6 +287,7 @@ export const AdventureDetailModal: React.FC<AdventureDetailModalProps> = ({
         visible={showAllStepsModal}
         adventure={adventure}
         onClose={() => setShowAllStepsModal(false)}
+        onUpdateSteps={onUpdateSteps}
         formatDuration={formatDuration}
         formatCost={formatCost}
       />

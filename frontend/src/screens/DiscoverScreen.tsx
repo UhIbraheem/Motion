@@ -8,16 +8,19 @@ import {
   Alert,
   FlatList,
   SafeAreaView,
-  Image 
+  Image,
+  ImageBackground 
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { aiService } from '../services/aiService';
 import { adventureInteractionService } from '../services/adventureInteractionService';
 import { useAuth } from '../context/AuthContext';
 import { usePreferences } from '../context/PreferencesContext';
 import { experienceTypes } from '../data/experienceTypes';
 import { formatBudget, formatDistance, formatDuration } from '../utils/formatters';
+import CommunityAdventureReviewModal from '../components/modals/CommunityAdventureReviewModal';
 
 interface CommunityAdventure {
   id: string;
@@ -48,6 +51,8 @@ const DiscoverScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   const [filteredAdventures, setFilteredAdventures] = useState<CommunityAdventure[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [userInteractions, setUserInteractions] = useState<{[key: string]: {liked: boolean, saved: boolean}}>({});
+  const [selectedAdventure, setSelectedAdventure] = useState<CommunityAdventure | null>(null);
+  const [reviewModalVisible, setReviewModalVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -152,21 +157,36 @@ const DiscoverScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
       return;
     }
 
+    // Optimistic update - update UI immediately
+    const currentState = userInteractions[adventureId];
+    const newState = {
+      ...currentState,
+      [type === 'heart' ? 'liked' : 'saved']: !currentState?.[type === 'heart' ? 'liked' : 'saved']
+    };
+    
+    setUserInteractions(prev => ({
+      ...prev,
+      [adventureId]: newState
+    }));
+
+    // Then update backend in background
     try {
       const result = await adventureInteractionService.toggleInteraction(adventureId, type);
       
-      if (result.success) {
+      if (!result.success) {
+        // Revert optimistic update if backend failed
         setUserInteractions(prev => ({
           ...prev,
-          [adventureId]: {
-            ...prev[adventureId],
-            [type === 'heart' ? 'liked' : 'saved']: result.isAdded
-          }
+          [adventureId]: currentState
         }));
-      } else {
         Alert.alert('Error', result.error || 'Failed to update interaction');
       }
     } catch (error) {
+      // Revert optimistic update on error
+      setUserInteractions(prev => ({
+        ...prev,
+        [adventureId]: currentState
+      }));
       console.error('Error handling interaction:', error);
       Alert.alert('Error', 'Something went wrong');
     }
@@ -204,6 +224,11 @@ const DiscoverScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
 
   const formatCost = (cost: number | string): string => {
     if (typeof cost === 'string') {
+      // Try to extract numeric value from string
+      const numericCost = parseFloat(cost.replace(/[^0-9.]/g, ''));
+      if (!isNaN(numericCost)) {
+        return formatBudget(numericCost, preferences);
+      }
       return cost;
     }
     return formatBudget(cost, preferences);
@@ -238,11 +263,14 @@ const DiscoverScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
   };
 
   const handleAdventurePress = (adventure: CommunityAdventure) => {
-    Alert.alert(
-      adventure.custom_title,
-      adventure.custom_description,
-      [{ text: 'OK' }]
-    );
+    // Record view interaction
+    if (user) {
+      adventureInteractionService.recordView(adventure.id);
+    }
+    
+    // Open review modal instead of system alert
+    setSelectedAdventure(adventure);
+    setReviewModalVisible(true);
   };
 
   const CategoryCard = ({ experience }: { experience: any }) => {
@@ -327,6 +355,7 @@ const DiscoverScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
                 e.stopPropagation();
                 handleInteraction(adventure.id, 'heart');
               }}
+              activeOpacity={0.7}
             >
               <Ionicons 
                 name={isLiked ? "heart" : "heart-outline"} 
@@ -349,6 +378,7 @@ const DiscoverScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
                 e.stopPropagation();
                 handleInteraction(adventure.id, 'save');
               }}
+              activeOpacity={0.7}
             >
               <Ionicons 
                 name={isSaved ? "bookmark" : "bookmark-outline"} 
@@ -469,35 +499,72 @@ const DiscoverScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
           )}
         </View>
 
-        {/* Adventure Curation Button */}
+        {/* Adventure Curation Button - Enhanced Brand Design */}
         <View className="px-6 mb-6">
           <TouchableOpacity
-            className="bg-green-500 rounded-2xl p-6 shadow-sm"
+            className="rounded-2xl shadow-lg overflow-hidden"
             style={{
-              backgroundColor: '#10b981', // Fallback color
               borderRadius: 16,
-              padding: 24,
               shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.1,
-              shadowRadius: 4,
-              elevation: 3,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.15,
+              shadowRadius: 8,
+              elevation: 6,
             }}
             onPress={() => navigation?.navigate?.('Curate')}
           >
-            <View className="flex-row items-center justify-between">
-              <View className="flex-1">
-                <Text className="text-white text-xl font-bold mb-2">
-                  Curate Your Next Adventure
-                </Text>
-                <Text className="text-green-100 text-sm leading-relaxed">
-                  Tell us what you're in the mood for and we'll create a personalized adventure just for you
-                </Text>
+            <LinearGradient
+              colors={['#3c7660', '#f2cc6c']} // Sage to Gold gradient
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{
+                padding: 24,
+                position: 'relative',
+              }}
+            >
+              {/* Logo Swirl Overlay */}
+              <View 
+                style={{
+                  position: 'absolute',
+                  right: -20,
+                  top: -10,
+                  opacity: 0.15,
+                  transform: [{ scale: 1.5 }]
+                }}
+              >
+                <Image 
+                  source={require('../../assets/logo-swirl.png')}
+                  style={{
+                    width: 100,
+                    height: 100,
+                    tintColor: 'white'
+                  }}
+                  resizeMode="contain"
+                />
               </View>
-              <View className="ml-4">
-                <Ionicons name="arrow-forward" size={24} color="white" />
+
+              <View className="flex-row items-center justify-between relative z-10">
+                <View className="flex-1">
+                  <Text className="text-white text-xl font-bold mb-1">
+                    Curate Your Next Adventure
+                  </Text>
+                  <Text className="text-white/90 text-xs font-medium mb-3 tracking-wide">
+                    Let us do the planning
+                  </Text>
+                  <Text className="text-white/85 text-sm leading-relaxed">
+                    Tell us what you're in the mood for and we'll create a personalized adventure just for you
+                  </Text>
+                </View>
+                <View className="ml-4">
+                  <View 
+                    className="w-12 h-12 rounded-full items-center justify-center"
+                    style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}
+                  >
+                    <Ionicons name="arrow-forward" size={24} color="white" />
+                  </View>
+                </View>
               </View>
-            </View>
+            </LinearGradient>
           </TouchableOpacity>
         </View>
 
@@ -563,6 +630,18 @@ const DiscoverScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
         {/* Footer spacing */}
         <View className="h-20" />
       </ScrollView>
+
+      {/* Community Adventure Review Modal */}
+      <CommunityAdventureReviewModal
+        visible={reviewModalVisible}
+        onClose={() => {
+          setReviewModalVisible(false);
+          setSelectedAdventure(null);
+        }}
+        adventure={selectedAdventure}
+        formatDuration={(hours: number) => formatDuration(hours, preferences)}
+        formatCost={(cost: number) => formatBudget(cost, preferences)}
+      />
     </SafeAreaView>
   );
 };

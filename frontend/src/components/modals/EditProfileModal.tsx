@@ -7,6 +7,7 @@ import {
   ScrollView,
   TextInput,
   Image,
+  SafeAreaView,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 
@@ -53,18 +54,19 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
       onRequestClose={onClose}
     >
       <View className="flex-1 bg-black/50">
-        <View className="flex-1 bg-background-light mt-12">
-          {/* Modal Header */}
-          <View className="flex-row justify-between items-center p-6 pb-4">
-            <TouchableOpacity 
-              onPress={onClose}
-              className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center"
-            >
-              <Text className="text-gray-600 font-bold text-lg">×</Text>
-            </TouchableOpacity>
-            <Text className="text-2xl font-bold text-text-primary">Edit Profile</Text>
-            <View className="w-10" />
-          </View>
+        <SafeAreaView className="flex-1">
+          <View className="flex-1 bg-background-light">
+            {/* Modal Header */}
+            <View className="flex-row justify-between items-center p-6 pb-4">
+              <TouchableOpacity 
+                onPress={onClose}
+                className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center"
+              >
+                <Text className="text-gray-600 font-bold text-lg">×</Text>
+              </TouchableOpacity>
+              <Text className="text-2xl font-bold text-text-primary">Edit Profile</Text>
+              <View className="w-10" />
+            </View>
 
           <ScrollView 
             className="flex-1 px-6" 
@@ -181,7 +183,8 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+          </View>
+        </SafeAreaView>
       </View>
     </Modal>
   );

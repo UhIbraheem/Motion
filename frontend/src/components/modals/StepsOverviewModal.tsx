@@ -1,5 +1,5 @@
 // src/components/modals/StepsOverviewModal.tsx - Clean Steps Modal with New Standards
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import {
   Modal,
   View,
@@ -10,9 +10,11 @@ import {
   Animated,
   SafeAreaView,
   Alert,
+  TextInput,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { typography, spacing, borderRadius, getCurrentTheme } from '../../constants/Theme';
 import { useTheme } from '../../context/ThemeContext';
 import { Adventure, AdventureStep } from './types';
@@ -23,6 +25,7 @@ interface StepsOverviewModalProps {
   visible: boolean;
   adventure: Adventure | null;
   onClose: () => void;
+  onUpdateSteps?: (adventureId: string, steps: AdventureStep[]) => void;
   formatDuration: (hours: number) => string;
   formatCost: (cost: number) => string;
 }
@@ -31,12 +34,20 @@ const StepsOverviewModal: React.FC<StepsOverviewModalProps> = ({
   visible,
   adventure,
   onClose,
+  onUpdateSteps,
   formatDuration,
   formatCost,
 }) => {
   const { isDark } = useTheme();
   const themeColors = getCurrentTheme(isDark);
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  
+  // State for editing
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingSteps, setEditingSteps] = useState<AdventureStep[]>([]);
+  const [editingStepIndex, setEditingStepIndex] = useState<number | null>(null);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [tempTime, setTempTime] = useState(new Date());
 
   // Fade in/out animation
   useEffect(() => {
@@ -54,6 +65,70 @@ const StepsOverviewModal: React.FC<StepsOverviewModalProps> = ({
       }).start();
     }
   }, [visible, fadeAnim]);
+
+  // Initialize editing steps when adventure changes
+  useEffect(() => {
+    if (adventure) {
+      setEditingSteps([...adventure.steps]);
+    }
+  }, [adventure]);
+
+  // Handle time change
+  const handleTimeChange = (event: any, selectedTime?: Date) => {
+    setShowTimePicker(false);
+    if (selectedTime && editingStepIndex !== null) {
+      const timeString = selectedTime.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+      });
+      
+      const updatedSteps = [...editingSteps];
+      updatedSteps[editingStepIndex] = {
+        ...updatedSteps[editingStepIndex],
+        time: timeString
+      };
+      setEditingSteps(updatedSteps);
+    }
+  };
+
+  // Handle step field updates
+  const handleStepUpdate = (index: number, field: keyof AdventureStep, value: string) => {
+    const updatedSteps = [...editingSteps];
+    updatedSteps[index] = {
+      ...updatedSteps[index],
+      [field]: value
+    };
+    setEditingSteps(updatedSteps);
+  };
+
+  // Handle save changes
+  const handleSaveChanges = () => {
+    Alert.alert(
+      'Save Changes',
+      'Are you sure you want to save the changes to this adventure?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Save',
+          onPress: () => {
+            if (onUpdateSteps && adventure) {
+              onUpdateSteps(adventure.id, editingSteps);
+            }
+            setIsEditing(false);
+          }
+        }
+      ]
+    );
+  };
+
+  // Handle discard changes
+  const handleDiscardChanges = () => {
+    if (adventure) {
+      setEditingSteps([...adventure.steps]);
+    }
+    setIsEditing(false);
+  };
 
   // Helper function for reservation info display
   const shouldShowBookingInfo = (booking: any) => {
@@ -312,7 +387,7 @@ const StepsOverviewModal: React.FC<StepsOverviewModalProps> = ({
                       color: themeColors.text.primary,
                       marginBottom: spacing.xs,
                     }}>
-                      Adventure Steps
+                      {isEditing ? 'Edit Steps' : 'Adventure Steps'}
                     </Text>
                     <Text style={{
                       ...typography.body,
@@ -322,26 +397,89 @@ const StepsOverviewModal: React.FC<StepsOverviewModalProps> = ({
                     </Text>
                   </View>
                   
-                  <TouchableOpacity
-                    onPress={onClose}
-                    style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: 16,
-                      backgroundColor: themeColors.background.card,
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      marginLeft: spacing.md,
-                    }}
-                  >
-                    <Text style={{ 
-                      fontSize: 18, 
-                      color: themeColors.text.secondary,
-                      fontWeight: '500',
-                    }}>
-                      ✕
-                    </Text>
-                  </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {isEditing ? (
+                      <>
+                        <TouchableOpacity
+                          onPress={handleDiscardChanges}
+                          style={{
+                            paddingHorizontal: spacing.md,
+                            paddingVertical: spacing.sm,
+                            backgroundColor: themeColors.background.card,
+                            borderRadius: borderRadius.md,
+                            marginRight: spacing.sm,
+                          }}
+                        >
+                          <Text style={{
+                            ...typography.caption,
+                            color: themeColors.text.secondary,
+                            fontWeight: '600',
+                          }}>
+                            Cancel
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={handleSaveChanges}
+                          style={{
+                            paddingHorizontal: spacing.md,
+                            paddingVertical: spacing.sm,
+                            backgroundColor: themeColors.brand.sage,
+                            borderRadius: borderRadius.md,
+                            marginRight: spacing.sm,
+                          }}
+                        >
+                          <Text style={{
+                            ...typography.caption,
+                            color: 'white',
+                            fontWeight: '600',
+                          }}>
+                            Save
+                          </Text>
+                        </TouchableOpacity>
+                      </>
+                    ) : (
+                      onUpdateSteps && (
+                        <TouchableOpacity
+                          onPress={() => setIsEditing(true)}
+                          style={{
+                            paddingHorizontal: spacing.md,
+                            paddingVertical: spacing.sm,
+                            backgroundColor: themeColors.brand.sage + '20',
+                            borderRadius: borderRadius.md,
+                            marginRight: spacing.sm,
+                          }}
+                        >
+                          <Text style={{
+                            ...typography.caption,
+                            color: themeColors.brand.sage,
+                            fontWeight: '600',
+                          }}>
+                            Edit
+                          </Text>
+                        </TouchableOpacity>
+                      )
+                    )}
+                    
+                    <TouchableOpacity
+                      onPress={isEditing ? handleDiscardChanges : onClose}
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 16,
+                        backgroundColor: themeColors.background.card,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Text style={{ 
+                        fontSize: 18, 
+                        color: themeColors.text.secondary,
+                        fontWeight: '500',
+                      }}>
+                        ✕
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
                 
                 {/* Adventure info */}
@@ -433,7 +571,7 @@ const StepsOverviewModal: React.FC<StepsOverviewModalProps> = ({
                 }}
                 showsVerticalScrollIndicator={false}
               >
-                {adventure.steps.map((step, index) => (
+                {(isEditing ? editingSteps : adventure.steps).map((step, index) => (
                   <View
                     key={index}
                     style={{
@@ -466,13 +604,44 @@ const StepsOverviewModal: React.FC<StepsOverviewModalProps> = ({
                           borderWidth: 1,
                           borderColor: themeColors.brand.sage + '40',
                         }}>
-                          <Text style={{
-                            ...typography.caption,
-                            fontWeight: '700',
-                            color: themeColors.brand.sage,
-                          }}>
-                            {step.time}
-                          </Text>
+                          {isEditing ? (
+                            <TouchableOpacity
+                              onPress={() => {
+                                setEditingStepIndex(index);
+                                const timeDate = new Date();
+                                // Parse the time string and set to date
+                                const timeParts = step.time.match(/(\d+):(\d+)\s*(AM|PM)?/);
+                                if (timeParts) {
+                                  let hours = parseInt(timeParts[1]);
+                                  const minutes = parseInt(timeParts[2]);
+                                  const ampm = timeParts[3];
+                                  
+                                  if (ampm === 'PM' && hours !== 12) hours += 12;
+                                  if (ampm === 'AM' && hours === 12) hours = 0;
+                                  
+                                  timeDate.setHours(hours, minutes);
+                                }
+                                setTempTime(timeDate);
+                                setShowTimePicker(true);
+                              }}
+                            >
+                              <Text style={{
+                                ...typography.caption,
+                                fontWeight: '700',
+                                color: themeColors.brand.sage,
+                              }}>
+                                {step.time}
+                              </Text>
+                            </TouchableOpacity>
+                          ) : (
+                            <Text style={{
+                              ...typography.caption,
+                              fontWeight: '700',
+                              color: themeColors.brand.sage,
+                            }}>
+                              {step.time}
+                            </Text>
+                          )}
                         </View>
                         
                         <Text style={{
@@ -484,14 +653,34 @@ const StepsOverviewModal: React.FC<StepsOverviewModalProps> = ({
                       </View>
 
                       {/* Step title */}
-                      <Text style={{
-                        ...typography.heading,
-                        color: themeColors.text.primary,
-                        marginBottom: spacing.sm,
-                        lineHeight: 28,
-                      }}>
-                        {step.title}
-                      </Text>
+                      {isEditing ? (
+                        <TextInput
+                          value={step.title}
+                          onChangeText={(text) => handleStepUpdate(index, 'title', text)}
+                          style={{
+                            ...typography.heading,
+                            color: themeColors.text.primary,
+                            marginBottom: spacing.sm,
+                            lineHeight: 28,
+                            backgroundColor: themeColors.background.primary,
+                            borderWidth: 1,
+                            borderColor: themeColors.text.tertiary + '30',
+                            borderRadius: borderRadius.sm,
+                            padding: spacing.sm,
+                          }}
+                          placeholder="Step title"
+                          multiline
+                        />
+                      ) : (
+                        <Text style={{
+                          ...typography.heading,
+                          color: themeColors.text.primary,
+                          marginBottom: spacing.sm,
+                          lineHeight: 28,
+                        }}>
+                          {step.title}
+                        </Text>
+                      )}
 
                       {/* Step location */}
                       <View style={{
@@ -500,13 +689,31 @@ const StepsOverviewModal: React.FC<StepsOverviewModalProps> = ({
                         marginBottom: spacing.sm,
                       }}>
                         <Ionicons name="location" size={16} color="#6B7280" style={{ marginRight: 8 }} />
-                        <Text style={{
-                          ...typography.body,
-                          color: themeColors.text.secondary,
-                          flex: 1,
-                        }}>
-                          {step.location}
-                        </Text>
+                        {isEditing ? (
+                          <TextInput
+                            value={step.location || ''}
+                            onChangeText={(text) => handleStepUpdate(index, 'location', text)}
+                            style={{
+                              ...typography.body,
+                              color: themeColors.text.secondary,
+                              flex: 1,
+                              backgroundColor: themeColors.background.primary,
+                              borderWidth: 1,
+                              borderColor: themeColors.text.tertiary + '30',
+                              borderRadius: borderRadius.sm,
+                              padding: spacing.sm,
+                            }}
+                            placeholder="Location"
+                          />
+                        ) : (
+                          <Text style={{
+                            ...typography.body,
+                            color: themeColors.text.secondary,
+                            flex: 1,
+                          }}>
+                            {step.location}
+                          </Text>
+                        )}
                       </View>
 
                       {/* Step notes */}
@@ -534,14 +741,35 @@ const StepsOverviewModal: React.FC<StepsOverviewModalProps> = ({
                               Notes
                             </Text>
                           </View>
-                          <Text style={{
-                            ...typography.body,
-                            color: themeColors.text.primary,
-                            lineHeight: 22,
-                            fontStyle: 'italic',
-                          }}>
-                            {step.notes}
-                          </Text>
+                          {isEditing ? (
+                            <TextInput
+                              value={step.notes || ''}
+                              onChangeText={(text) => handleStepUpdate(index, 'notes', text)}
+                              style={{
+                                ...typography.body,
+                                color: themeColors.text.primary,
+                                lineHeight: 22,
+                                backgroundColor: themeColors.background.primary,
+                                borderWidth: 1,
+                                borderColor: themeColors.text.tertiary + '30',
+                                borderRadius: borderRadius.sm,
+                                padding: spacing.sm,
+                                minHeight: 60,
+                              }}
+                              placeholder="Additional notes (optional)"
+                              multiline
+                              numberOfLines={3}
+                            />
+                          ) : (
+                            <Text style={{
+                              ...typography.body,
+                              color: themeColors.text.primary,
+                              lineHeight: 22,
+                              fontStyle: 'italic',
+                            }}>
+                              {step.notes}
+                            </Text>
+                          )}
                         </View>
                       )}
 
@@ -581,6 +809,17 @@ const StepsOverviewModal: React.FC<StepsOverviewModalProps> = ({
           </View>
         </BlurView>
       </Animated.View>
+      
+      {/* Time Picker */}
+      {showTimePicker && (
+        <DateTimePicker
+          value={tempTime}
+          mode="time"
+          is24Hour={false}
+          display="default"
+          onChange={handleTimeChange}
+        />
+      )}
     </Modal>
   );
 };

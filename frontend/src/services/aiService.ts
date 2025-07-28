@@ -317,6 +317,32 @@ export class AIAdventureService {
     }
   }
 
+  async updateAdventureSteps(adventureId: string, steps: AdventureStep[]): Promise<{
+    error: string | null;
+  }> {
+    try {
+      console.log('📝 Updating adventure steps...', { adventureId, stepsCount: steps.length });
+
+      const { error } = await supabase
+        .from('plans')
+        .update({ 
+          steps: JSON.stringify(steps)
+        })
+        .eq('id', adventureId);
+
+      if (error) {
+        console.error('❌ Supabase steps update error:', error);
+        return { error: error.message };
+      }
+
+      console.log('✅ Adventure steps updated successfully');
+      return { error: null };
+    } catch (error) {
+      console.error('❌ Unexpected steps update error:', error);
+      return { error: 'Failed to update adventure steps' };
+    }
+  }
+
   /**
    * Mark entire adventure as completed
    */

@@ -37,8 +37,9 @@ interface UserProfile {
 }
 
 const ProfileScreen: React.FC = () => {
-  const { user, signOut } = useAuth();
+  const { user, signOut, requestAuth } = useAuth();
   const { preferences, updatePreferences } = usePreferences();
+  const [forceShowAuth, setForceShowAuth] = useState(false);
   const [userStats, setUserStats] = useState<UserStats>({
     totalAdventures: 0,
     completedAdventures: 0,
@@ -327,11 +328,41 @@ const ProfileScreen: React.FC = () => {
   if (!user) {
     return (
       <SafeAreaView className="flex-1 bg-gray-50">
-        <View className="flex-1 justify-center items-center p-6">
-          <MaterialIcons name="security" size={32} color="#3c7660" />
-          <Text className="text-green-600 text-lg text-center mt-4">
-            Please sign in to view your profile
-          </Text>
+        <View className="flex-1 justify-center items-center px-6">
+          <View className="items-center mb-12">
+            <Ionicons name="person-circle" size={100} color="#9CA3AF" />
+            <Text className="text-3xl font-bold text-gray-800 mt-6 mb-3">Welcome to Motion</Text>
+            <Text className="text-gray-600 text-center text-lg leading-7 max-w-sm">
+              Sign in to access your profile, view your adventures, and personalize your experience.
+            </Text>
+          </View>
+          
+          <View className="w-full max-w-sm space-y-6">
+            <Button
+              title="Sign In"
+              onPress={requestAuth}
+              variant="primary"
+              size="lg"
+              leftIcon={<Ionicons name="log-in" size={20} color="#3c7660" />}
+            />
+            
+            <Button
+              title="Create Account"
+              onPress={requestAuth}
+              variant="outline"
+              size="lg"
+              leftIcon={<Ionicons name="person-add" size={20} color="#3c7660" />}
+            />
+          </View>
+          
+          <View className="mt-12 bg-brand-light rounded-xl p-4 max-w-sm">
+            <Text className="text-brand-sage text-center text-sm font-medium">
+              💡 Currently browsing in demo mode
+            </Text>
+            <Text className="text-brand-sage/80 text-center text-xs mt-1 leading-4">
+              Sign in to unlock your full Motion experience
+            </Text>
+          </View>
         </View>
       </SafeAreaView>
     );
