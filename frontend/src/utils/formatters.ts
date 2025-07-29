@@ -91,3 +91,40 @@ export const formatPrice = (amount: number, currency: string): string => {
   const symbol = getCurrencySymbol(currency);
   return `${symbol}${amount.toFixed(2)}`;
 };
+
+// Format scheduled date for display
+export const formatScheduledDate = (dateString: string, preferences?: FormatPreferences): string => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffTime = date.getTime() - now.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  // If it's today
+  if (diffDays === 0) {
+    return `Today at ${formatTime(date, preferences?.time_format || '12h')}`;
+  }
+  
+  // If it's tomorrow
+  if (diffDays === 1) {
+    return `Tomorrow at ${formatTime(date, preferences?.time_format || '12h')}`;
+  }
+  
+  // If it's within a week
+  if (diffDays > 0 && diffDays <= 7) {
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'long',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: preferences?.time_format !== '24h'
+    });
+  }
+  
+  // For dates beyond a week
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: preferences?.time_format !== '24h'
+  });
+};

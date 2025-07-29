@@ -11,6 +11,7 @@ import {
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { AdventureStep } from './types';
+import { getStepImage } from './StepBookingUtils';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -20,30 +21,6 @@ interface StepCardProps {
   themeColors: any;
   onViewStep: () => void;
 }
-
-// Function to get appropriate image for step type
-const getStepImage = (stepTitle: string): string => {
-  const title = stepTitle.toLowerCase();
-  
-  if (title.includes('restaurant') || title.includes('food') || title.includes('eat') || title.includes('dine')) {
-    return 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=300&fit=crop&q=80';
-  } else if (title.includes('museum') || title.includes('gallery') || title.includes('art')) {
-    return 'https://images.unsplash.com/photo-1533929736458-ca588d08c8be?w=400&h=300&fit=crop&q=80';
-  } else if (title.includes('park') || title.includes('garden') || title.includes('outdoor')) {
-    return 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&h=300&fit=crop&q=80';
-  } else if (title.includes('shop') || title.includes('store') || title.includes('market')) {
-    return 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&h=300&fit=crop&q=80';
-  } else if (title.includes('coffee') || title.includes('cafe')) {
-    return 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=400&h=300&fit=crop&q=80';
-  } else if (title.includes('concert') || title.includes('music') || title.includes('event')) {
-    return 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=400&h=300&fit=crop&q=80';
-  } else if (title.includes('bar') || title.includes('drink') || title.includes('cocktail')) {
-    return 'https://images.unsplash.com/photo-1544785349-c4a5301826fd?w=400&h=300&fit=crop&q=80';
-  }
-  
-  // Default fallback
-  return 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=400&h=300&fit=crop&q=80';
-};
 
 export const StepCard: React.FC<StepCardProps> = ({ step, index, themeColors, onViewStep }) => {
   const stepNumber = index + 1;

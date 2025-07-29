@@ -1,4 +1,4 @@
-// src/components/modals/AdventureDetailModal.tsx - Redesigned with Horizontal Step Cards
+// src/components/modals/AdventureDetailModal.tsx - Streamlined Adventure Detail Modal
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Modal,
@@ -10,14 +10,14 @@ import {
   Animated,
   SafeAreaView,
 } from 'react-native';
+import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import { BlurView } from 'expo-blur';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { typography, spacing, borderRadius, getCurrentTheme } from '../../constants/Theme';
 import { useTheme } from '../../context/ThemeContext';
 import { Adventure, AdventureStep } from './types';
-import SchedulePickerModal from './SchedulePickerModal';
-import { AdventureInfoSection } from './AdventureInfoSection';
-import { HorizontalStepsSection } from './HorizontalStepsSection';
+import StreamlinedCalendar from './StreamlinedCalendar';
+import { AdventureInfoSection, HorizontalStepsSection } from './AdventureDetailSections';
 import StepsOverviewModal from './StepsOverviewModal';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -50,42 +50,135 @@ export const AdventureDetailModal: React.FC<AdventureDetailModalProps> = ({
   const { isDark } = useTheme();
   const themeColors = getCurrentTheme(isDark);
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const panY = useRef(new Animated.Value(0)).current;
+  const backgroundOpacity = useRef(new Animated.Value(0)).current;
   
   // Modal states
-  const [isSchedulePickerVisible, setIsSchedulePickerVisible] = useState(false);
   const [showAllStepsModal, setShowAllStepsModal] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
+
+  // Gesture handler for swipe to dismiss
+  const onPanGestureEvent = Animated.event(
+    [{ nativeEvent: { translationY: panY } }],
+    { useNativeDriver: false } // Keep consistent - all false
+  );
+
+  const onPanHandlerStateChange = (event: any) => {
+    if (event.nativeEvent.oldState === State.ACTIVE) {
+      const { translationY, velocityY } = event.nativeEvent;
+      
+      // If swiped down enough (threshold) or fast enough velocity
+      if (translationY > 150 || velocityY > 1000) {
+        // Dismiss modal with smooth background fade
+        Animated.parallel([
+          Animated.timing(slideAnim, {
+            toValue: SCREEN_HEIGHT,
+            duration: 250,
+            useNativeDriver: false, // Changed to false to fix mixed animation error
+          }),
+          Animated.timing(backgroundOpacity, {
+            toValue: 0,
+            duration: 250,
+            useNativeDriver: false, // Changed to false
+          }),
+          Animated.timing(panY, {
+            toValue: 0,
+            duration: 250,
+            useNativeDriver: false,
+          })
+        ]).start(() => {
+          onClose();
+        });
+      } else {
+        // Snap back to original position
+        Animated.spring(panY, {
+          toValue: 0,
+          useNativeDriver: false, // Changed to false
+          tension: 100,
+          friction: 8,
+        }).start();
+      }
+    }
+  };
 
   // Animation for slide up
   useEffect(() => {
     if (visible) {
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
+      // Reset pan position and animate in
+      panY.setValue(0);
+      Animated.parallel([
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: false, // Changed to false
+        }),
+        Animated.timing(backgroundOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: false, // Changed to false
+        })
+      ]).start();
     } else {
-      Animated.timing(slideAnim, {
-        toValue: SCREEN_HEIGHT,
-        duration: 250,
-        useNativeDriver: true,
-      }).start();
+      Animated.parallel([
+        Animated.timing(slideAnim, {
+          toValue: SCREEN_HEIGHT,
+          duration: 250,
+          useNativeDriver: false, // Changed to false
+        }),
+        Animated.timing(backgroundOpacity, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: false, // Changed to false
+        })
+      ]).start();
     }
-  }, [visible, slideAnim]);
+  }, [visible, slideAnim, panY, backgroundOpacity]);
 
   // Handle close with animation
   const handleClose = () => {
-    Animated.timing(slideAnim, {
-      toValue: SCREEN_HEIGHT,
-      duration: 250,
-      useNativeDriver: true,
-    }).start(() => {
+    Animated.parallel([
+      Animated.timing(slideAnim, {
+        toValue: SCREEN_HEIGHT,
+        duration: 250,
+        useNativeDriver: false, // Changed to false
+      }),
+      Animated.timing(backgroundOpacity, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: false, // Changed to false
+      })
+    ]).start(() => {
       onClose();
     });
   };
 
   // Handle schedule button press
   const handleSchedulePress = () => {
-    setIsSchedulePickerVisible(true);
+    console.log('🗓️ Schedule button pressed for adventure:', adventure?.id);
+    setShowCalendar(true);
+  };
+
+  // Handle calendar date selection
+  const handleCalendarDateSelect = (dateString: string) => {
+    console.log('📅 Calendar date selected:', dateString);
+    if (adventure) {
+      onUpdateScheduledDate(adventure.id, dateString);
+      // Also update local adventure state for immediate UI update
+      const updatedAdventure = { ...adventure, scheduled_for: dateString };
+      // We need to trigger a re-render, this should be handled by the parent
+    }
+    setShowCalendar(false);
+  };
+
+  // Check if adventure can be completed (must be scheduled and past scheduled time)
+  const canCompleteAdventure = () => {
+    if (!adventure || !adventure.scheduled_for) return false; // Cannot complete if not scheduled
+    
+    const scheduledDate = new Date(adventure.scheduled_for);
+    const now = new Date();
+    
+    // Allow completion if scheduled time has passed
+    return now >= scheduledDate;
   };
 
   // Handle view all steps button press
@@ -95,74 +188,120 @@ export const AdventureDetailModal: React.FC<AdventureDetailModalProps> = ({
 
   // Check if adventure is completed
   const isCompleted = adventure?.is_completed || false;
-  const allStepsCompleted = adventure?.steps.every((_, index) => 
-    adventure.step_completions?.[index] === true
-  ) || false;
+
+  // Calculate completion status
+  const allStepsCompleted = adventure?.steps?.every(step => step.completed) || false;
 
   if (!adventure) return null;
 
   return (
     <>
+      {/* Streamlined Calendar Modal - Render first for higher priority */}
+      <StreamlinedCalendar
+        visible={showCalendar}
+        onClose={() => setShowCalendar(false)}
+        onDateSelect={handleCalendarDateSelect}
+        currentDate={adventure.scheduled_for}
+        adventure={adventure}
+      />
+
       <Modal
-        visible={visible}
+        visible={visible && !showCalendar}
         animationType="none"
         transparent
         statusBarTranslucent
       >
         {/* Blurred Background - Fixed position, no dragging */}
-        <BlurView
-          intensity={20}
-          tint="dark"
+        <Animated.View
           style={{
             flex: 1,
             backgroundColor: 'rgba(0, 0, 0, 0.4)',
+            opacity: backgroundOpacity,
           }}
         >
-          {/* Background Touchable to Close */}
-          <TouchableOpacity
+          <BlurView
+            intensity={20}
+            tint="dark"
             style={{ flex: 1 }}
-            activeOpacity={1}
-            onPress={handleClose}
-          />
+          >
+            {/* Background Touchable to Close */}
+            <TouchableOpacity
+              style={{ flex: 1 }}
+              activeOpacity={1}
+              onPress={handleClose}
+            />
 
           {/* Modal Content - Slides up from bottom, locks in place */}
-          <Animated.View
-            style={{
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: SCREEN_HEIGHT * 0.85,
-              backgroundColor: themeColors.background.primary,
-              borderTopLeftRadius: borderRadius.xl,
-              borderTopRightRadius: borderRadius.xl,
-              transform: [{ translateY: slideAnim }],
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: -4 },
-              shadowOpacity: 0.25,
-              shadowRadius: 12,
-              elevation: 12,
-            }}
+          <PanGestureHandler
+            onGestureEvent={onPanGestureEvent}
+            onHandlerStateChange={onPanHandlerStateChange}
           >
+            <Animated.View
+              style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: SCREEN_HEIGHT * 0.85,
+                backgroundColor: themeColors.background.primary,
+                borderTopLeftRadius: borderRadius.xl,
+                borderTopRightRadius: borderRadius.xl,
+                transform: [
+                  { translateY: slideAnim },
+                  { translateY: panY }
+                ],
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: -4 },
+                shadowOpacity: 0.25,
+                shadowRadius: 12,
+                elevation: 12,
+              }}
+            >
             <SafeAreaView style={{ flex: 1 }}>
-              {/* Handle Bar */}
+              {/* Handle Bar - Enhanced for swipe indication */}
               <View style={{
                 alignItems: 'center',
                 paddingTop: spacing.sm,
                 paddingBottom: spacing.md,
               }}>
                 <View style={{
-                  width: 40,
-                  height: 4,
-                  backgroundColor: themeColors.text.tertiary,
-                  borderRadius: 2,
+                  width: 50,
+                  height: 5,
+                  backgroundColor: themeColors.text.tertiary + '60',
+                  borderRadius: 3,
                 }} />
               </View>
 
-              {/* Scrollable Content - Only this section scrolls, not the whole modal */}
+              {/* Header with Close Button */}
+              <View style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                paddingHorizontal: spacing.lg,
+                paddingBottom: spacing.md,
+              }}>
+                <View style={{ flex: 1 }} />
+                <TouchableOpacity
+                  onPress={handleClose}
+                  style={{
+                    padding: spacing.xs,
+                    backgroundColor: themeColors.text.tertiary + '15',
+                    borderRadius: borderRadius.round,
+                  }}
+                >
+                  <Ionicons 
+                    name="close" 
+                    size={20} 
+                    color={themeColors.text.secondary} 
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {/* Scrollable Content */}
               <ScrollView 
                 style={{ flex: 1 }}
                 showsVerticalScrollIndicator={false}
+                bounces={false}
               >
                 {/* Adventure Info Section */}
                 <AdventureInfoSection
@@ -175,36 +314,14 @@ export const AdventureDetailModal: React.FC<AdventureDetailModalProps> = ({
                 />
 
                 {/* Horizontal Steps Section */}
-                <View style={{ marginVertical: spacing.lg }}>
-                  <HorizontalStepsSection
-                    steps={adventure.steps}
-                    themeColors={themeColors}
-                    title="Adventure Steps"
-                  />
-                </View>
-
-                {/* View All Steps Button */}
-                <View style={{ paddingHorizontal: spacing.lg, marginBottom: spacing.lg }}>
-                  <TouchableOpacity
-                    onPress={handleViewAllStepsPress}
-                    style={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                      borderWidth: 1.5,
-                      borderColor: 'rgba(60, 118, 96, 0.5)',
-                      paddingVertical: spacing.md,
-                      borderRadius: borderRadius.lg,
-                      alignItems: 'center',
-                    }}
-                  >
-                    <Text style={{
-                      ...typography.body,
-                      fontWeight: '600',
-                      color: themeColors.text?.primary || '#3c7660',
-                    }}>
-                      View All Steps Overview
-                    </Text>
-                  </TouchableOpacity>
-                </View>
+                <HorizontalStepsSection 
+                  steps={adventure.steps || []}
+                  onStepToggle={(stepIndex: number, completed: boolean) => {
+                    onUpdateStepCompletion(adventure.id, stepIndex, completed);
+                  }}
+                  onViewAllPress={handleViewAllStepsPress}
+                  themeColors={themeColors}
+                />
               </ScrollView>
 
               {/* Fixed Footer */}
@@ -214,73 +331,69 @@ export const AdventureDetailModal: React.FC<AdventureDetailModalProps> = ({
                 borderTopWidth: 1,
                 borderTopColor: themeColors.text.tertiary + '20',
               }}>
-                {/* Action Button - Changes based on completion status */}
+                {/* Action Button - Changes based on completion status and schedule */}
                 <TouchableOpacity
-                  onPress={() => onMarkComplete(adventure.id)}
+                  onPress={() => {
+                    if (isCompleted || canCompleteAdventure()) {
+                      onMarkComplete(adventure.id);
+                    }
+                  }}
+                  disabled={!isCompleted && !canCompleteAdventure()}
                   style={{
-                    backgroundColor: isCompleted ? themeColors.brand.sage : themeColors.brand.gold,
+                    backgroundColor: (!isCompleted && !canCompleteAdventure()) 
+                      ? 'rgba(128, 128, 128, 0.5)' 
+                      : isCompleted 
+                        ? themeColors.brand.sage 
+                        : themeColors.brand.gold,
                     paddingVertical: spacing.md,
                     borderRadius: borderRadius.lg,
                     alignItems: 'center',
                     marginBottom: spacing.sm,
+                    opacity: (!isCompleted && !canCompleteAdventure()) ? 0.6 : 1,
                   }}
                 >
                   <Text style={{
                     ...typography.body,
                     fontWeight: '600',
-                    color: themeColors.text.inverse,
+                    fontSize: 16,
+                    color: (!isCompleted && !canCompleteAdventure()) 
+                      ? 'rgba(255, 255, 255, 0.7)' 
+                      : themeColors.text.inverse,
                   }}>
-                    {isCompleted ? 'Do Again?' : allStepsCompleted ? 'Mark as Complete' : 'Mark as Complete'}
+                    {isCompleted 
+                      ? 'Do Again?' 
+                      : 'Mark as Complete'}
                   </Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                  onPress={handleClose}
-                  style={{
-                    paddingVertical: spacing.sm,
+                {/* Show completion requirement message */}
+                {!isCompleted && (
+                  <View style={{
                     alignItems: 'center',
-                  }}
-                >
-                  <Text style={{
-                    ...typography.body,
-                    color: themeColors.text.secondary,
+                    paddingVertical: spacing.xs,
                   }}>
-                    Close
-                  </Text>
-                </TouchableOpacity>
+                    <Text style={{
+                      fontSize: 13,
+                      color: themeColors.text.secondary,
+                      textAlign: 'center',
+                      fontStyle: 'italic',
+                    }}>
+                      {!adventure.scheduled_for 
+                        ? 'Schedule your adventure first to mark it complete'
+                        : !canCompleteAdventure()
+                        ? 'Complete after your scheduled adventure time'
+                        : ''
+                      }
+                    </Text>
+                  </View>
+                )}
               </View>
             </SafeAreaView>
           </Animated.View>
-        </BlurView>
+          </PanGestureHandler>
+          </BlurView>
+        </Animated.View>
       </Modal>
-
-      {/* Schedule Picker Modal */}
-      <SchedulePickerModal
-        visible={isSchedulePickerVisible}
-        adventure={adventure}
-        onClose={() => setIsSchedulePickerVisible(false)}
-        onUpdateScheduledDate={(dateString: string) => {
-          onUpdateScheduledDate(adventure.id, dateString);
-          setIsSchedulePickerVisible(false);
-        }}
-        getScheduleOptions={() => [
-          { 
-            label: 'Today', 
-            date: new Date().toISOString(),
-            fullDate: new Date().toLocaleDateString()
-          },
-          { 
-            label: 'Tomorrow', 
-            date: new Date(Date.now() + 86400000).toISOString(),
-            fullDate: new Date(Date.now() + 86400000).toLocaleDateString()
-          },
-          { 
-            label: 'This Weekend', 
-            date: new Date(Date.now() + 86400000 * 2).toISOString(),
-            fullDate: new Date(Date.now() + 86400000 * 2).toLocaleDateString()
-          },
-        ]}
-      />
 
       {/* Steps Overview Modal */}
       <StepsOverviewModal

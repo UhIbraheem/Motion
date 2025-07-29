@@ -15,7 +15,7 @@ import {
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import Button from '../components/Button';
 import { GradientAdventureCard } from '../components/GradientAdventureCard';
-import { AdventureDetailModal } from '../components/modals/AdventureDetailModal';
+import AdventureDetailModal from '../components/modals/AdventureDetailModal';
 import { ShareAdventureModal } from '../components/modals/ShareAdventureModal';
 import { aiService } from '../services/aiService';
 import { adventureInteractionService } from '../services/adventureInteractionService';
@@ -363,13 +363,15 @@ const PlansScreen: React.FC = () => {
 
   // Handle scheduled date update
   const handleUpdateScheduledDate = async (adventureId: string, scheduledDate: string) => {
+    console.log('🗓️ Updating schedule:', { adventureId, scheduledDate });
     try {
       // Update local state immediately for better UX
       setAdventures(prev => prev.map(adventure => {
         if (adventure.id === adventureId) {
           return {
             ...adventure,
-            scheduled_for: scheduledDate
+            scheduled_for: scheduledDate,
+            is_scheduled: true
           };
         }
         return adventure;
@@ -393,6 +395,8 @@ const PlansScreen: React.FC = () => {
         Alert.alert('Error', 'Failed to schedule adventure');
         return;
       }
+      
+      console.log('✅ Schedule updated successfully');
     } catch (error) {
       console.error('Error scheduling adventure:', error);
       Alert.alert('Error', 'Failed to schedule adventure');

@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { typography, spacing, borderRadius, getCurrentTheme } from '../../constants/Theme';
 import { useTheme } from '../../context/ThemeContext';
 import { AdventureStep } from './types';
+import { BookingSection, isFoodRelated, getStepImage } from './StepBookingUtils';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -26,29 +27,6 @@ interface StepDetailModalProps {
   stepIndex: number;
   onClose: () => void;
 }
-
-// Same image function as StepCard
-const getStepImage = (stepTitle: string): string => {
-  const title = stepTitle.toLowerCase();
-  
-  if (title.includes('restaurant') || title.includes('food') || title.includes('eat') || title.includes('dine')) {
-    return 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&h=400&fit=crop&q=80';
-  } else if (title.includes('museum') || title.includes('gallery') || title.includes('art')) {
-    return 'https://images.unsplash.com/photo-1533929736458-ca588d08c8be?w=600&h=400&fit=crop&q=80';
-  } else if (title.includes('park') || title.includes('garden') || title.includes('outdoor')) {
-    return 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=600&h=400&fit=crop&q=80';
-  } else if (title.includes('shop') || title.includes('store') || title.includes('market')) {
-    return 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=600&h=400&fit=crop&q=80';
-  } else if (title.includes('coffee') || title.includes('cafe')) {
-    return 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=600&h=400&fit=crop&q=80';
-  } else if (title.includes('concert') || title.includes('music') || title.includes('event')) {
-    return 'https://images.unsplash.com/photo-1540039155733-5bb30b53aa14?w=600&h=400&fit=crop&q=80';
-  } else if (title.includes('bar') || title.includes('drink') || title.includes('cocktail')) {
-    return 'https://images.unsplash.com/photo-1544785349-c4a5301826fd?w=600&h=400&fit=crop&q=80';
-  }
-  
-  return 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=600&h=400&fit=crop&q=80';
-};
 
 export const StepDetailModal: React.FC<StepDetailModalProps> = ({
   visible,
@@ -91,26 +69,6 @@ export const StepDetailModal: React.FC<StepDetailModalProps> = ({
       const query = encodeURIComponent(step.title);
       Linking.openURL(`https://www.opentable.com/s?query=${query}`);
     }
-  };
-
-  // Check if this step is food/dining related
-  const isFoodRelated = (): boolean => {
-    if (!step) return false;
-    const title = step.title?.toLowerCase() || '';
-    const location = step.location?.toLowerCase() || '';
-    const address = step.address?.toLowerCase() || '';
-    
-    const foodKeywords = [
-      'restaurant', 'cafe', 'coffee', 'lunch', 'dinner', 'brunch', 
-      'food', 'drink', 'bar', 'bistro', 'eatery', 'diner', 'grill',
-      'kitchen', 'tavern', 'pub', 'brewery', 'winery', 'bakery',
-      'pizzeria', 'taco', 'burger', 'sandwich', 'sushi', 'thai',
-      'italian', 'mexican', 'chinese', 'indian', 'japanese'
-    ];
-    
-    return foodKeywords.some(keyword => 
-      title.includes(keyword) || location.includes(keyword) || address.includes(keyword)
-    );
   };
 
   if (!step) return null;
@@ -285,42 +243,11 @@ export const StepDetailModal: React.FC<StepDetailModalProps> = ({
                 </View>
               )}
 
-              {/* Reservation Info */}
-              {step.booking && (
-                <View style={{
-                  backgroundColor: themeColors.brand.gold + '08',
-                  borderWidth: 1,
-                  borderColor: themeColors.brand.gold + '40',
-                  padding: spacing.md,
-                  borderRadius: borderRadius.md,
-                  marginBottom: spacing.lg,
-                }}>
-                  <Text style={{
-                    ...typography.heading,
-                    color: themeColors.brand.gold,
-                    marginBottom: spacing.sm,
-                  }}>
-                    📅 Reservation Information
-                  </Text>
-                  <Text style={{
-                    ...typography.body,
-                    color: themeColors.text.primary,
-                    lineHeight: 22,
-                  }}>
-                    {step.booking.method}
-                  </Text>
-                  {step.booking.fallback && (
-                    <Text style={{
-                      ...typography.small,
-                      color: themeColors.text.secondary,
-                      marginTop: spacing.sm,
-                      fontStyle: 'italic',
-                    }}>
-                      {step.booking.fallback}
-                    </Text>
-                  )}
-                </View>
-              )}
+              {/* Booking Section */}
+              <BookingSection
+                step={step}
+                themeColors={themeColors}
+              />
 
               {/* Notes */}
               {step.notes && (
@@ -344,7 +271,7 @@ export const StepDetailModal: React.FC<StepDetailModalProps> = ({
 
               {/* Action Buttons */}
               <View style={{ gap: spacing.md }}>
-                {step.booking && isFoodRelated() && (
+                                {step.booking && isFoodRelated(step) && (
                   <TouchableOpacity
                     onPress={openReservation}
                     style={{

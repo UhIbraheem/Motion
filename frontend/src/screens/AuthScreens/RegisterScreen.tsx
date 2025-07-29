@@ -103,7 +103,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
                     <Text className="text-white/90 text-sm font-semibold mb-2 ml-1">
                       First Name
                     </Text>
-                    <View className="bg-white/15 backdrop-blur-sm rounded-2xl border border-white/20">
+                    <View className="bg-gray-200/20 backdrop-blur-md rounded-2xl border border-gray-300/30">
                       <TextInput
                         placeholder="First name"
                         value={firstName}
@@ -125,7 +125,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
                     <Text className="text-white/90 text-sm font-semibold mb-2 ml-1">
                       Last Name
                     </Text>
-                    <View className="bg-white/15 backdrop-blur-sm rounded-2xl border border-white/20">
+                    <View className="bg-gray-200/20 backdrop-blur-md rounded-2xl border border-gray-300/30">
                       <TextInput
                         placeholder="Last name"
                         value={lastName}
@@ -149,7 +149,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
                   <Text className="text-white/90 text-sm font-semibold mb-2 ml-1">
                     Email Address
                   </Text>
-                  <View className="bg-white/15 backdrop-blur-sm rounded-2xl border border-white/20">
+                  <View className="bg-gray-200/20 backdrop-blur-md rounded-2xl border border-gray-300/30">
                     <TextInput
                       placeholder="Enter your email"
                       value={email}
@@ -174,7 +174,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
                   <Text className="text-white/90 text-sm font-semibold mb-2 ml-1">
                     Password
                   </Text>
-                  <View className="bg-white/15 backdrop-blur-sm rounded-2xl border border-white/20">
+                  <View className="bg-gray-200/20 backdrop-blur-md rounded-2xl border border-gray-300/30">
                     <TextInput
                       placeholder="Create a password"
                       value={password}
@@ -201,7 +201,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
                   <Text className="text-white/90 text-sm font-semibold mb-2 ml-1">
                     Confirm Password
                   </Text>
-                  <View className="bg-white/15 backdrop-blur-sm rounded-2xl border border-white/20">
+                  <View className="bg-gray-200/20 backdrop-blur-md rounded-2xl border border-gray-300/30">
                     <TextInput
                       placeholder="Confirm your password"
                       value={confirmPassword}

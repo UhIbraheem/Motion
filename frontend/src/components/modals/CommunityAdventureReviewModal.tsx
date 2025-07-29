@@ -12,7 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface CommunityAdventure {
   id: string;
@@ -178,26 +178,40 @@ const CommunityAdventureReviewModal: React.FC<CommunityAdventureReviewModalProps
       visible={visible}
       onRequestClose={onClose}
     >
-      <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'flex-end' }}>
-        <View style={{ height: '90%', backgroundColor: '#f9fafb', borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
-          {/* Header */}
-          <SafeAreaView>
-            <View className="flex-row justify-between items-center p-4 bg-white" style={{ borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
-              <TouchableOpacity 
-                onPress={onClose}
-                className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center"
-              >
-                <Text className="text-gray-600 font-bold text-lg">×</Text>
-              </TouchableOpacity>
-              <Text className="text-lg font-bold text-gray-900">Adventure Review</Text>
-              <View className="w-10" />
-            </View>
-          </SafeAreaView>
+      <TouchableOpacity
+        style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+        activeOpacity={1}
+        onPress={onClose}
+      />
+      
+      <View style={{ 
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: SCREEN_HEIGHT * 0.85, // Use same 85% height pattern
+        backgroundColor: '#f9fafb', 
+        borderTopLeftRadius: 20, 
+        borderTopRightRadius: 20 
+      }}>
+        {/* Header */}
+        <SafeAreaView>
+          <View className="flex-row justify-between items-center p-4 bg-white" style={{ borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
+            <TouchableOpacity 
+              onPress={onClose}
+              className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center"
+            >
+              <Text className="text-gray-600 font-bold text-lg">×</Text>
+            </TouchableOpacity>
+            <Text className="text-lg font-bold text-gray-900">Adventure Review</Text>
+            <View className="w-10" />
+          </View>
+        </SafeAreaView>
 
-          <ScrollView 
-            className="flex-1"
-            showsVerticalScrollIndicator={false}
-          >
+        <ScrollView 
+          className="flex-1"
+          showsVerticalScrollIndicator={false}
+        >
               {/* Adventure Photos */}
               {adventure.adventure_photos && adventure.adventure_photos.length > 0 && (
                 <View className="h-60 mb-4">
@@ -287,8 +301,6 @@ const CommunityAdventureReviewModal: React.FC<CommunityAdventureReviewModalProps
               <View className="h-20" />
             </ScrollView>
           </View>
-        </View>
-      </View>
     </Modal>
   );
 };

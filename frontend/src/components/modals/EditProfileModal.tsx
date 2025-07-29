@@ -9,7 +9,7 @@ import {
   Image,
   SafeAreaView,
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
+import { Ionicons } from '@expo/vector-icons';
 
 interface UserProfile {
   first_name: string;
@@ -46,146 +46,179 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
   userEmail,
   getInitials,
 }) => {
+  const InputSection = ({ 
+    icon, 
+    title, 
+    description, 
+    value,
+    onChangeText,
+    placeholder,
+    multiline = false
+  }: { 
+    icon: string; 
+    title: string; 
+    description: string; 
+    value: string;
+    onChangeText: (text: string) => void;
+    placeholder: string;
+    multiline?: boolean;
+  }) => (
+    <View className="py-4 px-4">
+      <View className="flex-row items-center mb-3">
+        <Ionicons name={icon as any} size={20} color="#3c7660" />
+        <View className="ml-3 flex-1">
+          <Text className="text-base font-medium text-gray-800">{title}</Text>
+          <Text className="text-sm text-gray-500 mt-1">{description}</Text>
+        </View>
+      </View>
+      
+      <View className="ml-8">
+        <TextInput
+          className={`bg-gray-50 border border-gray-300 rounded-lg px-3 py-3 text-gray-800 ${
+            multiline ? 'min-h-[80px]' : ''
+          }`}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor="#9ca3af"
+          multiline={multiline}
+          textAlignVertical={multiline ? 'top' : 'center'}
+        />
+      </View>
+    </View>
+  );
+
   return (
     <Modal
-      animationType="slide"
-      transparent={true}
       visible={visible}
-      onRequestClose={onClose}
+      animationType="slide"
+      presentationStyle="pageSheet"
     >
-      <View className="flex-1 bg-black/50">
-        <SafeAreaView className="flex-1">
-          <View className="flex-1 bg-background-light">
-            {/* Modal Header */}
-            <View className="flex-row justify-between items-center p-6 pb-4">
-              <TouchableOpacity 
-                onPress={onClose}
-                className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center"
-              >
-                <Text className="text-gray-600 font-bold text-lg">×</Text>
-              </TouchableOpacity>
-              <Text className="text-2xl font-bold text-text-primary">Edit Profile</Text>
-              <View className="w-10" />
-            </View>
+      <SafeAreaView className="flex-1 bg-gray-50">
+        {/* Header */}
+        <View className="flex-row items-center justify-between p-4 bg-white border-b border-gray-200">
+          <TouchableOpacity onPress={onClose}>
+            <Ionicons name="close" size={24} color="#374151" />
+          </TouchableOpacity>
+          <Text className="text-lg font-semibold text-gray-800">Edit Profile</Text>
+          <TouchableOpacity onPress={onUpdateProfile} disabled={isUpdating}>
+            <Text className={`font-medium ${isUpdating ? 'text-gray-400' : 'text-green-600'}`}>
+              {isUpdating ? 'Saving...' : 'Save'}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-          <ScrollView 
-            className="flex-1 px-6" 
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 120 }}
-          >
-            {/* Profile Picture Section */}
-            <View className="items-center mb-6">
-              <TouchableOpacity onPress={onPickImage} className="relative">
+        <ScrollView className="flex-1">
+          {/* Profile Picture */}
+          <View className="bg-white mt-4 mx-4 rounded-2xl">
+            <View className="p-4 border-b border-gray-100">
+              <Text className="text-lg font-semibold text-gray-800">Profile Picture</Text>
+            </View>
+            
+            <View className="py-6 px-4 items-center">
+              <TouchableOpacity 
+                onPress={onPickImage}
+                disabled={isUploadingImage}
+                className="relative"
+              >
                 {editForm.profile_picture_url ? (
-                  <View className="w-24 h-24 rounded-full bg-gray-100">
-                    <Image
-                      source={{ uri: editForm.profile_picture_url }}
-                      className="w-24 h-24 rounded-full"
-                    />
-                  </View>
+                  <Image 
+                    source={{ uri: editForm.profile_picture_url }} 
+                    className="w-24 h-24 rounded-full bg-gray-200"
+                  />
                 ) : (
-                  <View className="w-24 h-24 rounded-full bg-brand-sage items-center justify-center">
-                    <Text className="text-brand-cream text-2xl font-bold">
+                  <View className="w-24 h-24 rounded-full bg-gray-200 items-center justify-center">
+                    <Text className="text-2xl font-semibold text-gray-600">
                       {getInitials(editForm.first_name, editForm.last_name, userEmail)}
                     </Text>
                   </View>
                 )}
                 
-                {/* Camera Icon Overlay */}
-                <View className="absolute bottom-0 right-0 bg-brand-gold rounded-full w-8 h-8 items-center justify-center border-2 border-white">
-                  <Text className="text-white text-sm">📷</Text>
+                <View className="absolute -bottom-1 -right-1 bg-green-500 rounded-full p-2">
+                  <Ionicons 
+                    name={isUploadingImage ? "hourglass" : "camera"} 
+                    size={16} 
+                    color="white" 
+                  />
                 </View>
-                
-                {isUploadingImage && (
-                  <View className="absolute inset-0 bg-black bg-opacity-50 rounded-full items-center justify-center">
-                    <Text className="text-white text-xs">Uploading...</Text>
-                  </View>
-                )}
               </TouchableOpacity>
-              <Text className="text-text-secondary text-sm mt-2">Tap to change photo</Text>
-            </View>
-
-            {/* Form Fields */}
-            <View className="space-y-4">
-              <View>
-                <Text className="text-text-primary font-medium mb-2">First Name</Text>
-                <TextInput
-                  value={editForm.first_name}
-                  onChangeText={(text) => setEditForm(prev => ({ ...prev, first_name: text }))}
-                  placeholder="Enter your first name"
-                  className="bg-background-subtle border border-gray-200 rounded-xl px-4 py-3 text-text-primary"
-                />
-              </View>
-
-              <View>
-                <Text className="text-text-primary font-medium mb-2">Last Name</Text>
-                <TextInput
-                  value={editForm.last_name}
-                  onChangeText={(text) => setEditForm(prev => ({ ...prev, last_name: text }))}
-                  placeholder="Enter your last name"
-                  className="bg-background-subtle border border-gray-200 rounded-xl px-4 py-3 text-text-primary"
-                />
-              </View>
-
-              <View>
-                <Text className="text-text-primary font-medium mb-2">Bio</Text>
-                <TextInput
-                  value={editForm.bio}
-                  onChangeText={(text) => setEditForm(prev => ({ ...prev, bio: text }))}
-                  placeholder="Tell us about yourself..."
-                  multiline
-                  numberOfLines={3}
-                  className="bg-background-subtle border border-gray-200 rounded-xl px-4 py-3 text-text-primary min-h-20"
-                  textAlignVertical="top"
-                />
-              </View>
-
-              <View>
-                <Text className="text-text-primary font-medium mb-2">Home City</Text>
-                <TextInput
-                  value={editForm.home_city}
-                  onChangeText={(text) => setEditForm(prev => ({ ...prev, home_city: text }))}
-                  placeholder="e.g., San Francisco, CA"
-                  className="bg-background-subtle border border-gray-200 rounded-xl px-4 py-3 text-text-primary"
-                />
-              </View>
-
-              <View>
-                <Text className="text-text-primary font-medium mb-2">Birthday</Text>
-                <TextInput
-                  value={editForm.birthday}
-                  onChangeText={(text) => setEditForm(prev => ({ ...prev, birthday: text }))}
-                  placeholder="MM/DD/YYYY"
-                  className="bg-background-subtle border border-gray-200 rounded-xl px-4 py-3 text-text-primary"
-                />
-              </View>
-            </View>
-          </ScrollView>
-
-          {/* Fixed Action Buttons at Bottom */}
-          <View className="absolute bottom-0 left-0 right-0 bg-background-light border-t border-gray-200 p-6 pb-8">
-            <View className="flex-row space-x-3">
-              <TouchableOpacity 
-                onPress={onClose}
-                className="flex-1 py-4 px-4 rounded-xl border border-gray-300 items-center"
-              >
-                <Text className="text-text-secondary font-medium text-base">Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                onPress={onUpdateProfile}
-                disabled={isUpdating}
-                className="flex-1 bg-brand-sage py-4 px-4 rounded-xl items-center"
-                style={{ opacity: isUpdating ? 0.6 : 1 }}
-              >
-                <Text className="text-brand-cream font-medium text-base">
-                  {isUpdating ? 'Saving...' : 'Save Changes'}
-                </Text>
-              </TouchableOpacity>
+              
+              <Text className="text-center text-gray-500 mt-3">
+                {isUploadingImage ? 'Uploading...' : 'Tap to change photo'}
+              </Text>
             </View>
           </View>
+
+          {/* Basic Information */}
+          <View className="bg-white mt-4 mx-4 rounded-2xl">
+            <View className="p-4 border-b border-gray-100">
+              <Text className="text-lg font-semibold text-gray-800">Basic Information</Text>
+            </View>
+            
+            <InputSection
+              icon="person"
+              title="First Name"
+              description="Your first name"
+              value={editForm.first_name}
+              onChangeText={(text) => setEditForm(prev => ({ ...prev, first_name: text }))}
+              placeholder="Enter your first name"
+            />
+            
+            <View className="h-px bg-gray-100 mx-4" />
+            
+            <InputSection
+              icon="person"
+              title="Last Name"
+              description="Your last name"
+              value={editForm.last_name}
+              onChangeText={(text) => setEditForm(prev => ({ ...prev, last_name: text }))}
+              placeholder="Enter your last name"
+            />
+            
+            <View className="h-px bg-gray-100 mx-4" />
+            
+            <InputSection
+              icon="location"
+              title="Home City"
+              description="Where you're based"
+              value={editForm.home_city}
+              onChangeText={(text) => setEditForm(prev => ({ ...prev, home_city: text }))}
+              placeholder="Enter your city"
+            />
+            
+            <View className="h-px bg-gray-100 mx-4" />
+            
+            <InputSection
+              icon="calendar"
+              title="Birthday"
+              description="Your date of birth (YYYY-MM-DD)"
+              value={editForm.birthday}
+              onChangeText={(text) => setEditForm(prev => ({ ...prev, birthday: text }))}
+              placeholder="YYYY-MM-DD"
+            />
           </View>
-        </SafeAreaView>
-      </View>
+
+          {/* About */}
+          <View className="bg-white mt-4 mx-4 rounded-2xl">
+            <View className="p-4 border-b border-gray-100">
+              <Text className="text-lg font-semibold text-gray-800">About</Text>
+            </View>
+            
+            <InputSection
+              icon="document-text"
+              title="Bio"
+              description="Tell others about yourself"
+              value={editForm.bio}
+              onChangeText={(text) => setEditForm(prev => ({ ...prev, bio: text }))}
+              placeholder="Write a short bio..."
+              multiline={true}
+            />
+          </View>
+
+          {/* Footer spacing */}
+          <View className="h-20" />
+        </ScrollView>
+      </SafeAreaView>
     </Modal>
   );
 };

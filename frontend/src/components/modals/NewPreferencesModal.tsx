@@ -27,7 +27,7 @@ interface PreferencesModalProps {
   initialPreferences?: Partial<AppPreferences>;
 }
 
-const PreferencesModal: React.FC<PreferencesModalProps> = ({
+const NewPreferencesModal: React.FC<PreferencesModalProps> = ({
   visible,
   onClose,
   onSave,
@@ -271,4 +271,4 @@ const PreferencesModal: React.FC<PreferencesModalProps> = ({
   );
 };
 
-export default PreferencesModal;
+export default NewPreferencesModal;

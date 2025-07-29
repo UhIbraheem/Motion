@@ -90,7 +90,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                   <Text className="text-white/90 text-sm font-semibold mb-2 ml-1">
                     Email Address
                   </Text>
-                  <View className="bg-white/15 backdrop-blur-sm rounded-2xl border border-white/20">
+                  <View className="bg-gray-200/20 backdrop-blur-md rounded-2xl border border-gray-300/30">
                     <TextInput
                       placeholder="Enter your email"
                       value={email}
@@ -115,7 +115,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                   <Text className="text-white/90 text-sm font-semibold mb-2 ml-1">
                     Password
                   </Text>
-                  <View className="bg-white/15 backdrop-blur-sm rounded-2xl border border-white/20 flex-row items-center">
+                  <View className="bg-gray-200/20 backdrop-blur-md rounded-2xl border border-gray-300/30 flex-row items-center">
                     <TextInput
                       placeholder="Enter your password"
                       value={password}

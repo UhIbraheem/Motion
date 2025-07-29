@@ -17,7 +17,12 @@ import Card from '../components/Card';
 import { useAuth } from '../context/AuthContext';
 import { aiService } from '../services/aiService';
 import { supabase } from '../services/supabase';
-import { EditProfileModal, NewPreferencesModal, NotificationsModal, PrivacySecurityModal, FeedbackModal } from '../components/modals';
+// Import modals individually to debug import issues
+import EditProfileModal from '../components/modals/EditProfileModal';
+import NotificationsModal from '../components/modals/NotificationsModal';
+import NewPreferencesModal from '../components/modals/NewPreferencesModal';
+import PrivacySecurityModal from '../components/modals/PrivacySecurityModal';
+import FeedbackModal from '../components/modals/FeedbackModal';
 import { usePreferences } from '../context/PreferencesContext';
 
 interface UserStats {

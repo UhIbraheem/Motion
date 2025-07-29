@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { SafeAreaView, Alert } from 'react-native';
 import AdventureFilters from '../components/AdventureFilters';
 import GeneratedAdventureView from '../components/GeneratedAdventureView';
-import { DatePickerModal } from '../components/modals';
+import StreamlinedCalendar from '../components/modals/StreamlinedCalendar';
 import { aiService, AdventureFilters as AdventureFiltersType, GeneratedAdventure } from '../services/aiService';
 import { useAuth } from '../context/AuthContext';
 import { usePreferences } from '../context/PreferencesContext';
@@ -185,16 +185,29 @@ const [filters, setFilters] = useState<AdventureFiltersType>({
     setIsSaving(true);
     
     try {
-      const { data, error } = await aiService.saveAdventure(generatedAdventure, user.id);
+      const { data, error } = await aiService.saveAdventure(
+        generatedAdventure, 
+        user.id, 
+        selectedDate?.toISOString()
+      );
       
       if (error) {
         Alert.alert('Save Failed', error);
         return;
       }
 
+      const scheduledText = selectedDate 
+        ? ` and scheduled for ${selectedDate.toLocaleDateString('en-US', { 
+            weekday: 'long',
+            month: 'long', 
+            day: 'numeric',
+            year: 'numeric'
+          })}`
+        : '';
+
       Alert.alert(
         'Adventure Saved!', 
-        `"${generatedAdventure.title}" has been saved to your plans.`,
+        `"${generatedAdventure.title}" has been saved to your plans${scheduledText}.`,
         [
           { 
             text: 'View My Plans', 
@@ -216,6 +229,14 @@ const [filters, setFilters] = useState<AdventureFiltersType>({
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
     setShowDatePicker(false);
+    
+    // Update the generated adventure with the scheduled date
+    if (generatedAdventure) {
+      setGeneratedAdventure({
+        ...generatedAdventure,
+        scheduledFor: date.toISOString(), // This field exists in GeneratedAdventure
+      });
+    }
   };
 
   const openDatePicker = () => {
@@ -236,13 +257,14 @@ const [filters, setFilters] = useState<AdventureFiltersType>({
           onDurationChange={handleDurationChange}
         />
         
-        <DatePickerModal
+        <StreamlinedCalendar
           visible={showDatePicker}
           onClose={() => setShowDatePicker(false)}
-          onDateSelect={handleDateSelect}
-          initialDate={selectedDate || new Date()}
-          minimumDate={new Date()}
-          title="Schedule Your Adventure"
+          onDateSelect={(dateString: string) => {
+            handleDateSelect(new Date(dateString));
+          }}
+          currentDate={selectedDate?.toISOString()}
+          adventure={generatedAdventure}
         />
       </SafeAreaView>
     );
@@ -263,13 +285,14 @@ const [filters, setFilters] = useState<AdventureFiltersType>({
           onOpenDatePicker={openDatePicker}
         />
         
-        <DatePickerModal
+        <StreamlinedCalendar
           visible={showDatePicker}
           onClose={() => setShowDatePicker(false)}
-          onDateSelect={handleDateSelect}
-          initialDate={selectedDate || new Date()}
-          minimumDate={new Date()}
-          title="Schedule Your Adventure"
+          onDateSelect={(dateString: string) => {
+            handleDateSelect(new Date(dateString));
+          }}
+          currentDate={selectedDate?.toISOString()}
+          adventure={generatedAdventure}
         />
       </>
     );

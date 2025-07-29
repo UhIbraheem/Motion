@@ -118,12 +118,12 @@ export class AIAdventureService {
 
       // Transform to our format
       const adventure: GeneratedAdventure = {
-        title: backendData.plan_title || 'Your Adventure',
+        title: backendData.plan_title || this.generateDefaultTitle(filters),
         steps: backendData.steps || [],
         estimatedDuration: this.calculateDuration(backendData.steps || []),
         estimatedCost: this.estimateCost(backendData.steps || [], filters.budget),
         createdAt: new Date().toISOString(),
-        description: `A ${filters.duration} adventure in ${filters.location}`,
+        description: this.generateDefaultDescription(filters),
         location: filters.location,
         filtersUsed: filters,
       };
@@ -142,17 +142,20 @@ export class AIAdventureService {
   /**
    * Save adventure to database
    */
-  async saveAdventure(adventure: GeneratedAdventure, userId: string): Promise<{
+  async saveAdventure(adventure: GeneratedAdventure, userId: string, scheduledDate?: string): Promise<{
     data: any | null;
     error: string | null;
   }> {
     try {
       console.log('💾 Saving adventure:', adventure.title);
+      if (scheduledDate) {
+        console.log('📅 With scheduled date:', scheduledDate);
+      }
 
       const adventureData = {
         user_id: userId,
         title: adventure.title,
-        description: adventure.description || 'A Motion adventure',
+        description: adventure.description || 'A curated Motion adventure tailored to your preferences and location.',
         duration_hours: this.parseHoursFromDuration(adventure.estimatedDuration),
         estimated_cost: this.parseCostFromString(adventure.estimatedCost),
         difficulty_level: 'easy',
@@ -162,6 +165,8 @@ export class AIAdventureService {
         is_favorite: false,
         ai_confidence_score: 0.8,
         step_completions: {}, // Initialize empty step completions
+        scheduled_date: scheduledDate ? scheduledDate : null,
+        is_scheduled: !!scheduledDate,
       };
 
       const { data, error } = await supabase
@@ -202,7 +207,13 @@ export class AIAdventureService {
         return { data: null, error: error.message };
       }
 
-      return { data, error: null };
+      // Map scheduled_date to scheduled_for for frontend compatibility
+      const mappedData = data?.map(adventure => ({
+        ...adventure,
+        scheduled_for: adventure.scheduled_date
+      }));
+
+      return { data: mappedData, error: null };
     } catch (error) {
       return { data: null, error: 'Failed to load adventures' };
     }
@@ -298,9 +309,10 @@ export class AIAdventureService {
       console.log('📅 Updating adventure schedule...', { adventureId, newDate });
 
       const { error } = await supabase
-        .from('plans')
+        .from('adventures')
         .update({ 
-          scheduled_for: new Date(newDate).toISOString()
+          scheduled_date: new Date(newDate).toISOString(),
+          is_scheduled: true
         })
         .eq('id', adventureId);
 
@@ -732,6 +744,41 @@ async getCommunityAdventures(): Promise<{
       '$$$': 150,
     };
     return costMap[cost] || 50; // Default to moderate if unknown
+  }
+
+  private generateDefaultTitle(filters: AdventureFilters): string {
+    const timeOfDay = filters.timeOfDay || 'day';
+    const location = filters.location || 'your area';
+    const experienceType = filters.experienceTypes?.[0] || 'adventure';
+    
+    const titleTemplates = [
+      `${this.capitalizeFirst(timeOfDay)} ${this.capitalizeFirst(experienceType)} in ${location}`,
+      `Explore ${location}: ${this.capitalizeFirst(experienceType)} Experience`,
+      `${location} ${this.capitalizeFirst(experienceType)} Discovery`,
+      `Your ${this.capitalizeFirst(timeOfDay)} ${this.capitalizeFirst(experienceType)} Adventure`
+    ];
+    
+    return titleTemplates[Math.floor(Math.random() * titleTemplates.length)];
+  }
+
+  private generateDefaultDescription(filters: AdventureFilters): string {
+    const duration = filters.duration || 'full-day';
+    const location = filters.location || 'your area';
+    const budget = filters.budget || 'moderate';
+    const experienceTypes = filters.experienceTypes || ['adventure'];
+    
+    let experienceText = '';
+    if (experienceTypes.length > 1) {
+      experienceText = `featuring ${experienceTypes.slice(0, -1).join(', ')} and ${experienceTypes[experienceTypes.length - 1]}`;
+    } else {
+      experienceText = `focusing on ${experienceTypes[0] || 'local exploration'}`;
+    }
+    
+    return `A carefully curated ${duration.replace('-', ' ')} adventure in ${location}, ${experienceText}. This ${budget}-friendly experience has been personalized based on your preferences and designed to help you discover the best of what your area has to offer. Perfect for creating memorable moments and exploring new places with confidence.`;
+  }
+
+  private capitalizeFirst(str: string): string {
+    return str.charAt(0).toUpperCase() + str.slice(1);
   }
 }
 

@@ -57,30 +57,32 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({
     setSettings(prev => ({ ...prev, [key]: value }));
   };
 
-  const NotificationRow = ({ 
+  const ToggleSection = ({ 
     icon, 
     title, 
     description, 
-    settingKey 
+    value,
+    onToggle
   }: { 
     icon: string; 
     title: string; 
     description: string; 
-    settingKey: keyof NotificationSettings;
+    value: boolean;
+    onToggle: (value: boolean) => void;
   }) => (
-    <View className="flex-row justify-between items-center py-3">
-      <View className="flex-1 flex-row items-center">
+    <View className="flex-row items-center justify-between py-4 px-4">
+      <View className="flex-row items-center flex-1">
         <Ionicons name={icon as any} size={20} color="#3c7660" />
         <View className="ml-3 flex-1">
-          <Text className="text-base font-medium text-text-primary">{title}</Text>
-          <Text className="text-sm text-text-secondary mt-1">{description}</Text>
+          <Text className="text-base font-medium text-gray-800">{title}</Text>
+          <Text className="text-sm text-gray-500 mt-1">{description}</Text>
         </View>
       </View>
       <Switch
-        value={settings[settingKey]}
-        onValueChange={(value) => updateSetting(settingKey, value)}
-        trackColor={{ false: '#E5E7EB', true: '#3c7660' }}
-        thumbColor={settings[settingKey] ? '#ffffff' : '#ffffff'}
+        value={value}
+        onValueChange={onToggle}
+        trackColor={{ false: '#e5e7eb', true: '#10b981' }}
+        thumbColor={value ? '#ffffff' : '#ffffff'}
       />
     </View>
   );
@@ -89,83 +91,78 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({
     <Modal
       visible={visible}
       animationType="slide"
-      transparent={true}
-      onRequestClose={onClose}
+      presentationStyle="pageSheet"
     >
-      <View className="flex-1 bg-black/50">
-        <View className="flex-1 bg-background-light mt-12">
-          {/* Modal Header */}
-          <View className="flex-row justify-between items-center p-6 pb-4">
-            <TouchableOpacity 
-              onPress={onClose}
-              className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center"
-            >
-              <Text className="text-gray-600 font-bold text-lg">×</Text>
-            </TouchableOpacity>
-            <Text className="text-2xl font-bold text-text-primary">Notifications</Text>
-            <TouchableOpacity
-              onPress={handleSave}
-              className="px-4 py-2 bg-brand-sage rounded-lg"
-            >
-              <Text className="text-brand-cream font-medium">Save</Text>
-            </TouchableOpacity>
-          </View>
+      <SafeAreaView className="flex-1 bg-gray-50">
+        {/* Header */}
+        <View className="flex-row items-center justify-between p-4 bg-white border-b border-gray-200">
+          <TouchableOpacity onPress={onClose}>
+            <Ionicons name="close" size={24} color="#374151" />
+          </TouchableOpacity>
+          <Text className="text-lg font-semibold text-gray-800">Notifications</Text>
+          <TouchableOpacity onPress={handleSave}>
+            <Text className="text-green-600 font-medium">Save</Text>
+          </TouchableOpacity>
+        </View>
 
-          <ScrollView 
-            className="flex-1 px-6" 
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 120 }}
-          >
+        <ScrollView className="flex-1">
           {/* Adventure Notifications */}
-          <View className="bg-background-subtle rounded-xl p-4 mb-4">
-            <Text className="text-lg font-semibold text-text-primary mb-4">Adventure Updates</Text>
-            
-            <NotificationRow
-              icon="compass"
-              title="Adventure Notifications"
-              description="Get notified about your planned adventures"
-              settingKey="adventure_notifications"
-            />
-            
-            <View className="h-px bg-gray-200 my-2" />
-            
-            <NotificationRow
-              icon="time"
-              title="Adventure Reminders"
-              description="Reminders for upcoming adventures"
-              settingKey="adventure_reminders"
-            />
-            
-            <View className="h-px bg-gray-100 mx-4" />
-            
-            <NotificationRow
-              icon="people"
-              title="Community Updates"
-              description="New adventures shared by the community"
-              settingKey="community_updates"
-            />
-          </View>
-
-          {/* Personal Notifications */}
           <View className="bg-white mt-4 mx-4 rounded-2xl">
             <View className="p-4 border-b border-gray-100">
-              <Text className="text-lg font-semibold text-gray-800">Personal</Text>
+              <Text className="text-lg font-semibold text-gray-800">Adventure Notifications</Text>
             </View>
             
-            <NotificationRow
-              icon="star"
-              title="Weekly Suggestions"
-              description="Personalized adventure recommendations"
-              settingKey="weekly_suggestions"
+            <ToggleSection
+              icon="compass"
+              title="Adventure Updates"
+              description="Get notified about your scheduled adventures"
+              value={settings.adventure_notifications}
+              onToggle={(value) => updateSetting('adventure_notifications', value)}
             />
             
             <View className="h-px bg-gray-100 mx-4" />
             
-            <NotificationRow
-              icon="heart"
+            <ToggleSection
+              icon="alarm"
+              title="Adventure Reminders"
+              description="Receive reminders before your adventures"
+              value={settings.adventure_reminders}
+              onToggle={(value) => updateSetting('adventure_reminders', value)}
+            />
+            
+            <View className="h-px bg-gray-100 mx-4" />
+            
+            <ToggleSection
+              icon="bulb"
+              title="Weekly Suggestions"
+              description="Get personalized adventure suggestions weekly"
+              value={settings.weekly_suggestions}
+              onToggle={(value) => updateSetting('weekly_suggestions', value)}
+            />
+          </View>
+
+          {/* Social Notifications */}
+          <View className="bg-white mt-4 mx-4 rounded-2xl">
+            <View className="p-4 border-b border-gray-100">
+              <Text className="text-lg font-semibold text-gray-800">Social Notifications</Text>
+            </View>
+            
+            <ToggleSection
+              icon="people"
               title="Social Interactions"
-              description="Likes, comments, and follows"
-              settingKey="social_interactions"
+              description="Get notified about likes, comments, and follows"
+              value={settings.social_interactions}
+              onToggle={(value) => updateSetting('social_interactions', value)}
+            />
+            
+            <View className="h-px bg-gray-100 mx-4" />
+            
+            <ToggleSection
+              icon="megaphone"
+              title="Community Updates"
+              description="Stay updated with community news and events"
+              value={settings.community_updates}
+              onToggle={(value) => updateSetting('community_updates', value)}
             />
           </View>
 
@@ -175,51 +172,54 @@ const NotificationsModal: React.FC<NotificationsModalProps> = ({
               <Text className="text-lg font-semibold text-gray-800">Delivery Methods</Text>
             </View>
             
-            <NotificationRow
-              icon="phone-portrait"
+            <ToggleSection
+              icon="notifications"
               title="Push Notifications"
-              description="Notifications on your device"
-              settingKey="push_notifications"
+              description="Receive notifications on your device"
+              value={settings.push_notifications}
+              onToggle={(value) => updateSetting('push_notifications', value)}
             />
             
             <View className="h-px bg-gray-100 mx-4" />
             
-            <NotificationRow
+            <ToggleSection
               icon="mail"
               title="Email Notifications"
-              description="Updates sent to your email"
-              settingKey="email_notifications"
+              description="Receive notifications via email"
+              value={settings.email_notifications}
+              onToggle={(value) => updateSetting('email_notifications', value)}
             />
             
             <View className="h-px bg-gray-100 mx-4" />
             
-            <NotificationRow
+            <ToggleSection
               icon="chatbubble"
               title="SMS Notifications"
-              description="Text messages for urgent updates"
-              settingKey="sms_notifications"
+              description="Receive notifications via text message"
+              value={settings.sms_notifications}
+              onToggle={(value) => updateSetting('sms_notifications', value)}
             />
           </View>
 
           {/* Marketing */}
-          <View className="bg-white mt-4 mx-4 rounded-2xl mb-6">
+          <View className="bg-white mt-4 mx-4 rounded-2xl">
             <View className="p-4 border-b border-gray-100">
               <Text className="text-lg font-semibold text-gray-800">Marketing</Text>
             </View>
             
-            <NotificationRow
-              icon="megaphone"
+            <ToggleSection
+              icon="trending-up"
               title="Marketing Emails"
-              description="Special offers and product updates"
-              settingKey="marketing_emails"
+              description="Receive promotional content and offers"
+              value={settings.marketing_emails}
+              onToggle={(value) => updateSetting('marketing_emails', value)}
             />
           </View>
 
           {/* Footer spacing */}
           <View className="h-20" />
         </ScrollView>
-        </View>
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 };
