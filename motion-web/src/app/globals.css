@@ -44,6 +44,16 @@
 }
 
 :root {
+  /* Motion Brand Colors */
+  --sage: #3c7660;
+  --sage-dark: #2a5444;
+  --sage-light: #4d987b;
+  --gold: #f2cc6c;
+  --gold-dark: #e6b84a;
+  --cream: #f8f2d5;
+  --teal: #4d987b;
+  
+  /* Default shadcn variables */
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);

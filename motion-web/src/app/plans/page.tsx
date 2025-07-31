@@ -1,183 +1,130 @@
-
-import React, { useState, useEffect } from "react";
-import { Adventure } from "@/entities/Adventure";
-import { User } from "@/entities/User";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calendar, Archive, CheckCircle, Plus } from "lucide-react";
-import { Link } from "react-router-dom";
-import { createPageUrl } from "@/utils";
-
-import SavedAdventures from "../components/plans/SavedAdventures";
-import ScheduledAdventures from "../components/plans/ScheduledAdventures";
-import CompletedAdventures from "../components/plans/CompletedAdventures";
-import AdventureCalendar from "../components/plans/AdventureCalendar";
+import { Calendar, Clock, MapPin, Star, BookmarkCheck } from "lucide-react";
 
 export default function PlansPage() {
-  const [adventures, setAdventures] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState(null);
-  const [activeTab, setActiveTab] = useState("saved");
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const userData = await User.me();
-      setUser(userData);
-      
-      const adventureData = await Adventure.filter({ created_by: userData.email }, "-created_date");
-      setAdventures(adventureData);
-    } catch (error) {
-      console.error("Error loading data:", error);
+  // Mock saved adventures
+  const mockSavedAdventures = [
+    {
+      id: "1",
+      title: "Weekend Brewery Hop",
+      location: "Beer District",
+      scheduled_for: "2025-08-10",
+      status: "scheduled",
+      duration_hours: 5,
+      rating: 4.6
+    },
+    {
+      id: "2", 
+      title: "Morning Yoga in the Park",
+      location: "Riverside Park",
+      scheduled_for: "2025-08-05",
+      status: "completed",
+      duration_hours: 1.5,
+      rating: 4.9
     }
-    setLoading(false);
-  };
-
-  const handleScheduleAdventure = async (adventureId, scheduledDate) => {
-    try {
-      await Adventure.update(adventureId, {
-        is_scheduled: true,
-        scheduled_date: scheduledDate
-      });
-      loadData();
-    } catch (error) {
-      console.error("Error scheduling adventure:", error);
-    }
-  };
-
-  const handleCompleteAdventure = async (adventureId, rating, notes) => {
-    try {
-      await Adventure.update(adventureId, {
-        is_completed: true,
-        rating,
-        completion_notes: notes
-      });
-      loadData();
-    } catch (error) {
-      console.error("Error completing adventure:", error);
-    }
-  };
-
-  const handleShareAdventure = async (adventureId) => {
-    try {
-      await Adventure.update(adventureId, {
-        is_shared: true
-      });
-      loadData();
-    } catch (error) {
-      console.error("Error sharing adventure:", error);
-    }
-  };
-
-  if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="text-center">
-          <h2 className="text-2xl font-semibold mb-4" style={{ color: 'var(--sage-dark)' }}>
-            Please sign in to view your plans
-          </h2>
-          <Button onClick={() => User.login()}>Sign In</Button>
-        </div>
-      </div>
-    );
-  }
-
-  const savedAdventures = adventures.filter(a => !a.is_scheduled && !a.is_completed);
-  const scheduledAdventures = adventures.filter(a => a.is_scheduled && !a.is_completed);
-  const completedAdventures = adventures.filter(a => a.is_completed);
+  ];
 
   return (
-    <div className="min-h-screen p-6 bg-white">
+    <div className="min-h-screen p-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-4">
-          <div>
-            <h1 className="text-4xl font-bold mb-2" style={{ color: 'var(--sage-dark)' }}>
-              Your Adventure Plans
-            </h1>
-            <p className="text-lg opacity-80" style={{ color: 'var(--sage)' }}>
-              Manage your saved adventures and track your experiences
-            </p>
-          </div>
-          <Link to={createPageUrl("Create")}>
-            <Button className="shadow-lg" style={{ backgroundColor: 'var(--sage)', color: 'white' }}>
-              <Plus className="w-4 h-4 mr-2" />
-              Create New Adventure
-            </Button>
-          </Link>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-[#2a5444] mb-2">My Adventure Plans</h1>
+          <p className="text-[#3c7660]">Track your saved, scheduled, and completed adventures</p>
         </div>
 
-        {/* Adventure Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gold/30">
-            <div className="flex items-center gap-3 mb-2">
-              <Archive className="w-5 h-5" style={{ color: 'var(--sage)' }} />
-              <span className="font-semibold" style={{ color: 'var(--sage-dark)' }}>Saved</span>
-            </div>
-            <div className="text-3xl font-bold" style={{ color: 'var(--sage-dark)' }}>
-              {savedAdventures.length}
-            </div>
-          </div>
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gold/30">
-            <div className="flex items-center gap-3 mb-2">
-              <Calendar className="w-5 h-5" style={{ color: 'var(--gold)' }} />
-              <span className="font-semibold" style={{ color: 'var(--sage-dark)' }}>Scheduled</span>
-            </div>
-            <div className="text-3xl font-bold" style={{ color: 'var(--sage-dark)' }}>
-              {scheduledAdventures.length}
-            </div>
-          </div>
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-sm border border-gold/30">
-            <div className="flex items-center gap-3 mb-2">
-              <CheckCircle className="w-5 h-5" style={{ color: 'var(--teal)' }} />
-              <span className="font-semibold" style={{ color: 'var(--sage-dark)' }}>Completed</span>
-            </div>
-            <div className="text-3xl font-bold" style={{ color: 'var(--sage-dark)' }}>
-              {completedAdventures.length}
-            </div>
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full lg:w-96 grid-cols-4 rounded-xl bg-white/80 backdrop-blur-sm p-1 shadow-sm border border-gold/30">
-            <TabsTrigger value="saved" className="rounded-lg">Saved</TabsTrigger>
-            <TabsTrigger value="scheduled" className="rounded-lg">Scheduled</TabsTrigger>
-            <TabsTrigger value="completed" className="rounded-lg">Completed</TabsTrigger>
-            <TabsTrigger value="calendar" className="rounded-lg">Calendar</TabsTrigger>
+        {/* Tabs for different plan states */}
+        <Tabs defaultValue="scheduled" className="w-full">
+          <TabsList className="grid w-full grid-cols-3 mb-8">
+            <TabsTrigger value="scheduled" className="data-[state=active]:bg-[#f2cc6c] data-[state=active]:text-white">
+              Scheduled
+            </TabsTrigger>
+            <TabsTrigger value="saved" className="data-[state=active]:bg-[#f2cc6c] data-[state=active]:text-white">
+              Saved
+            </TabsTrigger>
+            <TabsTrigger value="completed" className="data-[state=active]:bg-[#f2cc6c] data-[state=active]:text-white">
+              Completed
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="saved" className="mt-8">
-            <SavedAdventures
-              adventures={savedAdventures}
-              loading={loading}
-              onSchedule={handleScheduleAdventure}
-              onShare={handleShareAdventure}
-            />
+          <TabsContent value="scheduled" className="space-y-4">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {mockSavedAdventures.filter(a => a.status === 'scheduled').map((adventure) => (
+                <Card key={adventure.id} className="bg-white/90 backdrop-blur-sm">
+                  <CardHeader>
+                    <div className="flex justify-between items-start">
+                      <CardTitle className="text-lg text-[#2a5444]">
+                        {adventure.title}
+                      </CardTitle>
+                      <Badge className="bg-[#4d987b] text-white">
+                        Scheduled
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-sm text-[#3c7660]">
+                        <MapPin className="w-4 h-4" />
+                        {adventure.location}
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-[#3c7660]">
+                        <Calendar className="w-4 h-4" />
+                        {new Date(adventure.scheduled_for).toLocaleDateString()}
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-[#3c7660]">
+                        <Clock className="w-4 h-4" />
+                        {adventure.duration_hours}h
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </TabsContent>
 
-          <TabsContent value="scheduled" className="mt-8">
-            <ScheduledAdventures
-              adventures={scheduledAdventures}
-              loading={loading}
-              onComplete={handleCompleteAdventure}
-            />
+          <TabsContent value="saved" className="space-y-4">
+            <div className="text-center p-8">
+              <BookmarkCheck className="w-16 h-16 text-[#3c7660] mx-auto mb-4 opacity-50" />
+              <h3 className="text-xl font-semibold text-[#2a5444] mb-2">No Saved Adventures Yet</h3>
+              <p className="text-[#3c7660]">Save adventures from the Discover page to see them here</p>
+            </div>
           </TabsContent>
 
-          <TabsContent value="completed" className="mt-8">
-            <CompletedAdventures
-              adventures={completedAdventures}
-              loading={loading}
-              onShare={handleShareAdventure}
-            />
-          </TabsContent>
-
-          <TabsContent value="calendar" className="mt-8">
-            <AdventureCalendar adventures={scheduledAdventures} />
+          <TabsContent value="completed" className="space-y-4">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {mockSavedAdventures.filter(a => a.status === 'completed').map((adventure) => (
+                <Card key={adventure.id} className="bg-white/90 backdrop-blur-sm">
+                  <CardHeader>
+                    <div className="flex justify-between items-start">
+                      <CardTitle className="text-lg text-[#2a5444]">
+                        {adventure.title}
+                      </CardTitle>
+                      <Badge className="bg-[#3c7660] text-white">
+                        Completed
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-sm text-[#3c7660]">
+                        <MapPin className="w-4 h-4" />
+                        {adventure.location}
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-[#3c7660]">
+                        <Calendar className="w-4 h-4" />
+                        Completed {new Date(adventure.scheduled_for).toLocaleDateString()}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Star className="w-4 h-4 fill-[#f2cc6c] text-[#f2cc6c]" />
+                        <span className="text-[#3c7660] font-medium">{adventure.rating}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </TabsContent>
         </Tabs>
       </div>
