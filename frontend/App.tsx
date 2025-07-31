@@ -10,7 +10,6 @@ import { PreferencesProvider } from './src/context/PreferencesContext';
 import RootNavigator from './src/navigation/RootNavigator';
 import CustomSplashScreen from './src/components/shared/SplashScreen';
 import { setupSupabaseStorage } from './src/utils/setupStorage';
-import { migrateLocalProfilePictures } from './src/utils/migrateProfilePictures';
 
 export default function App() {
   const [isReady, setIsReady] = useState(false);
@@ -25,9 +24,6 @@ export default function App() {
         
         // Setup Supabase Storage
         await setupSupabaseStorage();
-        
-        // Migrate any existing local profile pictures
-        await migrateLocalProfilePictures();
         
         await new Promise(resolve => setTimeout(resolve, 1500));
         setIsReady(true);
