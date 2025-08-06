@@ -33,5 +33,14 @@ export interface AdventureStep {
 export interface User {
   id: string
   email: string
-  name?: string
+  fullName?: string
+  name?: string // For compatibility with Navigation component
+  subscriptionTier: 'free' | 'explorer' | 'pro'
+  generationsUsed: number
+  editsUsed: number
+  generationsLimit: number
+  editsLimit: number
+  subscriptionStatus: 'active' | 'inactive' | 'canceled'
+  subscriptionExpiresAt?: string
+  lastResetDate?: string
 }

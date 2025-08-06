@@ -155,8 +155,12 @@ const ProfileScreen: React.FC = () => {
           birthday: profile.birthday || '',
           profile_picture_url: profile.profile_picture_url || ''
         };
+        console.log('🖼️ Profile data loaded:', userProfileData);
+        console.log('🖼️ Profile picture URL:', userProfileData.profile_picture_url);
         setUserProfile(userProfileData);
         setEditForm(userProfileData);
+      } else {
+        console.error('❌ Profile loading error:', profileError);
       }
 
     } catch (error) {
@@ -176,22 +180,55 @@ const ProfileScreen: React.FC = () => {
         base64: false,
       });
 
-      if (!result.canceled && result.assets[0]) {
+      if (!result.canceled && result.assets[0] && user) {
         setIsUploadingImage(true);
         
-        // In a real app, you'd upload to Supabase Storage
-        // For now, we'll use the local URI
-        const imageUri = result.assets[0].uri;
-        
-        setEditForm(prev => ({
-          ...prev,
-          profile_picture_url: imageUri
-        }));
-        
-        // Auto-save profile picture
-        await updateUserProfile({ ...editForm, profile_picture_url: imageUri });
-        
-        Alert.alert('Success!', 'Profile picture updated!');
+        try {
+          const imageUri = result.assets[0].uri;
+          const fileExtension = imageUri.split('.').pop() || 'jpg';
+          const fileName = `profile-${user.id}-${Date.now()}.${fileExtension}`;
+          
+          // Read the file as binary data
+          const response = await fetch(imageUri);
+          const blob = await response.blob();
+          
+          // Upload to Supabase Storage
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('profile-pictures')
+            .upload(fileName, blob, {
+              cacheControl: '3600',
+              upsert: false,
+              contentType: `image/${fileExtension}`
+            });
+          
+          if (uploadError) {
+            console.error('Upload error:', uploadError);
+            Alert.alert('Upload Error', 'Failed to upload profile picture');
+            return;
+          }
+          
+          // Get public URL
+          const { data: { publicUrl } } = supabase.storage
+            .from('profile-pictures')
+            .getPublicUrl(fileName);
+          
+          console.log('🖼️ Profile picture uploaded successfully:', publicUrl);
+          
+          setEditForm(prev => ({
+            ...prev,
+            profile_picture_url: publicUrl
+          }));
+          
+          // Auto-save profile picture
+          await updateUserProfile({ ...editForm, profile_picture_url: publicUrl });
+          
+          Alert.alert('Success!', 'Profile picture updated!');
+        } catch (error) {
+          console.error('Error uploading profile picture:', error);
+          Alert.alert('Error', 'Failed to update profile picture');
+        } finally {
+          setIsUploadingImage(false);
+        }
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to update profile picture');
@@ -389,7 +426,7 @@ const ProfileScreen: React.FC = () => {
         {/* Profile Header */}
         <View className="items-center mb-6 px-4">
           <TouchableOpacity onPress={pickProfileImage} className="relative mb-4">
-            {userProfile.profile_picture_url ? (
+            {userProfile.profile_picture_url && userProfile.profile_picture_url.trim() !== '' ? (
               <View className="w-24 h-24 rounded-full"
                 style={{
                   shadowColor: '#3c7660',
@@ -402,6 +439,15 @@ const ProfileScreen: React.FC = () => {
                 <Image
                   source={{ uri: userProfile.profile_picture_url }}
                   className="w-24 h-24 rounded-full"
+                  onError={(error) => {
+                    console.error('Profile image failed to load:', error.nativeEvent.error);
+                    console.log('Profile picture URL:', userProfile.profile_picture_url);
+                    // Force fallback to initials by clearing the URL
+                    setUserProfile(prev => ({ ...prev, profile_picture_url: '' }));
+                  }}
+                  onLoad={() => {
+                    console.log('Profile image loaded successfully');
+                  }}
                 />
               </View>
             ) : (

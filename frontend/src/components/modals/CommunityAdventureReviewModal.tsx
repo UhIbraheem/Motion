@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   Image,
   Dimensions,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -52,6 +53,49 @@ const CommunityAdventureReviewModal: React.FC<CommunityAdventureReviewModalProps
   formatCost,
 }) => {
   const [selectedStepIndex, setSelectedStepIndex] = useState(0);
+  const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const backgroundOpacity = useRef(new Animated.Value(0)).current;
+  
+  // Animation effects
+  useEffect(() => {
+    if (visible) {
+      // Animate in
+      Animated.parallel([
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: false,
+        }),
+        Animated.timing(backgroundOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: false,
+        })
+      ]).start();
+    } else {
+      // Reset position for next open
+      slideAnim.setValue(SCREEN_HEIGHT);
+      backgroundOpacity.setValue(0);
+    }
+  }, [visible, slideAnim, backgroundOpacity]);
+
+  // Handle close with animation
+  const handleClose = () => {
+    Animated.parallel([
+      Animated.timing(slideAnim, {
+        toValue: SCREEN_HEIGHT,
+        duration: 250,
+        useNativeDriver: false,
+      }),
+      Animated.timing(backgroundOpacity, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: false,
+      })
+    ]).start(() => {
+      onClose();
+    });
+  };
   
   if (!adventure) return null;
 
@@ -173,18 +217,28 @@ const CommunityAdventureReviewModal: React.FC<CommunityAdventureReviewModalProps
 
   return (
     <Modal
-      animationType="slide"
+      animationType="none"
       transparent={true}
       visible={visible}
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
-      <TouchableOpacity
-        style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
-        activeOpacity={1}
-        onPress={onClose}
-      />
+      {/* Animated Background */}
+      <Animated.View
+        style={{
+          flex: 1,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          opacity: backgroundOpacity,
+        }}
+      >
+        <TouchableOpacity
+          style={{ flex: 1 }}
+          activeOpacity={1}
+          onPress={handleClose}
+        />
+      </Animated.View>
       
-      <View style={{ 
+      {/* Animated Modal Content */}
+      <Animated.View style={{ 
         position: 'absolute',
         bottom: 0,
         left: 0,
@@ -192,13 +246,19 @@ const CommunityAdventureReviewModal: React.FC<CommunityAdventureReviewModalProps
         height: SCREEN_HEIGHT * 0.85, // Use same 85% height pattern
         backgroundColor: '#f9fafb', 
         borderTopLeftRadius: 20, 
-        borderTopRightRadius: 20 
+        borderTopRightRadius: 20,
+        transform: [{ translateY: slideAnim }],
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 12,
+        elevation: 12,
       }}>
         {/* Header */}
         <SafeAreaView>
           <View className="flex-row justify-between items-center p-4 bg-white" style={{ borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
             <TouchableOpacity 
-              onPress={onClose}
+              onPress={handleClose}
               className="w-10 h-10 rounded-full bg-gray-100 items-center justify-center"
             >
               <Text className="text-gray-600 font-bold text-lg">×</Text>
@@ -300,7 +360,7 @@ const CommunityAdventureReviewModal: React.FC<CommunityAdventureReviewModalProps
               {/* Bottom Padding */}
               <View className="h-20" />
             </ScrollView>
-          </View>
+          </Animated.View>
     </Modal>
   );
 };

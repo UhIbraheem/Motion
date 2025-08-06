@@ -272,27 +272,39 @@ export const AdventureDetailModal: React.FC<AdventureDetailModalProps> = ({
                 }} />
               </View>
 
-              {/* Header with Close Button */}
+              {/* Header with Title and Close Button */}
               <View style={{
                 flexDirection: 'row',
                 justifyContent: 'space-between',
-                alignItems: 'center',
+                alignItems: 'flex-start',
                 paddingHorizontal: spacing.lg,
-                paddingBottom: spacing.md,
+                paddingBottom: spacing.lg,
               }}>
-                <View style={{ flex: 1 }} />
+                <View style={{ flex: 1, paddingRight: spacing.md }}>
+                  <Text style={{
+                    ...typography.title,
+                    fontSize: 24,
+                    fontWeight: '700',
+                    color: themeColors.text.primary,
+                    lineHeight: 28,
+                    letterSpacing: -0.5,
+                  }}>
+                    {adventure.title}
+                  </Text>
+                </View>
                 <TouchableOpacity
                   onPress={handleClose}
                   style={{
-                    padding: spacing.xs,
-                    backgroundColor: themeColors.text.tertiary + '15',
+                    padding: spacing.sm,
+                    backgroundColor: themeColors.background.secondary,
                     borderRadius: borderRadius.round,
+                    marginTop: -2,
                   }}
                 >
                   <Ionicons 
                     name="close" 
                     size={20} 
-                    color={themeColors.text.secondary} 
+                    color={themeColors.text.primary} 
                   />
                 </TouchableOpacity>
               </View>

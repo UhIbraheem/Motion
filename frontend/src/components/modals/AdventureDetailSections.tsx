@@ -9,7 +9,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { typography, spacing, borderRadius } from '../../constants/Theme';
 import { Adventure, AdventureStep } from './types';
-import { formatScheduledDate } from '../../utils/formatters';
+import { formatScheduledDate, formatTime } from '../../utils/formatters';
 import { StepCard } from './StepCard';
 import StepDetailModal from './StepDetailModal';
 
@@ -48,12 +48,12 @@ export const AdventureInfoSection: React.FC<AdventureInfoSectionProps> = ({
       if (firstStep.time) {
         // Parse time like "10:00 AM" or "10:00"
         try {
-          const time = new Date(`2000-01-01T${firstStep.time.replace(/\s*(AM|PM)\s*/i, '')}`);
-          return time.toLocaleTimeString('en-US', { 
-            hour: 'numeric', 
-            minute: '2-digit',
-            hour12: true 
-          });
+          // Create a date object with the step time
+          const timeString = firstStep.time.trim();
+          const time = new Date(`2000-01-01T${timeString.replace(/\s*(AM|PM)\s*/i, '')}`);
+          
+          // Use formatTime utility for consistent formatting
+          return formatTime(time, '12h');
         } catch {
           // If parsing fails, return the original time string
           return firstStep.time;
@@ -67,19 +67,6 @@ export const AdventureInfoSection: React.FC<AdventureInfoSectionProps> = ({
 
   return (
     <View style={{ paddingHorizontal: spacing.lg, paddingTop: 0 }}>
-      {/* Adventure Title */}
-      <Text style={{
-        ...typography.title,
-        fontSize: 26,
-        fontWeight: '700',
-        color: themeColors.text.primary,
-        marginBottom: spacing.xs,
-        lineHeight: 32,
-        letterSpacing: -0.5,
-      }}>
-        {adventure.title}
-      </Text>
-
       {/* Adventure Description / Review */}
       {adventure.review ? (
         <View style={{ marginBottom: spacing.lg }}>
@@ -128,39 +115,50 @@ export const AdventureInfoSection: React.FC<AdventureInfoSectionProps> = ({
         </Text>
       )}
 
-      {/* Modern Stats Row */}
+      {/* Elegant Stats Row */}
       <View style={{
         flexDirection: 'row',
         marginBottom: spacing.lg,
-        gap: spacing.md,
+        gap: spacing.sm,
       }}>
         {/* Duration Stat */}
         <View style={{
           flex: 1,
-          backgroundColor: themeColors.brand.sage + '08',
-          borderRadius: borderRadius.md,
+          backgroundColor: themeColors.background.secondary,
+          borderRadius: borderRadius.lg,
           padding: spacing.md,
-          borderLeftWidth: 3,
-          borderLeftColor: themeColors.brand.sage,
+          borderWidth: 1,
+          borderColor: themeColors.brand.sage + '20',
+          shadowColor: themeColors.brand.sage,
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.1,
+          shadowRadius: 2,
+          elevation: 1,
         }}>
           <View style={{
             flexDirection: 'row',
             alignItems: 'center',
             marginBottom: spacing.xs,
           }}>
-            <Ionicons 
-              name="time-outline" 
-              size={18} 
-              color={themeColors.brand.sage} 
-              style={{ marginRight: spacing.xs }}
-            />
+            <View style={{
+              backgroundColor: themeColors.brand.sage + '15',
+              borderRadius: borderRadius.sm,
+              padding: spacing.xs,
+              marginRight: spacing.xs,
+            }}>
+              <Ionicons 
+                name="time-outline" 
+                size={16} 
+                color={themeColors.brand.sage} 
+              />
+            </View>
             <Text style={{
               ...typography.caption,
               color: themeColors.brand.sage,
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: '600',
               textTransform: 'uppercase',
-              letterSpacing: 0.5,
+              letterSpacing: 0.3,
             }}>
               Duration
             </Text>
@@ -169,7 +167,8 @@ export const AdventureInfoSection: React.FC<AdventureInfoSectionProps> = ({
             ...typography.body,
             fontWeight: '700',
             color: themeColors.text.primary,
-            fontSize: 16,
+            fontSize: 18,
+            lineHeight: 22,
           }}>
             {formatDuration(adventure.duration_hours)}
           </Text>
@@ -178,30 +177,41 @@ export const AdventureInfoSection: React.FC<AdventureInfoSectionProps> = ({
         {/* Budget Stat */}
         <View style={{
           flex: 1,
-          backgroundColor: themeColors.brand.gold + '08',
-          borderRadius: borderRadius.md,
+          backgroundColor: themeColors.background.secondary,
+          borderRadius: borderRadius.lg,
           padding: spacing.md,
-          borderLeftWidth: 3,
-          borderLeftColor: themeColors.brand.gold,
+          borderWidth: 1,
+          borderColor: themeColors.brand.sage + '20',
+          shadowColor: themeColors.brand.sage,
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.1,
+          shadowRadius: 2,
+          elevation: 1,
         }}>
           <View style={{
             flexDirection: 'row',
             alignItems: 'center',
             marginBottom: spacing.xs,
           }}>
-            <Ionicons 
-              name="card-outline" 
-              size={18} 
-              color={themeColors.brand.gold} 
-              style={{ marginRight: spacing.xs }}
-            />
+            <View style={{
+              backgroundColor: themeColors.brand.sage + '15',
+              borderRadius: borderRadius.sm,
+              padding: spacing.xs,
+              marginRight: spacing.xs,
+            }}>
+              <Ionicons 
+                name="card-outline" 
+                size={16} 
+                color={themeColors.brand.sage} 
+              />
+            </View>
             <Text style={{
               ...typography.caption,
-              color: themeColors.brand.gold,
-              fontSize: 11,
+              color: themeColors.brand.sage,
+              fontSize: 12,
               fontWeight: '600',
               textTransform: 'uppercase',
-              letterSpacing: 0.5,
+              letterSpacing: 0.3,
             }}>
               Budget
             </Text>
@@ -210,7 +220,8 @@ export const AdventureInfoSection: React.FC<AdventureInfoSectionProps> = ({
             ...typography.body,
             fontWeight: '700',
             color: themeColors.text.primary,
-            fontSize: 16,
+            fontSize: 18,
+            lineHeight: 22,
           }}>
             {formatCost(adventure.estimated_cost)}
           </Text>

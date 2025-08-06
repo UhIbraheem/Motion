@@ -99,32 +99,31 @@ export const formatScheduledDate = (dateString: string, preferences?: FormatPref
   const diffTime = date.getTime() - now.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   
+  // Helper function to get day with ordinal suffix
+  const getDayWithOrdinal = (day: number): string => {
+    if (day > 3 && day < 21) return `${day}th`;
+    switch (day % 10) {
+      case 1: return `${day}st`;
+      case 2: return `${day}nd`;
+      case 3: return `${day}rd`;
+      default: return `${day}th`;
+    }
+  };
+  
   // If it's today
   if (diffDays === 0) {
-    return `Today at ${formatTime(date, preferences?.time_format || '12h')}`;
+    return `Today`;
   }
   
   // If it's tomorrow
   if (diffDays === 1) {
-    return `Tomorrow at ${formatTime(date, preferences?.time_format || '12h')}`;
+    return `Tomorrow`;
   }
   
-  // If it's within a week
-  if (diffDays > 0 && diffDays <= 7) {
-    return date.toLocaleDateString('en-US', { 
-      weekday: 'long',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: preferences?.time_format !== '24h'
-    });
-  }
+  // For all other dates, format as "Aug 7th, Tuesday"
+  const monthName = date.toLocaleDateString('en-US', { month: 'short' });
+  const dayWithOrdinal = getDayWithOrdinal(date.getDate());
+  const weekday = date.toLocaleDateString('en-US', { weekday: 'long' });
   
-  // For dates beyond a week
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: preferences?.time_format !== '24h'
-  });
+  return `${monthName} ${dayWithOrdinal}, ${weekday}`;
 };

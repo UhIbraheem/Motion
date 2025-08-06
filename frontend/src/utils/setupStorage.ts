@@ -25,10 +25,11 @@ export const setupSupabaseStorage = async () => {
       
       if (error) {
         console.error('❌ Error creating bucket:', error);
-        return false;
+        console.log('ℹ️ Note: If you see "Bucket already exists" error, this is normal');
+        // Don't return false for this error - bucket might exist from Supabase dashboard
+      } else {
+        console.log('✅ Profile pictures bucket created successfully');
       }
-      
-      console.log('✅ Profile pictures bucket created successfully');
     } else {
       console.log('✅ Profile pictures bucket already exists');
     }
@@ -42,6 +43,7 @@ export const setupSupabaseStorage = async () => {
     
     if (testError) {
       console.error('❌ Error accessing bucket:', testError);
+      console.log('ℹ️ Make sure the bucket is properly configured in Supabase dashboard');
       return false;
     }
     

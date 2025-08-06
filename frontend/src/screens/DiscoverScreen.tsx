@@ -118,6 +118,10 @@ const DiscoverScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
       }
 
       setCommunityAdventures(data || []);
+      console.log('🌍 Community adventures loaded:', data?.length || 0);
+      if (data && data.length > 0) {
+        console.log('🖼️ First adventure profile data:', data[0]?.profiles);
+      }
 
       // Load user interactions for these adventures
       if (user && data) {
@@ -392,12 +396,19 @@ const DiscoverScreen: React.FC<{ navigation?: any }> = ({ navigation }) => {
       <View className="p-4">
         {/* Header with user info */}
         <View className="flex-row items-center mb-3">
-          {adventure.profiles.profile_picture_url ? (
+          {adventure.profiles.profile_picture_url && adventure.profiles.profile_picture_url.trim() !== '' ? (
             <Image 
               source={{ uri: adventure.profiles.profile_picture_url }}
               className="w-8 h-8 rounded-full mr-3"
               style={{
                 backgroundColor: '#e5e7eb' // fallback background
+              }}
+              onError={(error) => {
+                console.error('Discover profile image failed to load:', error.nativeEvent.error);
+                console.log('Profile picture URL:', adventure.profiles.profile_picture_url);
+              }}
+              onLoad={() => {
+                console.log('Discover profile image loaded successfully');
               }}
             />
           ) : (
