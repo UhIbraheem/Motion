@@ -11,6 +11,7 @@ import {
   TextInput,
   TouchableOpacity
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../context/AuthContext';
 import MotionLogo from '../../components/shared/MotionLogo';
@@ -26,7 +27,8 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { signUp } = useAuth();
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const { signUp, signInWithGoogle } = useAuth();
 
   const handleRegister = async () => {
     if (!email || !password || !firstName || !lastName) {
@@ -60,6 +62,25 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
       Alert.alert('Error', 'An unexpected error occurred');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setIsGoogleLoading(true);
+    try {
+      const { error } = await signInWithGoogle();
+      if (error) {
+        console.error('Google sign in error:', error);
+        // Don't show alert for user cancellation
+        if (!error.message?.includes('cancelled')) {
+          Alert.alert('Google Sign In Failed', error.message || 'An error occurred');
+        }
+      }
+      // Success - AuthContext will handle navigation
+    } catch (error) {
+      Alert.alert('Error', 'An unexpected error occurred with Google sign in');
+    } finally {
+      setIsGoogleLoading(false);
     }
   };
 
@@ -221,7 +242,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
                 </View>
 
                 {/* Create Account Button */}
-                <View className="bg-gray-200/20 backdrop-blur-md rounded-2xl border border-gray-300/30 overflow-hidden mt-6 shadow-lg">
+                <View className="bg-gray-700/30 backdrop-blur-md rounded-2xl border border-gray-500/40 overflow-hidden mt-6 shadow-lg">
                   <TouchableOpacity
                     onPress={handleRegister}
                     disabled={isLoading}
@@ -229,6 +250,20 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
                   >
                     <Text className="text-center text-white text-lg font-bold drop-shadow-sm">
                       {isLoading ? 'Creating Account...' : 'Create Account'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Google Sign In Button */}
+                <View className="bg-gray-700/30 backdrop-blur-md rounded-2xl border border-gray-500/40 overflow-hidden mt-4 shadow-lg">
+                  <TouchableOpacity
+                    onPress={handleGoogleSignIn}
+                    disabled={isGoogleLoading}
+                    className="py-5 px-6 flex-row items-center justify-center"
+                  >
+                    <Ionicons name="logo-google" size={20} color="white" style={{ marginRight: 12 }} />
+                    <Text className="text-center text-white text-lg font-bold drop-shadow-sm">
+                      {isGoogleLoading ? 'Signing In...' : 'Continue with Google'}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -241,7 +276,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
                 {/* Sign In Link */}
                 <TouchableOpacity
                   onPress={() => navigation.navigate('Login')}
-                  className="bg-gray-200/15 backdrop-blur-md border border-gray-300/25 rounded-2xl py-4 mt-4"
+                  className="bg-gray-700/30 backdrop-blur-md border border-gray-500/40 rounded-2xl py-4 mt-4"
                 >
                   <Text className="text-white text-center text-lg font-semibold drop-shadow-sm">
                     Already have an account? Sign In

@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { OpenAI } from 'openai';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 export async function POST(request: NextRequest) {
   try {
     const { app_filter, radius } = await request.json();
@@ -66,8 +62,52 @@ Create a JSON response with:
 
 ENSURE ALL STEP TIMES ARE BETWEEN THE START AND END TIME SPECIFIED!`;
 
+    const apiKey = process.env.OPENAI_API_KEY;
+
+    // Dev-friendly fallback when key isn't configured
+    if (!apiKey) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('OPENAI_API_KEY not set; returning mock plan for development.');
+        const mock = {
+          title: 'Curated Local Adventure',
+          description: 'A balanced outing with real places and realistic pacing.',
+          estimatedDuration: '4-6 hours',
+          estimatedCost: '$$',
+          steps: [
+            {
+              time: '10:00',
+              title: 'Coffee at a cozy cafe',
+              location: 'Your favorite local cafe',
+              notes: 'Grab a latte and plan the day.',
+              booking: { method: 'Walk-in' }
+            },
+            {
+              time: '11:30',
+              title: 'Scenic walk',
+              location: 'Nearby park or waterfront',
+              notes: 'Enjoy the views and take photos.',
+              booking: { method: 'Free' }
+            },
+            {
+              time: '13:00',
+              title: 'Lunch with a view',
+              location: 'Casual eatery with outdoor seating',
+              notes: 'Consider OpenTable for reservations when possible.',
+              booking: { method: 'Reservation', link: 'https://www.opentable.com/' }
+            }
+          ]
+        };
+        return NextResponse.json(mock, { status: 200 });
+      }
+      return NextResponse.json(
+        { error: 'AI not configured' },
+        { status: 503 }
+      );
+    }
+
     console.log("🤖 Sending to OpenAI...");
 
+    const openai = new OpenAI({ apiKey });
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [{ role: "user", content: prompt }],

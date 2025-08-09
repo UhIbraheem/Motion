@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 
@@ -9,7 +9,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-export default function AuthCallbackPage() {
+function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
@@ -18,6 +18,15 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
+        // If provider returned tokens in URL hash (implicit flow), clear them to avoid leaking
+        if (typeof window !== 'undefined' && window.location.hash) {
+          const hash = window.location.hash;
+          if (/#(access_token|refresh_token|provider_token)/i.test(hash)) {
+            // Replace state with same URL minus hash
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+          }
+        }
+
         const code = searchParams.get('code');
         const type = searchParams.get('type');
         
@@ -72,8 +81,8 @@ export default function AuthCallbackPage() {
             }
 
             console.log('🔐 Redirecting to home page...');
-            // Force a complete page refresh to ensure auth state updates properly
-            window.location.href = '/';
+            // Ensure we stay on same-origin (localhost during dev)
+            window.location.assign('/');
             return;
           }
         }
@@ -115,9 +124,10 @@ export default function AuthCallbackPage() {
         // Default redirect if no specific type
         router.push('/auth/signin');
 
-      } catch (error: any) {
-        console.error('Auth callback error:', error);
-        setError(error.message || 'Authentication failed');
+      } catch (error) {
+        const err = error as { message?: string };
+        console.error('Auth callback error:', err);
+        setError(err?.message || 'Authentication failed');
         // Redirect to signin with error after 3 seconds
         setTimeout(() => {
           router.push('/auth/signin?error=Authentication failed');
@@ -150,5 +160,21 @@ export default function AuthCallbackPage() {
         <p className="text-gray-600">Please wait while we complete your sign in...</p>
       </div>
     </div>
+  );
+}
+
+export default function AuthCallbackPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#3c7660] mx-auto mb-4"></div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Processing Authentication</h1>
+          <p className="text-gray-600">Please wait while we complete your sign in...</p>
+        </div>
+      </div>
+    }>
+      <AuthCallbackContent />
+    </Suspense>
   );
 }

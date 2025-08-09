@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import AdventureDetailModal from '@/components/AdventureDetailModal';
 import { 
   IoCompass, 
   IoLocationOutline, 
@@ -27,86 +28,206 @@ export default function DiscoverPage() {
     rating: "all"
   });
   const [savedAdventures, setSavedAdventures] = useState<string[]>([]);
+  const [selectedAdventure, setSelectedAdventure] = useState<any>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Mock adventure data with more variety
+  // Mock adventure data with more variety - updated for modal compatibility
   const mockAdventures = [
     {
       id: "1",
-      title: "Hidden Waterfall Discovery",
-      description: "Find secret waterfalls along scenic hiking trails with local wildlife viewing opportunities",
-      location: "Forest Ridge Trail",
+      custom_title: "Hidden Waterfall Discovery",
+      description: "Find secret waterfalls along scenic hiking trails with local wildlife viewing opportunities. This immersive nature adventure takes you through pristine forest paths where you'll encounter cascading waters, diverse plant life, and maybe even spot some local wildlife along the way.",
+      location: "Forest Ridge Trail, Pacific Northwest",
       duration_hours: 3,
-      estimated_cost: 0,
+      estimated_cost: "$",
       budget_level: "$",
       experience_type: "Nature",
       rating: 4.9,
       image: "/logo-swirl.svg",
-      tags: ["Hiking", "Photography", "Wildlife"]
+      tags: ["Hiking", "Photography", "Wildlife"],
+      adventure_photos: [
+        { photo_url: "/api/placeholder/800/600", is_cover_photo: true },
+        { photo_url: "/api/placeholder/800/600", is_cover_photo: false },
+        { photo_url: "/api/placeholder/800/600", is_cover_photo: false }
+      ],
+      profiles: {
+        first_name: "Sarah",
+        last_name: "Johnson",
+        profile_picture_url: "/api/placeholder/100/100"
+      },
+      saves_count: 234,
+      likes_count: 189,
+      user_review: "This trail exceeded all my expectations! The hidden waterfalls were absolutely breathtaking, and I managed to spot a family of deer on the way back. Perfect for nature photography enthusiasts.",
+      adventure_steps: [
+        {
+          id: "step-1",
+          step_number: 1,
+          title: "Trail Head Parking & Preparation",
+          description: "Start at the Forest Ridge Trail parking area. Make sure to bring water, snacks, and a camera for the wildlife you might encounter.",
+          location: "Forest Ridge Trail Parking",
+          estimated_duration_minutes: 15,
+          estimated_cost: "Free"
+        },
+        {
+          id: "step-2", 
+          step_number: 2,
+          title: "Forest Path to First Viewpoint",
+          description: "Follow the marked trail through old-growth forest. Look out for native birds and plant species along this peaceful stretch.",
+          location: "Old Growth Forest Section",
+          estimated_duration_minutes: 45,
+          estimated_cost: "Free"
+        },
+        {
+          id: "step-3",
+          step_number: 3,
+          title: "Hidden Waterfall Discovery",
+          description: "Reach the stunning hidden waterfall - perfect for photos and a peaceful rest. The mist creates beautiful rainbows on sunny days!",
+          location: "Secret Falls",
+          estimated_duration_minutes: 60,
+          estimated_cost: "Free",
+          business_info: {
+            name: "Secret Falls Natural Area",
+            photos: ["/api/placeholder/400/300", "/api/placeholder/400/300", "/api/placeholder/400/300"],
+            description: "A pristine natural waterfall hidden within old-growth forest, featuring a 40-foot cascade into a crystal-clear pool.",
+            hours: "Dawn to Dusk Daily",
+            avg_price: "Free",
+            ai_description: "This secluded waterfall offers the perfect combination of natural beauty and tranquility, making it an ideal spot for meditation, photography, and connecting with nature."
+          }
+        },
+        {
+          id: "step-4",
+          step_number: 4,
+          title: "Wildlife Viewing Loop",
+          description: "Take the extended loop trail for the best chances of spotting local wildlife including deer, birds, and maybe even a fox!",
+          location: "Wildlife Loop Trail",
+          estimated_duration_minutes: 45,
+          estimated_cost: "Free"
+        }
+      ]
     },
     {
       id: "2", 
-      title: "Historic District Food Tour",
-      description: "Taste authentic local flavors at family-owned restaurants and hidden culinary gems",
-      location: "Historic Downtown",
+      custom_title: "Historic District Food Tour",
+      description: "Taste authentic local flavors at family-owned restaurants and hidden culinary gems throughout the historic downtown area.",
+      location: "Historic Downtown District",
       duration_hours: 4,
-      estimated_cost: 65,
+      estimated_cost: "$$$",
       budget_level: "$$$",
       experience_type: "Food",
       rating: 4.8,
       image: "/logo-swirl.svg",
-      tags: ["Food", "Culture", "Walking"]
+      tags: ["Food", "Culture", "Walking"],
+      adventure_photos: [
+        { photo_url: "/api/placeholder/800/600", is_cover_photo: true }
+      ],
+      profiles: {
+        first_name: "Marcus",
+        last_name: "Chen"
+      },
+      saves_count: 156,
+      likes_count: 203,
+      adventure_steps: [
+        {
+          id: "step-1",
+          step_number: 1,
+          title: "Start at Historic Market Square",
+          description: "Begin your culinary journey at the heart of the historic district",
+          location: "Market Square",
+          estimated_duration_minutes: 30
+        }
+      ]
     },
     {
       id: "3",
-      title: "Urban Art & Coffee Journey",
+      custom_title: "Urban Art & Coffee Journey",
       description: "Explore vibrant street art while discovering specialty coffee roasters and local artists",
       location: "Arts Quarter",
       duration_hours: 2,
-      estimated_cost: 25,
+      estimated_cost: "$$",
       budget_level: "$$",
       experience_type: "Culture",
       rating: 4.7,
       image: "/logo-swirl.svg",
-      tags: ["Art", "Coffee", "Urban"]
+      tags: ["Art", "Coffee", "Urban"],
+      adventure_photos: [
+        { photo_url: "/api/placeholder/800/600", is_cover_photo: true }
+      ],
+      profiles: {
+        first_name: "Luna",
+        last_name: "Rodriguez"
+      },
+      saves_count: 89,
+      likes_count: 134,
+      adventure_steps: []
     },
     {
       id: "4",
-      title: "Sunrise Photography Adventure",
+      custom_title: "Sunrise Photography Adventure",
       description: "Capture stunning sunrise views from hidden vantage points with professional photo tips",
       location: "Skyline Overlook",
       duration_hours: 2,
-      estimated_cost: 15,
+      estimated_cost: "$",
       budget_level: "$",
       experience_type: "Photography",
       rating: 4.9,
       image: "/logo-swirl.svg",
-      tags: ["Photography", "Sunrise", "Nature"]
+      tags: ["Photography", "Sunrise", "Nature"],
+      adventure_photos: [
+        { photo_url: "/api/placeholder/800/600", is_cover_photo: true }
+      ],
+      profiles: {
+        first_name: "Alex",
+        last_name: "Kim"
+      },
+      saves_count: 298,
+      likes_count: 245,
+      adventure_steps: []
     },
     {
       id: "5",
-      title: "Local Brewery Crawl",
+      custom_title: "Local Brewery Crawl",
       description: "Sample craft beers and meet local brewers while learning about brewing traditions",
       location: "Brewery District",
       duration_hours: 5,
-      estimated_cost: 85,
+      estimated_cost: "$$$",
       budget_level: "$$$",
       experience_type: "Nightlife",
       rating: 4.6,
       image: "/logo-swirl.svg",
-      tags: ["Beer", "Social", "Local"]
+      tags: ["Beer", "Social", "Local"],
+      adventure_photos: [
+        { photo_url: "/api/placeholder/800/600", is_cover_photo: true }
+      ],
+      profiles: {
+        first_name: "Jake",
+        last_name: "Miller"
+      },
+      saves_count: 123,
+      likes_count: 167,
+      adventure_steps: []
     },
     {
       id: "6",
-      title: "Coastal Tide Pool Exploration",
+      custom_title: "Coastal Tide Pool Exploration",
       description: "Discover marine life in natural tide pools with educational insights about ocean ecosystems",
       location: "Rocky Point Beach",
       duration_hours: 3,
-      estimated_cost: 10,
+      estimated_cost: "$",
       budget_level: "$",
       experience_type: "Nature",
       rating: 4.8,
       image: "/logo-swirl.svg",
-      tags: ["Marine", "Education", "Beach"]
+      tags: ["Marine", "Education", "Beach"],
+      adventure_photos: [
+        { photo_url: "/api/placeholder/800/600", is_cover_photo: true }
+      ],
+      profiles: {
+        first_name: "Emma",
+        last_name: "Watson"
+      },
+      saves_count: 178,
+      likes_count: 221,
+      adventure_steps: []
     }
   ];
 
@@ -121,6 +242,16 @@ export default function DiscoverPage() {
         ? prev.filter(id => id !== adventureId)
         : [...prev, adventureId]
     );
+  };
+
+  const openAdventureModal = (adventure: any) => {
+    setSelectedAdventure(adventure);
+    setIsModalOpen(true);
+  };
+
+  const closeAdventureModal = () => {
+    setIsModalOpen(false);
+    setSelectedAdventure(null);
   };
 
   const renderStars = (rating: number) => {
@@ -226,7 +357,7 @@ export default function DiscoverPage() {
                     {/* Title and Rating */}
                     <div className="flex items-start justify-between">
                       <h3 className="text-xl font-bold text-[#2a5444] group-hover:text-[#3c7660] transition-colors">
-                        {adventure.title}
+                        {adventure.custom_title}
                       </h3>
                       <div className="flex items-center space-x-1">
                         {renderStars(adventure.rating)}
@@ -264,7 +395,7 @@ export default function DiscoverPage() {
                           {adventure.budget_level}
                         </Badge>
                         <span className="text-sm text-gray-600">
-                          ${adventure.estimated_cost}
+                          {adventure.estimated_cost}
                         </span>
                       </div>
 
@@ -276,8 +407,11 @@ export default function DiscoverPage() {
                     </div>
 
                     {/* Action Button */}
-                    <Button className="w-full bg-gradient-to-r from-[#3c7660] to-[#2a5444] hover:from-[#2a5444] hover:to-[#1e3c30] text-white group-hover:scale-105 transition-all duration-300">
-                      Start Adventure
+                    <Button 
+                      className="w-full bg-gradient-to-r from-[#3c7660] to-[#2a5444] hover:from-[#2a5444] hover:to-[#1e3c30] text-white group-hover:scale-105 transition-all duration-300"
+                      onClick={() => openAdventureModal(adventure)}
+                    >
+                      View Adventure Details
                       <IoArrowForward className="ml-2 w-4 h-4" />
                     </Button>
                   </div>
@@ -384,6 +518,13 @@ export default function DiscoverPage() {
           </div>
         </div>
       </div>
+
+      {/* Adventure Detail Modal */}
+      <AdventureDetailModal
+        adventure={selectedAdventure}
+        isOpen={isModalOpen}
+        onClose={closeAdventureModal}
+      />
     </div>
   );
 }

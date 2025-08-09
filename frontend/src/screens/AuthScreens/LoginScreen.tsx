@@ -28,8 +28,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const { signIn } = useAuth();
+  const { signIn, signInWithGoogle } = useAuth();
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -48,6 +49,25 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       Alert.alert('Error', 'An unexpected error occurred');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setIsGoogleLoading(true);
+    try {
+      const { error } = await signInWithGoogle();
+      if (error) {
+        console.error('Google sign in error:', error);
+        // Don't show alert for user cancellation
+        if (!error.message?.includes('cancelled')) {
+          Alert.alert('Google Sign In Failed', error.message || 'An error occurred');
+        }
+      }
+      // Success - AuthContext will handle navigation
+    } catch (error) {
+      Alert.alert('Error', 'An unexpected error occurred with Google sign in');
+    } finally {
+      setIsGoogleLoading(false);
     }
   };
 
@@ -157,10 +177,24 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                   <TouchableOpacity
                     onPress={handleLogin}
                     disabled={isLoading}
-                    className="bg-gray-200/20 backdrop-blur-md rounded-2xl py-5 px-6 border border-gray-300/30 shadow-lg"
+                    className="bg-gray-700/30 backdrop-blur-md rounded-2xl py-5 px-6 border border-gray-500/40 shadow-lg"
                   >
                     <Text className="text-white text-center text-lg font-bold drop-shadow-sm">
                       {isLoading ? 'Signing In...' : 'Sign In'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Google Sign In Button */}
+                <View className="mt-4">
+                  <TouchableOpacity
+                    onPress={handleGoogleSignIn}
+                    disabled={isGoogleLoading}
+                    className="bg-gray-700/30 backdrop-blur-md rounded-2xl py-5 px-6 border border-gray-500/40 shadow-lg flex-row items-center justify-center"
+                  >
+                    <Ionicons name="logo-google" size={20} color="white" style={{ marginRight: 12 }} />
+                    <Text className="text-white text-center text-lg font-bold drop-shadow-sm">
+                      {isGoogleLoading ? 'Signing In...' : 'Continue with Google'}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -180,7 +214,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
                 {/* Sign Up Link */}
                 <TouchableOpacity
                   onPress={() => navigation.navigate('Register')}
-                  className="bg-gray-200/15 backdrop-blur-md border border-gray-300/25 rounded-2xl py-4"
+                  className="bg-gray-700/30 backdrop-blur-md border border-gray-500/40 rounded-2xl py-4"
                 >
                   <Text className="text-white text-center text-lg font-semibold drop-shadow-sm">
                     Create Account

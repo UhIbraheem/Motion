@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 import Image from 'next/image';
 import Navigation from '@/components/Navigation';
+import EnhancedAdventureCard from '@/components/EnhancedAdventureCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -15,7 +16,8 @@ import {
   IoHeartOutline,
   IoHeart,
   IoStar,
-  IoAdd
+  IoAdd,
+  IoCalendar
 } from 'react-icons/io5';
 
 interface Adventure {
@@ -145,6 +147,26 @@ export default function DiscoverPage() {
           </div>
         )}
 
+        {/* Stats Display (for logged-in users) */}
+        {user && (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+            <div className="grid md:grid-cols-3 gap-6">
+              <div className="bg-gradient-to-r from-[#3c7660] to-[#2d5a48] rounded-2xl p-6 text-center text-white">
+                <div className="text-3xl font-bold mb-1">12</div>
+                <p className="text-white/90 text-sm">Adventures Saved</p>
+              </div>
+              <div className="bg-gradient-to-r from-[#f59e0b] to-[#d97706] rounded-2xl p-6 text-center text-white">
+                <div className="text-3xl font-bold mb-1">8</div>
+                <p className="text-white/90 text-sm">Adventures Completed</p>
+              </div>
+              <div className="bg-gradient-to-r from-[#8b5cf6] to-[#7c3aed] rounded-2xl p-6 text-center text-white">
+                <div className="text-3xl font-bold mb-1">156</div>
+                <p className="text-white/90 text-sm">Community Adventures</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Adventures Section */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Adventures Loading */}
@@ -191,82 +213,25 @@ export default function DiscoverPage() {
           {!adventuresLoading && adventures.length > 0 && (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {adventures.map((adventure) => (
-                <Card key={adventure.id} className="group bg-white border border-gray-200 rounded-2xl overflow-hidden hover:shadow-lg transition-all duration-300 cursor-pointer">
-                  <div className="relative aspect-[4/3] overflow-hidden">
-                    <Image
-                      src={adventure.adventure_photos?.[0]?.photo_url || '/api/placeholder/400/300'}
-                      alt={adventure.custom_title}
-                      fill
-                      unoptimized
-                      className="object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    
-                    {user && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 hover:bg-white hover:scale-110 transition-all duration-200 p-0"
-                      >
-                        <IoHeartOutline className="w-4 h-4 text-gray-600" />
-                      </Button>
-                    )}
-
-                    {adventure.rating && (
-                      <div className="absolute bottom-3 left-3 bg-white/95 rounded-full px-2 py-1 flex items-center gap-1">
-                        <IoStar className="w-3 h-3 text-yellow-400" />
-                        <span className="text-xs font-medium text-gray-900">
-                          {adventure.rating}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-semibold text-gray-900 line-clamp-2 text-sm">
-                        {adventure.custom_title}
-                      </h3>
-                    </div>
-
-                    {adventure.custom_description && (
-                      <p className="text-xs text-gray-600 mb-3 line-clamp-2">
-                        {adventure.custom_description}
-                      </p>
-                    )}
-
-                    <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
-                      {adventure.location && (
-                        <>
-                          <div className="flex items-center gap-1">
-                            <IoLocationOutline className="w-3 h-3" />
-                            <span>{adventure.location}</span>
-                          </div>
-                          {adventure.duration_hours && <span>•</span>}
-                        </>
-                      )}
-                      {adventure.duration_hours && (
-                        <div className="flex items-center gap-1">
-                          <IoTimeOutline className="w-3 h-3" />
-                          <span>{adventure.duration_hours}h</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500">
-                        {new Date(adventure.shared_date).toLocaleDateString()}
-                      </span>
-                      {adventure.estimated_cost && (
-                        <Badge 
-                          variant="secondary" 
-                          className="text-xs bg-gray-100 text-gray-700"
-                        >
-                          {getBudgetDisplay(adventure.estimated_cost)}
-                        </Badge>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
+                <EnhancedAdventureCard
+                  key={adventure.id}
+                  adventure={adventure}
+                  user={user}
+                  userLiked={false} // TODO: Implement like tracking
+                  userSaved={false} // TODO: Implement save tracking
+                  onLike={(adventureId) => {
+                    console.log('Like adventure:', adventureId);
+                    // TODO: Implement like functionality
+                  }}
+                  onSave={(adventureId) => {
+                    console.log('Save adventure:', adventureId);
+                    // TODO: Implement save functionality
+                  }}
+                  onClick={(adventure) => {
+                    console.log('View adventure:', adventure.id);
+                    // TODO: Implement adventure detail modal
+                  }}
+                />
               ))}
             </div>
           )}

@@ -29,7 +29,19 @@ export default function SignInPage() {
   useEffect(() => {
     if (!loading && user) {
       console.log('🔐 User already authenticated, redirecting to home...');
-      const redirectTo = sessionStorage.getItem('redirectAfterLogin') || '/';
+      const stored = sessionStorage.getItem('redirectAfterLogin');
+      let redirectTo = '/';
+      if (stored) {
+        try {
+          // Only allow same-origin redirects
+          const url = new URL(stored, window.location.origin);
+          if (url.origin === window.location.origin) {
+            redirectTo = url.pathname + url.search + url.hash;
+          }
+        } catch {
+          // ignore invalid URL
+        }
+      }
       sessionStorage.removeItem('redirectAfterLogin');
       router.push(redirectTo);
     }
@@ -56,7 +68,16 @@ export default function SignInPage() {
       });
       
       if (result.success) {
-        const redirectTo = sessionStorage.getItem('redirectAfterLogin') || '/';
+        const stored = sessionStorage.getItem('redirectAfterLogin');
+        let redirectTo = '/';
+        if (stored) {
+          try {
+            const url = new URL(stored, window.location.origin);
+            if (url.origin === window.location.origin) {
+              redirectTo = url.pathname + url.search + url.hash;
+            }
+          } catch {}
+        }
         sessionStorage.removeItem('redirectAfterLogin');
         router.push(redirectTo);
       } else {
@@ -247,6 +268,11 @@ export default function SignInPage() {
               >
                 Sign up
               </Link>
+              <div className="mt-4 flex items-center justify-center gap-4 text-xs text-white/60">
+                <Link href="/legal/privacy" className="hover:text-white/80">Privacy</Link>
+                <span>•</span>
+                <Link href="/legal/terms" className="hover:text-white/80">Terms</Link>
+              </div>
             </div>
           </div>
 
@@ -399,6 +425,11 @@ export default function SignInPage() {
               >
                 Sign up
               </Link>
+              <div className="mt-4 flex items-center justify-center gap-4 text-xs text-[#4d987b]">
+                <Link href="/legal/privacy" className="hover:text-[#3c7660]">Privacy</Link>
+                <span>•</span>
+                <Link href="/legal/terms" className="hover:text-[#3c7660]">Terms</Link>
+              </div>
             </div>
           </div>
 

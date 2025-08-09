@@ -50,8 +50,8 @@ export class WebAIAdventureService {
   private baseURL: string;
 
   constructor() {
-    // Web app uses production Railway backend
-    this.baseURL = 'https://motion-backend-production.up.railway.app/api/ai';
+  // Use internal Next.js API for AI to avoid cross-origin/prod redirects in dev
+  this.baseURL = '/api/ai';
     console.log('🤖 Web AI Service initialized:', this.baseURL);
   }
 
@@ -72,7 +72,7 @@ export class WebAIAdventureService {
 
       console.log('📤 Sending to backend:', requestBody);
 
-      const response = await fetch(`${this.baseURL}/generate-plan`, {
+  const response = await fetch(`${this.baseURL}/generate-plan`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

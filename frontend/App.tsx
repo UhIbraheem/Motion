@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Platform } from 'react-native';
 import * as Font from 'expo-font';
+import Constants from 'expo-constants';
 import { SafeAreaProvider } from 'react-native-safe-area-context'; // ADD this import
 import { AuthProvider } from './src/context/AuthContext';
 import { ThemeProvider } from './src/context/ThemeContext';
@@ -23,8 +24,13 @@ export default function App() {
           // Add any custom fonts here if needed
         });
         
-        // Setup Supabase Storage
-        await setupSupabaseStorage();
+        // Setup Supabase Storage (skippable via env)
+        const skipStorage = Constants.expoConfig?.extra?.EXPO_PUBLIC_SKIP_STORAGE_SETUP === 'true' || process.env.EXPO_PUBLIC_SKIP_STORAGE_SETUP === 'true';
+        if (!skipStorage) {
+          await setupSupabaseStorage();
+        } else {
+          console.log('⏭️ Skipping storage setup due to EXPO_PUBLIC_SKIP_STORAGE_SETUP');
+        }
         
         // Migrate any existing local profile pictures
         await migrateLocalProfilePictures();

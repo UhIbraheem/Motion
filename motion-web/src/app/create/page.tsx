@@ -6,29 +6,32 @@ import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
+import { useRouter } from 'next/navigation';
 import { 
   IoLocationOutline,
-  IoTimeOutline,
   IoRestaurant,
   IoLeaf,
   IoCamera,
   IoWine,
   IoWalk,
-  IoAdd,
   IoSparkles,
   IoHeart,
-  IoStar,
-  IoTrendingUp,
   IoColorPalette,
   IoMusicalNotes,
   IoGameController,
   IoBookOutline,
   IoCafeOutline,
   IoFitnessOutline,
-  IoSchoolOutline
+  IoSchoolOutline,
+  IoTime,
+  IoSettingsOutline,
+  IoCash,
+  IoPeople,
+  IoCompass,
+  IoNutrition
 } from 'react-icons/io5';
+import AdventureService from '@/services/AdventureService';
+import { WebAIAdventureService, type AdventureFilters } from '@/services/aiService';
 
 const moodOptions = [
   { value: 'adventurous', label: 'Adventurous', icon: IoWalk, color: 'text-blue-500', bg: 'bg-blue-50' },
@@ -39,63 +42,94 @@ const moodOptions = [
   { value: 'foodie', label: 'Foodie', icon: IoRestaurant, color: 'text-orange-500', bg: 'bg-orange-50' }
 ];
 
-const activityCategories = [
-  { value: 'food', label: 'Food & Dining', icon: IoRestaurant, color: 'text-orange-500' },
-  { value: 'nature', label: 'Nature & Outdoors', icon: IoLeaf, color: 'text-green-500' },
-  { value: 'culture', label: 'Culture & Arts', icon: IoCamera, color: 'text-purple-500' },
-  { value: 'nightlife', label: 'Nightlife', icon: IoWine, color: 'text-pink-500' },
-  { value: 'adventure', label: 'Adventure Sports', icon: IoWalk, color: 'text-blue-500' },
-  { value: 'wellness', label: 'Wellness & Spa', icon: IoFitnessOutline, color: 'text-teal-500' },
-  { value: 'shopping', label: 'Shopping', icon: IoColorPalette, color: 'text-yellow-500' },
-  { value: 'music', label: 'Music & Shows', icon: IoMusicalNotes, color: 'text-indigo-500' },
-  { value: 'games', label: 'Games & Fun', icon: IoGameController, color: 'text-red-500' },
-  { value: 'learning', label: 'Learning & Classes', icon: IoSchoolOutline, color: 'text-blue-600' },
-  { value: 'coffee', label: 'Cafes & Coffee', icon: IoCafeOutline, color: 'text-amber-600' },
-  { value: 'books', label: 'Books & Reading', icon: IoBookOutline, color: 'text-emerald-600' }
-];
-
-const budgetOptions = [
-  { value: '$', label: 'Budget-friendly ($)', description: 'Under $50 per person' },
-  { value: '$$', label: 'Moderate ($$)', description: '$50-150 per person' },
-  { value: '$$$', label: 'Premium ($$$)', description: '$150+ per person' }
+const experienceTypes = [
+  { value: 'hidden-gem', label: 'Hidden Gem', icon: IoCamera, color: 'text-purple-500' },
+  { value: 'explorer', label: 'Explorer', icon: IoCompass, color: 'text-blue-500' },
+  { value: 'nature', label: 'Nature', icon: IoLeaf, color: 'text-green-500' },
+  { value: 'partier', label: 'Partier', icon: IoMusicalNotes, color: 'text-pink-500' },
+  { value: 'solo-freestyle', label: 'Solo Freestyle', icon: IoWalk, color: 'text-indigo-500' },
+  { value: 'academic-weapon', label: 'Academic Weapon', icon: IoSchoolOutline, color: 'text-blue-600' },
+  { value: 'special-occasion', label: 'Special Occasion', icon: IoSparkles, color: 'text-yellow-500' },
+  { value: 'artsy', label: 'Artsy', icon: IoColorPalette, color: 'text-purple-600' },
+  { value: 'foodie-adventure', label: 'Foodie Adventure', icon: IoRestaurant, color: 'text-orange-500' },
+  { value: 'culture-dive', label: 'Culture Dive', icon: IoBookOutline, color: 'text-teal-500' },
+  { value: 'sweet-treat', label: 'Sweet Treat', icon: IoCafeOutline, color: 'text-brown-500' },
+  { value: 'puzzle-solver', label: 'Puzzle Solver', icon: IoGameController, color: 'text-red-500' },
+  { value: 'wellness', label: 'Wellness', icon: IoFitnessOutline, color: 'text-emerald-500' }
 ];
 
 const durationOptions = [
-  { value: '1', label: '1 hour', description: 'Quick experience' },
-  { value: '2', label: '2 hours', description: 'Short adventure' },
-  { value: '3', label: '3 hours', description: 'Half day' },
-  { value: '4', label: '4 hours', description: 'Extended experience' },
-  { value: '6', label: '6 hours', description: 'Full day' },
-  { value: '8', label: '8+ hours', description: 'All day adventure' }
+  { value: 'short', label: 'Short', description: '1-2 hours', icon: IoTime },
+  { value: 'half-day', label: 'Half Day', description: '3-5 hours', icon: IoTime },
+  { value: 'full-day', label: 'Full Day', description: '6+ hours', icon: IoTime }
 ];
 
+const dietaryOptions = [
+  { value: 'vegetarian', label: 'Vegetarian', icon: IoLeaf, color: 'text-green-500' },
+  { value: 'vegan', label: 'Vegan', icon: IoLeaf, color: 'text-green-600' },
+  { value: 'gluten-free', label: 'Gluten Free', icon: IoNutrition, color: 'text-yellow-600' },
+  { value: 'dairy-free', label: 'Dairy Free', icon: IoNutrition, color: 'text-blue-500' },
+  { value: 'nut-free', label: 'Nut Free', icon: IoNutrition, color: 'text-orange-500' },
+  { value: 'keto', label: 'Keto', icon: IoFitnessOutline, color: 'text-purple-500' },
+  { value: 'halal', label: 'Halal', icon: IoRestaurant, color: 'text-teal-500' },
+  { value: 'kosher', label: 'Kosher', icon: IoRestaurant, color: 'text-indigo-500' }
+];
+
+interface FormData {
+  mood: string;
+  categories: string[];
+  location: string;
+  duration: string;
+  budget: string;
+  groupSize: string;
+  dietaryRestrictions: string[];
+}
+
+interface UsageStats {
+  generationsUsed: number;
+  generationsLimit: number;
+  editsUsed: number;
+  editsLimit: number;
+  resetDate: string;
+}
+
 export default function CreatePage() {
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
+  const router = useRouter();
   const [isGenerating, setIsGenerating] = useState(false);
-  const [mounted, setMounted] = useState(false);
-  
-  // Form state
-  const [formData, setFormData] = useState({
+  const [usageStats, setUsageStats] = useState<UsageStats | null>(null);
+  const [formData, setFormData] = useState<FormData>({
     mood: '',
-    categories: [] as string[],
-    budget: '',
-    duration: '',
+    categories: [],
     location: '',
-    description: '',
-    timeOfDay: '',
-    groupSize: '2'
+    duration: '',
+    budget: '',
+    groupSize: '',
+    dietaryRestrictions: []
   });
 
+  // Load user usage stats
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    if (user) {
+      loadUsageStats();
+    }
+  }, [user]);
 
-  // Don't render anything until mounted
-  if (!mounted) {
-    return null;
-  }
+  const loadUsageStats = async () => {
+    if (!user) return;
+    try {
+      const stats = await AdventureService.getUserUsageStats(user.id);
+      setUsageStats(stats);
+    } catch (error) {
+      console.error('Error loading usage stats:', error);
+    }
+  };
 
-  const toggleCategory = (category: string) => {
+  const handleMoodSelect = (mood: string) => {
+    setFormData(prev => ({ ...prev, mood }));
+  };
+
+  const handleCategoryToggle = (category: string) => {
     setFormData(prev => ({
       ...prev,
       categories: prev.categories.includes(category)
@@ -104,246 +138,305 @@ export default function CreatePage() {
     }));
   };
 
-  const handleGenerate = async () => {
-    // Require auth for actual generation
-    if (!user) {
-      window.location.href = '/auth/signin';
-      return;
-    }
-    
-    setIsGenerating(true);
-    
-    // Simulate AI generation
-    setTimeout(() => {
-      setIsGenerating(false);
-      // In real implementation, this would call the AI service and navigate to results
-      console.log('Generated adventure with:', formData);
-    }, 3000);
+  const handleDietaryToggle = (dietary: string) => {
+    setFormData(prev => ({
+      ...prev,
+      dietaryRestrictions: prev.dietaryRestrictions.includes(dietary)
+        ? prev.dietaryRestrictions.filter(d => d !== dietary)
+        : [...prev.dietaryRestrictions, dietary]
+    }));
   };
 
-  const isFormValid = formData.mood && formData.categories.length > 0 && formData.budget && formData.duration && formData.location;
+  const handleGenerate = async () => {
+    if (!user) {
+      // Redirect to sign in or show modal
+      router.push('/auth/signin');
+      return;
+    }
+
+    setIsGenerating(true);
+    
+    try {
+      const ai = new WebAIAdventureService();
+      const filters: AdventureFilters = {
+        location: formData.location || undefined,
+        duration: formData.duration === 'short' ? 'quick' : formData.duration === 'half-day' ? 'half-day' : formData.duration === 'full-day' ? 'full-day' : undefined,
+        budget: formData.budget ? (formData.budget.includes('$') ? (formData.budget.length <= 2 ? 'budget' : formData.budget.length === 3 ? 'moderate' : 'premium') : undefined) : undefined,
+        dietaryRestrictions: formData.dietaryRestrictions,
+        groupSize: formData.groupSize ? parseInt(formData.groupSize, 10) : undefined,
+        experienceTypes: formData.categories,
+      };
+
+      const { data, error } = await ai.generateAdventure(filters);
+      if (error || !data) {
+        console.error('AI generation failed:', error);
+      } else {
+        // For now, stash the result in sessionStorage and navigate to a simple reader page later
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('lastGeneratedAdventure', JSON.stringify(data));
+        }
+        router.push('/plans');
+      }
+    } catch (error) {
+      console.error('Error generating adventure:', error);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  if (!user) {
+    return null;
+  }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
       <Navigation />
       
+      {/* Main content with proper top padding for Navigation */}
       <main className="pt-16">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Header */}
           <div className="text-center mb-12">
-            <div className="bg-gradient-to-r from-[#3c7660] to-[#2d5a48] rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-6">
+            <div className="bg-gradient-to-r from-[#3c7660] to-[#2d5a48] rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-6 shadow-lg">
               <IoSparkles className="w-8 h-8 text-white" />
             </div>
             <h1 className="text-4xl font-bold text-gray-900 mb-4">Create Your Perfect Adventure</h1>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
               Tell us what you're in the mood for, and our AI will craft a personalized experience just for you
             </p>
+            {usageStats && (
+              <div className="mt-6 mx-auto max-w-md">
+                <div className="backdrop-blur-md bg-white/60 border border-white/70 shadow-sm rounded-xl p-4">
+                  <div className="flex items-center justify-between text-sm text-gray-700">
+                    <span>Generations used</span>
+                    <span className="font-semibold text-[#2a5444]">{usageStats.generationsUsed}/{usageStats.generationsLimit}</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
-          <div className="space-y-8">
-            {/* Step 1: Mood Selection */}
-            <Card className="border-2 border-gray-100 rounded-2xl shadow-sm">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-3 text-xl">
-                  <div className="bg-[#3c7660] text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">1</div>
-                  What's your mood today?
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {moodOptions.map((mood) => {
-                    const IconComponent = mood.icon;
-                    const isSelected = formData.mood === mood.value;
-                    return (
-                      <Button
-                        key={mood.value}
-                        variant="ghost"
-                        onClick={() => setFormData(prev => ({ ...prev, mood: mood.value }))}
-                        className={`h-auto p-6 rounded-2xl border-2 transition-all duration-200 ${
-                          isSelected
-                            ? `border-[#3c7660] ${mood.bg} shadow-md scale-105`
-                            : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
-                        }`}
-                      >
-                        <div className="flex flex-col items-center gap-3">
-                          <div className={`p-3 rounded-full ${isSelected ? 'bg-white' : mood.bg}`}>
-                            <IconComponent className={`w-6 h-6 ${mood.color}`} />
-                          </div>
-                          <span className={`font-medium ${isSelected ? 'text-[#3c7660]' : 'text-gray-700'}`}>
-                            {mood.label}
-                          </span>
-                        </div>
-                      </Button>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Step 2: Activity Categories */}
-            <Card className="border-2 border-gray-100 rounded-2xl shadow-sm">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-3 text-xl">
-                  <div className="bg-[#3c7660] text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">2</div>
-                  What activities interest you?
-                  <Badge variant="secondary" className="ml-2">Select multiple</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                  {activityCategories.map((category) => {
-                    const IconComponent = category.icon;
-                    const isSelected = formData.categories.includes(category.value);
-                    return (
-                      <Button
-                        key={category.value}
-                        variant="ghost"
-                        onClick={() => toggleCategory(category.value)}
-                        className={`h-auto p-4 rounded-xl border transition-all duration-200 ${
-                          isSelected
-                            ? 'border-[#3c7660] bg-[#3c7660]/5 shadow-md'
-                            : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
-                        }`}
-                      >
-                        <div className="flex flex-col items-center gap-2">
-                          <IconComponent className={`w-5 h-5 ${isSelected ? 'text-[#3c7660]' : category.color}`} />
-                          <span className={`text-xs font-medium text-center ${isSelected ? 'text-[#3c7660]' : 'text-gray-700'}`}>
-                            {category.label}
-                          </span>
-                        </div>
-                      </Button>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Step 3: Details */}
-            <Card className="border-2 border-gray-100 rounded-2xl shadow-sm">
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-3 text-xl">
-                  <div className="bg-[#3c7660] text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">3</div>
-                  Adventure Details
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Budget */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-3">Budget Range</label>
-                    <div className="space-y-2">
-                      {budgetOptions.map((budget) => (
+          {/* Uniform 2x2 Squares Layout */}
+          <div className="w-[90%] mx-auto mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              
+              {/* L-Shaped Block 1: Experience Types - Main vertical (3x8) + horizontal extension (2x2) */}
+              <Card className="border border-white/30 bg-white/50 backdrop-blur-xl rounded-2xl shadow-lg overflow-hidden">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-lg text-[#3c7660]">
+                    <IoCompass className="w-5 h-5" />
+                    Experience Type ({formData.categories.length} selected)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[360px] overflow-y-auto p-1">
+                    {experienceTypes.map((type) => {
+                      const IconComponent = type.icon;
+                      return (
                         <Button
-                          key={budget.value}
-                          variant="ghost"
-                          onClick={() => setFormData(prev => ({ ...prev, budget: budget.value }))}
-                          className={`w-full justify-start p-4 h-auto rounded-xl border transition-all duration-200 ${
-                            formData.budget === budget.value
-                              ? 'border-[#3c7660] bg-[#3c7660]/5 shadow-md'
-                              : 'border-gray-200 hover:border-gray-300'
+                          key={type.value}
+                          onClick={() => handleCategoryToggle(type.value)}
+                          variant={formData.categories.includes(type.value) ? "default" : "outline"}
+                          className={`h-14 p-2 text-xs transition-all duration-200 ${
+                            formData.categories.includes(type.value)
+                              ? 'bg-[#3c7660] text-white shadow-md border-[#3c7660]'
+                              : 'border-white/60 bg-white/70 backdrop-blur-sm hover:border-[#3c7660]/50'
                           }`}
                         >
-                          <div className="text-left">
-                            <div className={`font-medium ${formData.budget === budget.value ? 'text-[#3c7660]' : 'text-gray-900'}`}>
-                              {budget.label}
-                            </div>
-                            <div className="text-sm text-gray-500">{budget.description}</div>
+                          <div className="flex flex-col items-center gap-1">
+                            <IconComponent className={`w-4 h-4 ${
+                              formData.categories.includes(type.value) ? 'text-white' : type.color
+                            }`} />
+                            <span className="font-medium leading-tight text-center text-xs">{type.label}</span>
+                          </div>
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* L-Shaped Extension: Mood Selection (2x5) - fits in the L */}
+              <Card className="border border-white/30 bg-white/50 backdrop-blur-xl rounded-2xl shadow-lg overflow-hidden">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-lg text-[#3c7660]">
+                    <IoHeart className="w-5 h-5" />
+                    Your Vibe
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 gap-2 max-h-[360px] overflow-y-auto p-1">
+                    {moodOptions.map((option) => {
+                      const IconComponent = option.icon;
+                      return (
+                        <Button
+                          key={option.value}
+                          onClick={() => handleMoodSelect(option.value)}
+                          variant={formData.mood === option.value ? "default" : "outline"}
+                          className={`h-14 justify-start text-left transition-all duration-200 ${
+                            formData.mood === option.value
+                              ? 'bg-[#3c7660] text-white shadow-lg border-[#3c7660]'
+                              : `bg-white/70 backdrop-blur-sm border-white/60 hover:border-[#3c7660]/50`
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 w-full">
+                            <IconComponent className={`w-4 h-4 ${
+                              formData.mood === option.value ? 'text-white' : option.color
+                            }`} />
+                            <span className="font-medium text-sm">{option.label}</span>
+                          </div>
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Right Stack - Top: Adventure Details (3x4) */}
+              <Card className="border border-white/30 bg-white/50 backdrop-blur-xl rounded-2xl shadow-lg overflow-hidden">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-lg text-[#3c7660]">
+                    <IoSettingsOutline className="w-5 h-5" />
+                    Adventure Details
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Location Input */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <IoLocationOutline className="w-4 h-4 inline mr-1" />
+                        Location
+                      </label>
+                      <Input
+                        type="text"
+                        placeholder="City or area..."
+                        value={formData.location}
+                        onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
+                        className="h-10 text-sm border-white/60 bg-white/70 backdrop-blur-sm focus:border-[#3c7660]"
+                      />
+                    </div>
+
+                    {/* Group Size */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <IoPeople className="w-4 h-4 inline mr-1" />
+                        People
+                      </label>
+                      <Input
+                        type="number"
+                        min="1"
+                        placeholder="2"
+                        value={formData.groupSize}
+                        onChange={(e) => setFormData(prev => ({ ...prev, groupSize: e.target.value }))}
+                        className="h-10 text-sm border-white/60 bg-white/70 backdrop-blur-sm focus:border-[#3c7660]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Duration Selection */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <IoTime className="w-4 h-4 inline mr-1" />
+                      Duration
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {durationOptions.map((option) => (
+                        <Button
+                          key={option.value}
+                          onClick={() => setFormData(prev => ({ ...prev, duration: option.value }))}
+                          variant={formData.duration === option.value ? "default" : "outline"}
+                          size="sm"
+                          className={`h-12 p-2 text-xs transition-all duration-200 ${
+                            formData.duration === option.value
+                              ? 'bg-[#3c7660] text-white shadow-md border-[#3c7660]'
+                              : 'border-white/60 bg-white/70 backdrop-blur-sm hover:border-[#3c7660]/50'
+                          }`}
+                        >
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="font-medium text-xs">{option.label}</span>
+                            <span className="text-xs opacity-80">{option.description}</span>
                           </div>
                         </Button>
                       ))}
                     </div>
                   </div>
 
-                  {/* Duration */}
+                  {/* Budget Input */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-3">Duration</label>
-                    <div className="space-y-2">
-                      {durationOptions.map((duration) => (
-                        <Button
-                          key={duration.value}
-                          variant="ghost"
-                          onClick={() => setFormData(prev => ({ ...prev, duration: duration.value }))}
-                          className={`w-full justify-start p-4 h-auto rounded-xl border transition-all duration-200 ${
-                            formData.duration === duration.value
-                              ? 'border-[#3c7660] bg-[#3c7660]/5 shadow-md'
-                              : 'border-gray-200 hover:border-gray-300'
-                          }`}
-                        >
-                          <div className="text-left">
-                            <div className={`font-medium ${formData.duration === duration.value ? 'text-[#3c7660]' : 'text-gray-900'}`}>
-                              {duration.label}
-                            </div>
-                            <div className="text-sm text-gray-500">{duration.description}</div>
-                          </div>
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Location */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
-                  <div className="relative">
-                    <IoLocationOutline className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <IoCash className="w-4 h-4 inline mr-1" />
+                      Budget (Optional)
+                    </label>
                     <Input
                       type="text"
-                      placeholder="Enter your city or neighborhood..."
-                      value={formData.location}
-                      onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
-                      className="pl-10 pr-4 py-3 rounded-xl border-gray-300 focus:border-[#3c7660] focus:ring-[#3c7660]"
+                      placeholder="$50-100"
+                      value={formData.budget}
+                      onChange={(e) => setFormData(prev => ({ ...prev, budget: e.target.value }))}
+                      className="h-10 text-sm border-white/60 bg-white/70 backdrop-blur-sm focus:border-[#3c7660]"
                     />
                   </div>
-                </div>
+                </CardContent>
+              </Card>
 
-                {/* Optional: Additional preferences */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Additional Notes (Optional)
-                  </label>
-                  <Textarea
-                    placeholder="Any specific preferences, dietary restrictions, or special requests..."
-                    value={formData.description}
-                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                    className="resize-none rounded-xl border-gray-300 focus:border-[#3c7660] focus:ring-[#3c7660]"
-                    rows={3}
-                  />
-                </div>
-              </CardContent>
-            </Card>
+              {/* Right Stack - Bottom: Dietary Restrictions (3x4) */}
+              <Card className="border border-white/30 bg-white/50 backdrop-blur-xl rounded-2xl shadow-lg overflow-hidden">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2 text-lg text-[#3c7660]">
+                    <IoNutrition className="w-5 h-5" />
+                    Dietary Restrictions ({formData.dietaryRestrictions.length} selected)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[360px] overflow-y-auto p-1">
+                    {dietaryOptions.map((option) => {
+                      const IconComponent = option.icon;
+                      return (
+                        <Button
+                          key={option.value}
+                          onClick={() => handleDietaryToggle(option.value)}
+                          variant={formData.dietaryRestrictions.includes(option.value) ? "default" : "outline"}
+                          size="sm"
+                          className={`h-12 p-2 text-xs transition-all duration-200 ${
+                            formData.dietaryRestrictions.includes(option.value)
+                              ? 'bg-[#3c7660] text-white shadow-md border-[#3c7660]'
+                              : 'border-gray-200 hover:border-[#3c7660]/50 bg-white'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 justify-center">
+                            <IconComponent className={`w-4 h-4 ${
+                              formData.dietaryRestrictions.includes(option.value) ? 'text-white' : option.color
+                            }`} />
+                            <span className="font-medium leading-tight text-xs">{option.label}</span>
+                          </div>
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
 
-            {/* Generate Button */}
-            <div className="text-center pt-4">
-              <Button
-                onClick={handleGenerate}
-                disabled={!isFormValid || isGenerating}
-                size="lg"
-                className="bg-gradient-to-r from-[#3c7660] to-[#2d5a48] hover:from-[#2d5a48] hover:to-[#1e3d2f] text-white px-12 py-4 rounded-full text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isGenerating ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
-                    Crafting Your Adventure...
-                  </>
-                ) : (
-                  <>
-                    <IoSparkles className="w-5 h-5 mr-3" />
-                    {user ? 'Generate My Adventure' : 'Sign In to Generate Adventure'}
-                  </>
-                )}
-              </Button>
-              
-              {!user && (
-                <p className="text-sm text-gray-600 mt-3">
-                  Complete the form above, then sign in to generate your personalized adventure
-                </p>
-              )}
-              
-              {user && !isFormValid && (
-                <p className="text-sm text-gray-500 mt-3">
-                  Please complete all required fields to generate your adventure
-                </p>
-              )}
+              {/* Full-width Generate CTA */}
+              <div className="md:col-span-2 flex items-center justify-center">
+                <Button
+                  onClick={handleGenerate}
+                  disabled={isGenerating || !formData.mood || formData.categories.length === 0 || !formData.location}
+                  className="w-full h-14 bg-gradient-to-r from-[#3c7660] to-[#2d5a48] hover:from-[#2d5a48] hover:to-[#1e3c30] text-white rounded-2xl text-base font-semibold shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
+                >
+                  {isGenerating ? (
+                    <div className="flex items-center gap-2">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                      <span className="text-sm">Generating...</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <IoSparkles className="w-5 h-5" />
+                      <span>Generate Adventure</span>
+                    </div>
+                  )}
+                </Button>
+              </div>
+
             </div>
           </div>
         </div>

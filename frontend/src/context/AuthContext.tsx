@@ -4,6 +4,8 @@ import { Alert, Linking, Platform } from 'react-native';
 import { supabase, signIn as supabaseSignIn, signUp as supabaseSignUp, signOut as supabaseSignOut } from '../services/supabase';
 import type { User, Session } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
+import * as AuthSession from 'expo-auth-session';
+import * as WebBrowser from 'expo-web-browser';
 
 type AuthContextType = {
   session: Session | null;
@@ -11,11 +13,15 @@ type AuthContextType = {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, firstName?: string, lastName?: string) => Promise<{ error: any }>;
+  signInWithGoogle: () => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   requestAuth: () => void;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Ensure the auth session completes on app resume (prevents stuck Safari/WebView)
+WebBrowser.maybeCompleteAuthSession();
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [session, setSession] = useState<Session | null>(null);
@@ -53,9 +59,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       console.log('📱 Platform:', Platform.OS, isExpoGo ? '(Expo Go)' : '(Standalone)');
       
       // Handle different URL schemes
-      const isAuthLink = url.includes('auth/confirm') || 
-                        url.includes('token_hash') ||
-                        url.includes('/--/auth/confirm');
+  const isAuthLink = url.includes('auth/confirm') || 
+        url.includes('token_hash') ||
+        url.includes('/--/auth/confirm') ||
+        url.includes('code='); // OAuth code callback
       
       if (isAuthLink) {
         try {
@@ -73,6 +80,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           
           const tokenHash = params.get('token_hash');
           const type = params.get('type');
+          const authCode = params.get('code');
           
           console.log('🔑 Processing confirmation:', { 
             tokenHash: !!tokenHash, 
@@ -81,6 +89,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             isExpoGo 
           });
           
+          // Handle OAuth code exchange
+          if (authCode) {
+            console.log('🔄 Exchanging OAuth code for session...');
+            const { data, error } = await supabase.auth.exchangeCodeForSession(authCode);
+            if (error) {
+              console.error('❌ OAuth exchange error:', error.message);
+              Alert.alert('Google Sign In Failed', error.message);
+            } else {
+              console.log('✅ OAuth exchange success for', data.user?.email);
+            }
+            return;
+          }
+
           if (tokenHash && type === 'signup') {
             // Let Supabase handle the confirmation automatically
             Alert.alert(
@@ -118,6 +139,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       linkingSubscription?.remove();
     };
   }, [isExpoGo]);
+
+  // Resolve the correct OAuth redirect for current runtime
+  const getOAuthRedirectUrl = () => {
+    const useLegacy = (Constants.expoConfig?.extra as any)?.EXPO_PUBLIC_USE_LEGACY_EXPO_AUTH === 'true';
+    const expoProxyRedirect = useLegacy
+      ? 'https://auth.expo.io/@uh_ibraheem/motion-app'
+      : 'https://auth.expo.dev/@uh_ibraheem/motion-app';
+    // In Expo Go/dev, AuthSession.makeRedirectUri() returns an Expo proxy URL
+    if (Constants.appOwnership === 'expo') {
+      // Prefer explicit Expo proxy URL now that account is known
+      return expoProxyRedirect;
+    }
+    // In standalone/bare apps, use your custom scheme
+    return AuthSession.makeRedirectUri({ scheme: 'motionapp', path: 'auth' });
+  };
 
   const signIn = async (email: string, password: string) => {
     try {
@@ -184,6 +220,46 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const signInWithGoogle = async () => {
+    try {
+      // Use Expo proxy in dev (Expo Go), custom scheme in standalone
+      const redirectUrl = getOAuthRedirectUrl();
+      console.log('🔗 Redirect URL:', redirectUrl);
+
+      // Request the auth URL without automatic redirect
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUrl,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+          skipBrowserRedirect: true,
+        },
+      });
+
+      if (error) {
+        console.error('❌ Google OAuth error:', error.message);
+        Alert.alert('Google Sign In Failed', error.message);
+        return { error };
+      }
+
+      // Open the auth session manually (more reliable on Expo Go/iOS)
+      if (data?.url) {
+        const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+        // The deep link handler and onAuthStateChange will finalize the session
+        console.log('🌐 AuthSession result:', result.type);
+      }
+
+      return { error: null };
+    } catch (error) {
+      console.error('❌ Unexpected Google OAuth error:', error);
+      Alert.alert('Error', 'Failed to sign in with Google');
+      return { error };
+    }
+  };
+
   const signOut = async () => {
     try {
       const { error } = await supabaseSignOut();
@@ -215,6 +291,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         loading,
         signIn,
         signUp,
+        signInWithGoogle,
         signOut,
         requestAuth,
       }}

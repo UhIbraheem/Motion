@@ -44,6 +44,7 @@ interface AuthContextType {
   signIn: (data: SignInData) => Promise<{ success: boolean; error?: string }>;
   signUp: (data: SignUpData) => Promise<{ success: boolean; error?: string }>;
   signInWithGoogle: () => Promise<{ success: boolean; error?: string }>;
+  linkGoogle: () => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   hasPermission: (feature: string) => boolean;
   refreshUser: () => Promise<void>;
@@ -331,17 +332,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const signInWithGoogle = async (): Promise<{ success: boolean; error?: string }> => {
     try {
       setLoading(true);
-      
+
       // Clear any existing session first
       await supabase.auth.signOut();
-      
+
+      // Always use our same-origin callback to avoid prod redirect
+      const redirectTo = `${window.location.origin}/auth/callback`;
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo,
+          // Request offline access; Supabase will use OAuth code flow and exchange server-side
           queryParams: {
             access_type: 'offline',
             prompt: 'select_account',
+            // Explicitly ask for code response to avoid implicit hash tokens
+            response_type: 'code'
           },
           skipBrowserRedirect: false,
         },
@@ -353,14 +360,34 @@ export function AuthProvider({ children }: AuthProviderProps) {
         throw error;
       }
 
-      // Don't set loading to false here as the redirect will handle it
       return { success: true };
     } catch (error: any) {
       setLoading(false);
-      return { 
-        success: false, 
-        error: error.message || 'Google sign in failed' 
+      return {
+        success: false,
+        error: error.message || 'Google sign in failed',
       };
+    }
+  };
+
+  const linkGoogle = async (): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const redirectTo = `${window.location.origin}/auth/callback`;
+      // linkIdentity is available in newer supabase-js; cast to any to call
+      const { data, error } = await (supabase.auth as any).linkIdentity({
+        provider: 'google',
+        options: { redirectTo },
+      });
+
+      if (error) return { success: false, error: error.message };
+
+      if (data?.url) {
+        window.location.href = data.url;
+      }
+
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, error: e.message || 'Failed to link Google' };
     }
   };
 
@@ -487,6 +514,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     signIn,
     signUp,
     signInWithGoogle,
+  linkGoogle,
     signOut,
     hasPermission,
     refreshUser,

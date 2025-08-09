@@ -2,8 +2,9 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/contexts/AuthContext'
-import { Navigation } from '@/components/NavigationEnhanced'
+// Navigation is rendered within pages as needed
 import { Toaster } from '@/components/ui/toaster'
+import AuthHashGuard from '@/components/AuthHashGuard'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -27,6 +28,7 @@ export default function RootLayout({
       <body className={`${inter.className} antialiased`} suppressHydrationWarning>
         <AuthProvider>
           <div className="min-h-screen bg-white">
+            <AuthHashGuard />
             {children}
             <Toaster />
           </div>

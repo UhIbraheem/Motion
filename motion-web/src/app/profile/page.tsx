@@ -28,7 +28,7 @@ import {
 } from "react-icons/io5";
 
 export default function ProfilePage() {
-  const { user, signOut, loading } = useAuth();
+  const { user, signOut, loading, linkGoogle } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [formData, setFormData] = useState({
@@ -207,7 +207,7 @@ export default function ProfilePage() {
                 {/* Avatar Section */}
                 <div className="flex items-center space-x-4">
                   <Avatar className="w-20 h-20 border-4 border-[#f2cc6c]">
-                    <AvatarImage src="/api/placeholder/80/80" />
+                    <AvatarImage src={(user as any)?.profilePictureUrl || ""} />
                     <AvatarFallback className="bg-[#3c7660] text-white text-xl">
                       {user.fullName?.charAt(0) || user.email?.charAt(0) || 'U'}
                     </AvatarFallback>
@@ -254,6 +254,19 @@ export default function ProfilePage() {
                     ) : (
                       <p className="text-[#4d987b] py-2">{user.name || user.fullName || 'Not set'}</p>
                     )}
+                  </div>
+
+                  {/* Connect Google */}
+                  <div className="pt-2">
+                    <Button
+                      variant="outline"
+                      className="border-[#f2cc6c] text-[#3c7660] hover:bg-[#f2cc6c]/10"
+                      onClick={async () => {
+                        await linkGoogle();
+                      }}
+                    >
+                      Connect Google
+                    </Button>
                   </div>
                 </div>
               </CardContent>
@@ -340,10 +353,33 @@ export default function ProfilePage() {
                     View Plans
                   </Button>
                 </Link>
-                <Button variant="outline" className="w-full justify-start border-[#f2cc6c] text-[#3c7660] hover:bg-[#f2cc6c]/10">
-                  <IoSettingsOutline className="w-4 h-4 mr-2" />
-                  Account Settings
-                </Button>
+                <Link href="/settings/privacy">
+                  <Button variant="outline" className="w-full justify-start border-[#f2cc6c] text-[#3c7660] hover:bg-[#f2cc6c]/10">
+                    <IoSettingsOutline className="w-4 h-4 mr-2" />
+                    Privacy & Security
+                  </Button>
+                </Link>
+                <Link href="/auth/forgot-password">
+                  <Button variant="outline" className="w-full justify-start border-[#f2cc6c] text-[#3c7660] hover:bg-[#f2cc6c]/10">
+                    <IoLockClosedOutline className="w-4 h-4 mr-2" />
+                    Reset Password
+                  </Button>
+                </Link>
+                <Link href="/settings/preferences">
+                  <Button variant="outline" className="w-full justify-start border-[#f2cc6c] text-[#3c7660] hover:bg-[#f2cc6c]/10">
+                    <IoNotificationsOutline className="w-4 h-4 mr-2" />
+                    Preferences
+                  </Button>
+                </Link>
+                <Link href="/settings/help">
+                  <Button variant="outline" className="w-full justify-start border-[#f2cc6c] text-[#3c7660] hover:bg-[#f2cc6c]/10">
+                    Help & Support
+                  </Button>
+                </Link>
+                <div className="flex items-center justify-between text-sm text-[#4d987b] pt-2">
+                  <Link href="/legal/privacy" className="hover:text-[#3c7660]">Privacy</Link>
+                  <Link href="/legal/terms" className="hover:text-[#3c7660]">Terms</Link>
+                </div>
               </CardContent>
             </Card>
           </div>

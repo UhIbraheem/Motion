@@ -118,19 +118,16 @@ export default function PlansPage() {
   }, [user]);
 
   const loadAdventures = async () => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
+    if (!user) return;
+    
     setLoading(true);
     setError(null);
-
+    
     try {
-      // Get adventures; skip any slow remote photo fetching inside service
+      // Get saved adventures from Supabase
       const savedAdventures = await AdventureService.getUserSavedAdventures(user.id);
 
-      // Quick processing only; do not fetch external photos here
+      // Process adventures for display
       const processedAdventures = savedAdventures.map((adventure) => {
         return {
           id: adventure.id,
@@ -149,13 +146,10 @@ export default function PlansPage() {
             business_name: step.business_info?.name,
             step_order: step.step_number
           })),
-          // Use existing photos or placeholder - no async calls
-          photos: adventure.adventure_photos?.length 
-            ? adventure.adventure_photos.map(photo => ({
-                url: photo.photo_url,
-                source: 'user_uploaded' as const
-              }))
-            : [{ url: '/api/placeholder/400/300', source: 'ai_generated' as const }],
+          photos: adventure.adventure_photos?.map(photo => ({
+            url: photo.photo_url,
+            source: 'user_uploaded' as const
+          })) || [{ url: '/api/placeholder/400/300', source: 'ai_generated' as const }],
           created_at: adventure.saved_at,
           scheduled_for: adventure.scheduled_for,
           is_completed: false,
@@ -250,7 +244,7 @@ export default function PlansPage() {
       <Navigation />
       
       <main className="pt-16">
-        <div className="w-[90%] max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="w-[80%] max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div>
@@ -323,12 +317,6 @@ export default function PlansPage() {
                             unoptimized
                             className="object-cover group-hover:scale-105 transition-transform duration-300"
                           />
-                          {/* Glass overlay title */}
-                          <div className="absolute top-2 left-2 right-20">
-                            <div className="backdrop-blur-md bg-black/25 border border-white/10 rounded-xl px-3 py-1.5 shadow-sm">
-                              <h4 className="text-white text-xs font-semibold line-clamp-1">{adventure.title}</h4>
-                            </div>
-                          </div>
                           <div className="absolute top-2 left-2">
                             <Badge className="bg-yellow-500 text-white">Upcoming</Badge>
                           </div>
@@ -366,12 +354,6 @@ export default function PlansPage() {
                             unoptimized
                             className="object-cover group-hover:scale-105 transition-transform duration-300"
                           />
-                          {/* Glass overlay title */}
-                          <div className="absolute top-2 left-2 right-20">
-                            <div className="backdrop-blur-md bg-black/25 border border-white/10 rounded-xl px-3 py-1.5 shadow-sm">
-                              <h4 className="text-white text-xs font-semibold line-clamp-1">{adventure.title}</h4>
-                            </div>
-                          </div>
                           <div className="absolute top-2 left-2">
                             <span className={`px-2 py-1 text-xs font-medium rounded-full ${getDifficultyColor(adventure.difficulty)}`}>
                               {adventure.difficulty}

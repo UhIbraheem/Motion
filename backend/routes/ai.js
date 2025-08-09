@@ -64,6 +64,7 @@ Create a JSON response with:
       "time": "HH:MM format (24-hour)",
       "title": "Activity name",
       "location": "Specific address/location",
+      "business_name": "Exact business/venue name for photos",
       "notes": "Details and tips",
       "booking": {
         "method": "How to book/access",
@@ -147,6 +148,7 @@ Respond ONLY with this JSON format:
     "time": "2:00 PM",
     "title": "New activity name",
     "location": "Full address",
+    "business_name": "Exact business/venue name for photos",
     "booking": {
       "method": "OpenTable",
       "link": "https://...",

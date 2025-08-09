@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
+import SettingsModal from './SettingsModal';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,6 +57,10 @@ export default function Navigation() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showAllFilters, setShowAllFilters] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  
+  // Hide search and filters on certain pages
+  const hideSearchAndFilters = pathname === '/create' || pathname === '/plans' || pathname === '/profile';
 
   useEffect(() => {
     const handleScroll = () => {
@@ -188,7 +193,10 @@ export default function Navigation() {
                     </DropdownMenuGroup>
                     <DropdownMenuSeparator className="my-2" />
                     <DropdownMenuGroup>
-                      <DropdownMenuItem className="cursor-pointer px-3 py-2 hover:bg-gray-50 rounded-lg mx-1">
+                      <DropdownMenuItem 
+                        className="cursor-pointer px-3 py-2 hover:bg-gray-50 rounded-lg mx-1"
+                        onClick={() => setIsSettingsOpen(true)}
+                      >
                         <IoSettingsOutline className="w-5 h-5 mr-3 text-gray-600" />
                         <span className="font-medium">Settings</span>
                       </DropdownMenuItem>
@@ -240,10 +248,11 @@ export default function Navigation() {
           </div>
         </div>
 
-        {/* Search Bar and Filters - Collapsible on scroll */}
-        <div className={`border-t border-gray-100 transition-all duration-300 ${
-          isScrolled ? 'py-2' : 'py-4'
-        }`}>
+        {/* Search Bar and Filters - Only show on discover page */}
+        {!hideSearchAndFilters && (
+          <div className={`border-t border-gray-100 transition-all duration-300 ${
+            isScrolled ? 'py-2' : 'py-4'
+          }`}>
           {/* Search Bar - Always visible */}
           <div className="mb-3">
             <div className="relative max-w-md mx-auto">
@@ -306,7 +315,8 @@ export default function Navigation() {
               </div>
             </div>
           )}
-        </div>
+          </div>
+        )}
 
         {/* Mobile Navigation */}
         <div className="md:hidden border-t border-gray-100 py-2">
@@ -329,6 +339,12 @@ export default function Navigation() {
           </div>
         </div>
       </div>
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
     </nav>
   );
 }
