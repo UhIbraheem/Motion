@@ -7,11 +7,7 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Test route to verif    const completion = await openai.chat.completions.create({
-      model: "gpt-4-0125-preview", // GPT-4 Turbo with better instruction following
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.3, // Lower temperature for more consistent output format
-    }); is working
+// Test route to verify API is working
 router.get("/test", (req, res) => {
   res.json({ 
     message: "AI routes working! 🤖",
@@ -27,7 +23,12 @@ router.post("/generate-plan", async (req, res) => {
     console.log("📝 Received request:", { app_filter, radius });
 
     const prompt = `
-RESPOND WITH JSON ONLY - NO OTHER TEXT
+!!!CRITICAL!!! RESPOND WITH ONLY JSON - NO OTHER TEXT WHATSOEVER
+
+DO NOT START WITH: "Here's your adventure..." or "Great!" or any text
+DO NOT END WITH: explanatory text after the JSON
+START IMMEDIATELY WITH: {
+END IMMEDIATELY WITH: }
 
 Create a detailed adventure plan in JSON format with these requirements:
 You are an AI concierge planning a full or partial day of activities based on user input. Your goal is to recommend a 
@@ -35,18 +36,17 @@ personalized, enjoyable, well-paced plan with real businesses/locations, aligned
 
 CRITICAL JSON RULES - FOLLOW EXACTLY:
 - START YOUR RESPONSE WITH { - NO TEXT BEFORE THIS
-- END YOUR RESPONSE WITH } - NO TEXT AFTER THIS
+- END YOUR RESPONSE WITH } - NO TEXT AFTER THIS  
 - NO markdown code blocks, NO backticks around JSON
 - NO semicolons after URLs or any values - strict JSON format only
-- NO explanations, notes, or commentary anywhere, if there is anything you must return return it as {as_remark: ***}
+- NO explanations, notes, or commentary anywhere outside the JSON structure
 - Keep all locations within ${radius} miles of each other and of the user's starting point
 - Use realistic time windows (e.g., 14:30, 16:00) to pace the plan realistically
-- Budget must match user's selection: Budget ($0-30 per person), Moderate ($30-70 per person), Premium ($70+ per person)
 - When suggesting restaurants/cafés: prioritize OpenTable listings with reservation links
 - Ensure the plan flows smoothly between locations (minimize backtracking)
 - Make sure all recommendations are REAL businesses/locations that are currently open
 - Do NOT make up fictional places or businesses
-- Consider the user's budget when formulating response - stick to the specified budget range
+- Consider the user's budget when formulating response
 - Make sure all filters are coherent with each other
 - Be diverse with locations and always explore new combinations
 - URLs must NOT have semicolons after them - use proper JSON format
@@ -85,7 +85,7 @@ CRITICAL: START WITH { - END WITH } - NO OTHER TEXT`;
       messages: [
         {
           role: "system",
-          content: "You are a strict JSON generator. CRITICAL RULES: 1) Your response must start with { and end with } 2) NO text before or after the JSON object 3) NO explanations, descriptions, or markdown 4) NO semicolons anywhere 5) If you add ANY text other than the JSON object, the system will crash. Return ONLY the JSON."
+          content: "CRITICAL: You MUST respond with ONLY a JSON object. NO other text whatsoever. If you include ANY text other than pure JSON, the system will crash and users will be angry. Start with { and end with }. NO explanations, NO markdown, NO semicolons, NO text before or after the JSON."
         },
         {
           role: "user", 
@@ -98,29 +98,30 @@ CRITICAL: START WITH { - END WITH } - NO OTHER TEXT`;
     const raw = completion.choices[0].message.content;
     console.log("📤 Raw OpenAI response (first 200 chars):", raw.substring(0, 200));
 
-    // SIMPLE BUT ROBUST JSON EXTRACTION
+    // BULLETPROOF JSON EXTRACTION - handles ALL edge cases
     let clean = raw.trim();
     
-    // Remove markdown code blocks if present
-    clean = clean.replace(/```json\n?/, "").replace(/```\n?$/, "");
+    console.log("🔍 Raw response starts with:", clean.substring(0, 100));
     
-    // If response starts with explanatory text, find the first {
-    if (!clean.startsWith('{')) {
-      const firstBrace = clean.indexOf('{');
-      if (firstBrace !== -1) {
-        clean = clean.substring(firstBrace);
-        console.log("✅ Found JSON starting at position", firstBrace);
-      }
+    // AGGRESSIVE: Remove ANY text before the first {
+    const firstBrace = clean.indexOf('{');
+    if (firstBrace === -1) {
+      console.log("❌ No JSON object found in response");
+      throw new Error("No JSON object found in OpenAI response");
     }
     
-    // If response ends with extra text, find the last }
-    if (!clean.endsWith('}')) {
-      const lastBrace = clean.lastIndexOf('}');
-      if (lastBrace !== -1) {
-        clean = clean.substring(0, lastBrace + 1);
-        console.log("✅ Trimmed to last closing brace");
-      }
+    // Extract from first { to last }
+    const lastBrace = clean.lastIndexOf('}');
+    if (lastBrace === -1 || lastBrace <= firstBrace) {
+      console.log("❌ No complete JSON object found");
+      throw new Error("No complete JSON object found in OpenAI response");
     }
+    
+    clean = clean.substring(firstBrace, lastBrace + 1);
+    console.log("✅ Extracted JSON between braces, length:", clean.length);
+    
+    // Remove markdown code blocks if somehow still present
+    clean = clean.replace(/```json\s*/g, "").replace(/```\s*/g, "");
     
     // Basic cleanup
     clean = clean.replace(/;\s*$/, '').trim();
