@@ -1,22 +1,20 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import Navigation from '@/components/Navigation';
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
+import { usePersistentState } from '@/hooks/usePersistentState';
 import { useRouter } from 'next/navigation';
-import { 
+import {
   IoLocationOutline,
   IoRestaurant,
   IoLeaf,
-  IoCamera,
-  IoWine,
-  IoWalk,
   IoSparkles,
-  IoHeart,
-  IoColorPalette,
   IoMusicalNotes,
   IoGameController,
   IoBookOutline,
@@ -24,65 +22,86 @@ import {
   IoFitnessOutline,
   IoSchoolOutline,
   IoTime,
-  IoSettingsOutline,
   IoCash,
   IoPeople,
   IoCompass,
-  IoNutrition
+  IoColorPalette,
+  IoHeart,
+  IoNutrition,
+  IoGift,
+  IoFlash,
+  IoFlower
 } from 'react-icons/io5';
-import AdventureService from '@/services/AdventureService';
 import { WebAIAdventureService, type AdventureFilters } from '@/services/aiService';
+import { experienceTypes as EXPERIENCE_TYPES } from '@/data/experienceTypes';
+import { VIBES } from '@/data/vibes';
+import { BUDGET_TIERS, detectCurrencyFromLocation, getBudgetPromptText, formatBudgetDisplay, getBudgetRange } from '@/config/budgetConfig';
 
-const moodOptions = [
-  { value: 'adventurous', label: 'Adventurous', icon: IoWalk, color: 'text-blue-500', bg: 'bg-blue-50' },
-  { value: 'romantic', label: 'Romantic', icon: IoHeart, color: 'text-pink-500', bg: 'bg-pink-50' },
-  { value: 'relaxed', label: 'Relaxed', icon: IoLeaf, color: 'text-green-500', bg: 'bg-green-50' },
-  { value: 'social', label: 'Social', icon: IoWine, color: 'text-purple-500', bg: 'bg-purple-50' },
-  { value: 'cultural', label: 'Cultural', icon: IoCamera, color: 'text-indigo-500', bg: 'bg-indigo-50' },
-  { value: 'foodie', label: 'Foodie', icon: IoRestaurant, color: 'text-orange-500', bg: 'bg-orange-50' }
-];
+// Map string icon identifiers from experienceTypes data file to actual components
+const experienceIconMap: Record<string, React.ComponentType<any>> = {
+  'diamond': IoSparkles,
+  'map': IoCompass,
+  'leaf': IoLeaf,
+  'musical-notes': IoMusicalNotes,
+  'person': IoSparkles,
+  'library': IoBookOutline,
+  'gift': IoSparkles,
+  'color-palette': IoColorPalette,
+  'restaurant': IoRestaurant,
+  'ice-cream': IoCafeOutline,
+  'extension-puzzle': IoGameController,
+  'body': IoFitnessOutline,
+};
 
-const experienceTypes = [
-  { value: 'hidden-gem', label: 'Hidden Gem', icon: IoCamera, color: 'text-purple-500' },
-  { value: 'explorer', label: 'Explorer', icon: IoCompass, color: 'text-blue-500' },
-  { value: 'nature', label: 'Nature', icon: IoLeaf, color: 'text-green-500' },
-  { value: 'partier', label: 'Partier', icon: IoMusicalNotes, color: 'text-pink-500' },
-  { value: 'solo-freestyle', label: 'Solo Freestyle', icon: IoWalk, color: 'text-indigo-500' },
-  { value: 'academic-weapon', label: 'Academic Weapon', icon: IoSchoolOutline, color: 'text-blue-600' },
-  { value: 'special-occasion', label: 'Special Occasion', icon: IoSparkles, color: 'text-yellow-500' },
-  { value: 'artsy', label: 'Artsy', icon: IoColorPalette, color: 'text-purple-600' },
-  { value: 'foodie-adventure', label: 'Foodie Adventure', icon: IoRestaurant, color: 'text-orange-500' },
-  { value: 'culture-dive', label: 'Culture Dive', icon: IoBookOutline, color: 'text-teal-500' },
-  { value: 'sweet-treat', label: 'Sweet Treat', icon: IoCafeOutline, color: 'text-brown-500' },
-  { value: 'puzzle-solver', label: 'Puzzle Solver', icon: IoGameController, color: 'text-red-500' },
-  { value: 'wellness', label: 'Wellness', icon: IoFitnessOutline, color: 'text-emerald-500' }
-];
+// Restrict plan vibes to curated 6 keys only (updated: include special-occasion, drop explorer)
+const PLAN_VIBE_KEYS = ['romantic','chill','spontaneous','energized','mindful','special-occasion'];
+const vibeOptions = VIBES.filter(v => PLAN_VIBE_KEYS.includes(v.key)).map(v => ({
+  value: v.key,
+  label: v.label,
+  description: v.shortDescription
+}));
 
 const durationOptions = [
-  { value: 'short', label: 'Short', description: '1-2 hours', icon: IoTime },
-  { value: 'half-day', label: 'Half Day', description: '3-5 hours', icon: IoTime },
-  { value: 'full-day', label: 'Full Day', description: '6+ hours', icon: IoTime }
+  { value: 'short', label: 'Short (≈2 hrs)', description: 'About 1–2 hours', icon: IoTime },
+  { value: 'half-day', label: 'Half Day (4–6 hrs)', description: 'Solid half day', icon: IoTime },
+  { value: 'full-day', label: 'Full Day (6+ hrs)', description: 'Immersive day arc', icon: IoTime }
 ];
 
-const dietaryOptions = [
+// Dietary restriction vs preference split
+const dietaryRestrictionOptions = [
   { value: 'vegetarian', label: 'Vegetarian', icon: IoLeaf, color: 'text-green-500' },
   { value: 'vegan', label: 'Vegan', icon: IoLeaf, color: 'text-green-600' },
   { value: 'gluten-free', label: 'Gluten Free', icon: IoNutrition, color: 'text-yellow-600' },
   { value: 'dairy-free', label: 'Dairy Free', icon: IoNutrition, color: 'text-blue-500' },
   { value: 'nut-free', label: 'Nut Free', icon: IoNutrition, color: 'text-orange-500' },
-  { value: 'keto', label: 'Keto', icon: IoFitnessOutline, color: 'text-purple-500' },
   { value: 'halal', label: 'Halal', icon: IoRestaurant, color: 'text-teal-500' },
   { value: 'kosher', label: 'Kosher', icon: IoRestaurant, color: 'text-indigo-500' }
 ];
+const dietaryPreferenceOptions = [
+  { value: 'keto', label: 'Keto', icon: IoFitnessOutline, color: 'text-purple-500' },
+  { value: 'high-protein', label: 'High Protein', icon: IoFitnessOutline, color: 'text-rose-500' },
+  { value: 'low-carb', label: 'Low Carb', icon: IoFitnessOutline, color: 'text-emerald-600' },
+  { value: 'sustainable', label: 'Sustainable', icon: IoLeaf, color: 'text-lime-600' },
+  { value: 'local-produce', label: 'Local Produce', icon: IoLeaf, color: 'text-green-700' }
+];
+
+// Use the centralized budget configuration
+const budgetOptions = BUDGET_TIERS.map(tier => ({
+  value: tier.id,
+  label: tier.label,
+  symbol: tier.symbol,
+  description: tier.description
+}));
 
 interface FormData {
-  mood: string;
-  categories: string[];
+  vibe: string;
+  categories: string[]; // experience type ids
   location: string;
   duration: string;
   budget: string;
   groupSize: string;
   dietaryRestrictions: string[];
+  dietaryPreferences: string[];
 }
 
 interface UsageStats {
@@ -98,15 +117,32 @@ export default function CreatePage() {
   const router = useRouter();
   const [isGenerating, setIsGenerating] = useState(false);
   const [usageStats, setUsageStats] = useState<UsageStats | null>(null);
-  const [formData, setFormData] = useState<FormData>({
-    mood: '',
+  // Persistent selections (localStorage) for user convenience
+  const [formData, setFormData] = usePersistentState<FormData>('motion:create:form', {
+    vibe: '',
     categories: [],
     location: '',
     duration: '',
     budget: '',
     groupSize: '',
-    dietaryRestrictions: []
+    dietaryRestrictions: [],
+    dietaryPreferences: []
   });
+
+  // Backward compatibility: ensure newly added arrays exist if older localStorage version
+  useEffect(() => {
+    setFormData(prev => {
+      let changed = false;
+      const next: FormData = { ...prev } as FormData;
+      if (!Array.isArray(next.dietaryRestrictions)) { next.dietaryRestrictions = []; changed = true; }
+      if (!(next as any).dietaryPreferences || !Array.isArray(next.dietaryPreferences)) { (next as any).dietaryPreferences = []; changed = true; }
+      return changed ? next : prev;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const [locationInput, setLocationInput] = useState(formData.location || '');
+  const bgRef = useRef<HTMLDivElement | null>(null);
+  const blobRef = useRef<HTMLDivElement | null>(null);
 
   // Load user usage stats
   useEffect(() => {
@@ -118,33 +154,40 @@ export default function CreatePage() {
   const loadUsageStats = async () => {
     if (!user) return;
     try {
-      const stats = await AdventureService.getUserUsageStats(user.id);
+      const res = await fetch(`/api/users/${user.id}/usage-stats`);
+      if (!res.ok) return;
+      const stats: UsageStats = await res.json();
       setUsageStats(stats);
     } catch (error) {
-      console.error('Error loading usage stats:', error);
+      // silently ignore usage stats load errors
     }
   };
-
-  const handleMoodSelect = (mood: string) => {
-    setFormData(prev => ({ ...prev, mood }));
-  };
+  const handleVibeSelect = (vibe: string) => setFormData(prev => ({ ...prev, vibe }));
 
   const handleCategoryToggle = (category: string) => {
-    setFormData(prev => ({
-      ...prev,
-      categories: prev.categories.includes(category)
-        ? prev.categories.filter(c => c !== category)
-        : [...prev.categories, category]
-    }));
+    setFormData(prev => {
+      const already = prev.categories.includes(category);
+      if (already) {
+        return { ...prev, categories: prev.categories.filter(c => c !== category) };
+      }
+      if (prev.categories.length >= 4) {
+        toast.warning('Max 4 experience types');
+        return prev;
+      }
+      return { ...prev, categories: [...prev.categories, category] };
+    });
   };
 
-  const handleDietaryToggle = (dietary: string) => {
-    setFormData(prev => ({
-      ...prev,
-      dietaryRestrictions: prev.dietaryRestrictions.includes(dietary)
-        ? prev.dietaryRestrictions.filter(d => d !== dietary)
-        : [...prev.dietaryRestrictions, dietary]
-    }));
+  const handleDietaryToggle = (dietary: string, type: 'restriction' | 'preference') => {
+    setFormData(prev => {
+      const key = type === 'restriction' ? 'dietaryRestrictions' : 'dietaryPreferences';
+      const current = prev[key as 'dietaryRestrictions' | 'dietaryPreferences'];
+      const exists = current.includes(dietary);
+      return {
+        ...prev,
+        [key]: exists ? current.filter(d => d !== dietary) : [...current, dietary]
+      } as FormData;
+    });
   };
 
   const handleGenerate = async () => {
@@ -161,286 +204,357 @@ export default function CreatePage() {
       const filters: AdventureFilters = {
         location: formData.location || undefined,
         duration: formData.duration === 'short' ? 'quick' : formData.duration === 'half-day' ? 'half-day' : formData.duration === 'full-day' ? 'full-day' : undefined,
-        budget: formData.budget ? (formData.budget.includes('$') ? (formData.budget.length <= 2 ? 'budget' : formData.budget.length === 3 ? 'moderate' : 'premium') : undefined) : undefined,
-        dietaryRestrictions: formData.dietaryRestrictions,
+        budget: formData.budget ? formData.budget as 'budget' | 'moderate' | 'premium' : undefined,
+        dietaryRestrictions: [...formData.dietaryRestrictions, ...formData.dietaryPreferences],
         groupSize: formData.groupSize ? parseInt(formData.groupSize, 10) : undefined,
-        experienceTypes: formData.categories,
+        experienceTypes: Array.from(new Set([...formData.categories, formData.vibe ? formData.vibe : ''])).filter(Boolean),
       };
 
       const { data, error } = await ai.generateAdventure(filters);
       if (error || !data) {
-        console.error('AI generation failed:', error);
+        toast.error('Generation failed. Try adjusting filters.');
       } else {
         // For now, stash the result in sessionStorage and navigate to a simple reader page later
         if (typeof window !== 'undefined') {
           sessionStorage.setItem('lastGeneratedAdventure', JSON.stringify(data));
         }
-        router.push('/plans');
+        // After generation we'll attempt to persist server-side so photos get stored
+        try {
+          const userId = user.id;
+          const persistRes = await fetch('/api/adventures', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId, adventure: data, persistPhotos: true }) });
+          if (persistRes.ok) {
+            const json = await persistRes.json();
+            if (json.adventureId) {
+              router.push(`/adventures/${json.adventureId}`);
+              return;
+            }
+          }
+        } catch (e) {
+      toast('Temporary adventure created (not fully saved)');
+        }
+        // Fallback: use session-only representation with pseudo id 'local'
+        router.push('/adventures/local');
       }
     } catch (error) {
-      console.error('Error generating adventure:', error);
+    toast.error('Unexpected error during generation');
     } finally {
       setIsGenerating(false);
     }
   };
 
+  // Sync debounced location input into formData (runs every time locationInput settles)
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setFormData(p => p.location === locationInput ? p : { ...p, location: locationInput });
+    }, 250);
+    return () => clearTimeout(id);
+  }, [locationInput]);
+
+  // Interactive background tracking cursor position (throttled via rAF)
+  useEffect(() => {
+    const el = bgRef.current;
+    if (!el) return;
+    let frame = 0;
+    const handler = (e: MouseEvent) => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        const rect = window.document.documentElement.getBoundingClientRect();
+        const xPct = (e.clientX / rect.width) * 100;
+        const yPct = (e.clientY / rect.height) * 100;
+        el.style.setProperty('--mx', `${xPct}%`);
+        el.style.setProperty('--my', `${yPct}%`);
+        frame = 0;
+      });
+    };
+    window.addEventListener('mousemove', handler);
+    return () => {
+      window.removeEventListener('mousemove', handler);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, []);
+
+  // IMPORTANT: Avoid conditional hook usage; keep all hooks above any early return.
+  const experienceButtons = EXPERIENCE_TYPES.filter(et => et.id !== 'special-occasion'); // removed special-occasion (treated as vibe)
+  const selectedCount = formData.categories.length;
+  const coreProgress = (
+    (formData.location ? 0.33 : 0) +
+    (formData.vibe ? 0.33 : 0) +
+    (formData.categories.length ? 0.34 : 0)
+  );
+  const experienceTypeColors: Record<string,string> = {
+    'hidden-gem':'from-amber-500 to-amber-600',
+    'explorer':'from-sky-500 to-sky-600',
+    'nature':'from-green-500 to-green-600',
+    'partier':'from-pink-500 to-pink-600',
+    'solo-freestyle':'from-indigo-500 to-indigo-600',
+    'academic-weapon':'from-blue-600 to-blue-700',
+    'artsy':'from-purple-500 to-purple-600',
+    'foodie-adventure':'from-orange-500 to-orange-600',
+    'culture-dive':'from-teal-600 to-teal-700',
+    'sweet-treat':'from-fuchsia-500 to-fuchsia-600',
+    'puzzle-solver':'from-red-500 to-red-600',
+    'wellness':'from-emerald-500 to-emerald-600'
+  };
+
+  // Color accents per vibe for richer differentiation
+  const planVibeColors: Record<string,{pill:string; dot:string; icon: React.ReactNode}> = {
+    'romantic': { pill: 'from-rose-500 to-pink-500', dot: 'from-pink-400 to-rose-500', icon: <IoHeart className="w-3.5 h-3.5"/> },
+    'chill': { pill: 'from-sky-400 to-cyan-500', dot: 'from-cyan-400 to-sky-500', icon: <IoCafeOutline className="w-3.5 h-3.5"/> },
+    'spontaneous': { pill: 'from-violet-500 to-fuchsia-500', dot: 'from-fuchsia-500 to-violet-500', icon: <IoSparkles className="w-3.5 h-3.5"/> },
+    'energized': { pill: 'from-amber-500 to-orange-600', dot: 'from-orange-500 to-amber-500', icon: <IoFlash className="w-3.5 h-3.5"/> },
+    'mindful': { pill: 'from-emerald-500 to-teal-600', dot: 'from-teal-500 to-emerald-600', icon: <IoFlower className="w-3.5 h-3.5"/> },
+    'special-occasion': { pill: 'from-indigo-500 to-purple-600', dot: 'from-purple-500 to-indigo-600', icon: <IoGift className="w-3.5 h-3.5"/> }
+  };
+
   if (!user) {
-    return null;
+    return null; // safe early return AFTER all hooks declared
   }
 
+  const ExperienceTypeButton = memo(({ id, name, icon }: { id: string; name: string; icon: string; }) => {
+    const selected = formData.categories.includes(id);
+    const IconComp = experienceIconMap[icon] || IoSparkles;
+    return (
+      <button
+        type="button"
+        onClick={() => handleCategoryToggle(id)}
+        className={`group relative flex-shrink-0 px-4 h-11 rounded-full text-sm font-medium inline-flex items-center gap-2 border transition-all duration-200 ${selected ? 'bg-gradient-to-r from-[#2d5a48] to-[#3c7660] border-[#2d5a48] text-white shadow-md shadow-[#2d5a48]/30' : 'bg-white/80 border-gray-200 text-gray-700 hover:border-[#3c7660] hover:text-[#2d5a48]'} `}
+        aria-pressed={selected}
+        aria-label={`Experience type ${name}${selected ? ' selected' : ''}`}
+      >
+        <span className="relative flex items-center gap-2">
+          <span className={`w-7 h-7 rounded-full grid place-items-center text-white text-[11px] font-semibold shadow bg-gradient-to-br ${selected ? 'from-[#2d5a48] to-[#3c7660]' : experienceTypeColors[id] || 'from-[#3c7660] to-[#2d5a48]'} `}>
+            <IconComp className="w-3.5 h-3.5" />
+          </span>
+          {name}
+        </span>
+      </button>
+    );
+  });
+  ExperienceTypeButton.displayName = 'ExperienceTypeButton';
+
+  const disabledGenerate = isGenerating || !formData.location || formData.categories.length === 0;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
-      <Navigation />
-      
-      {/* Main content with proper top padding for Navigation */}
-      <main className="pt-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Header */}
-          <div className="text-center mb-12">
-            <div className="bg-gradient-to-r from-[#3c7660] to-[#2d5a48] rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-6 shadow-lg">
-              <IoSparkles className="w-8 h-8 text-white" />
-            </div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">Create Your Perfect Adventure</h1>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Tell us what you're in the mood for, and our AI will craft a personalized experience just for you
-            </p>
-            {usageStats && (
-              <div className="mt-6 mx-auto max-w-md">
-                <div className="backdrop-blur-md bg-white/60 border border-white/70 shadow-sm rounded-xl p-4">
-                  <div className="flex items-center justify-between text-sm text-gray-700">
-                    <span>Generations used</span>
-                    <span className="font-semibold text-[#2a5444]">{usageStats.generationsUsed}/{usageStats.generationsLimit}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Uniform 2x2 Squares Layout */}
-          <div className="w-[90%] mx-auto mb-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              
-              {/* L-Shaped Block 1: Experience Types - Main vertical (3x8) + horizontal extension (2x2) */}
-              <Card className="border border-white/30 bg-white/50 backdrop-blur-xl rounded-2xl shadow-lg overflow-hidden">
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2 text-lg text-[#3c7660]">
-                    <IoCompass className="w-5 h-5" />
-                    Experience Type ({formData.categories.length} selected)
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[360px] overflow-y-auto p-1">
-                    {experienceTypes.map((type) => {
-                      const IconComponent = type.icon;
-                      return (
-                        <Button
-                          key={type.value}
-                          onClick={() => handleCategoryToggle(type.value)}
-                          variant={formData.categories.includes(type.value) ? "default" : "outline"}
-                          className={`h-14 p-2 text-xs transition-all duration-200 ${
-                            formData.categories.includes(type.value)
-                              ? 'bg-[#3c7660] text-white shadow-md border-[#3c7660]'
-                              : 'border-white/60 bg-white/70 backdrop-blur-sm hover:border-[#3c7660]/50'
-                          }`}
-                        >
-                          <div className="flex flex-col items-center gap-1">
-                            <IconComponent className={`w-4 h-4 ${
-                              formData.categories.includes(type.value) ? 'text-white' : type.color
-                            }`} />
-                            <span className="font-medium leading-tight text-center text-xs">{type.label}</span>
-                          </div>
-                        </Button>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* L-Shaped Extension: Mood Selection (2x5) - fits in the L */}
-              <Card className="border border-white/30 bg-white/50 backdrop-blur-xl rounded-2xl shadow-lg overflow-hidden">
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2 text-lg text-[#3c7660]">
-                    <IoHeart className="w-5 h-5" />
-                    Your Vibe
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 gap-2 max-h-[360px] overflow-y-auto p-1">
-                    {moodOptions.map((option) => {
-                      const IconComponent = option.icon;
-                      return (
-                        <Button
-                          key={option.value}
-                          onClick={() => handleMoodSelect(option.value)}
-                          variant={formData.mood === option.value ? "default" : "outline"}
-                          className={`h-14 justify-start text-left transition-all duration-200 ${
-                            formData.mood === option.value
-                              ? 'bg-[#3c7660] text-white shadow-lg border-[#3c7660]'
-                              : `bg-white/70 backdrop-blur-sm border-white/60 hover:border-[#3c7660]/50`
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 w-full">
-                            <IconComponent className={`w-4 h-4 ${
-                              formData.mood === option.value ? 'text-white' : option.color
-                            }`} />
-                            <span className="font-medium text-sm">{option.label}</span>
-                          </div>
-                        </Button>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Right Stack - Top: Adventure Details (3x4) */}
-              <Card className="border border-white/30 bg-white/50 backdrop-blur-xl rounded-2xl shadow-lg overflow-hidden">
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2 text-lg text-[#3c7660]">
-                    <IoSettingsOutline className="w-5 h-5" />
-                    Adventure Details
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* Location Input */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        <IoLocationOutline className="w-4 h-4 inline mr-1" />
-                        Location
-                      </label>
-                      <Input
-                        type="text"
-                        placeholder="City or area..."
-                        value={formData.location}
-                        onChange={(e) => setFormData(prev => ({ ...prev, location: e.target.value }))}
-                        className="h-10 text-sm border-white/60 bg-white/70 backdrop-blur-sm focus:border-[#3c7660]"
-                      />
-                    </div>
-
-                    {/* Group Size */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        <IoPeople className="w-4 h-4 inline mr-1" />
-                        People
-                      </label>
-                      <Input
-                        type="number"
-                        min="1"
-                        placeholder="2"
-                        value={formData.groupSize}
-                        onChange={(e) => setFormData(prev => ({ ...prev, groupSize: e.target.value }))}
-                        className="h-10 text-sm border-white/60 bg-white/70 backdrop-blur-sm focus:border-[#3c7660]"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Duration Selection */}
+    <TooltipProvider>
+      <div className="relative min-h-screen overflow-hidden">
+        {/* Animated gradient background */}
+        <div ref={bgRef} aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_var(--mx,_20%)_var(--my,_20%),rgba(60,118,96,0.35),transparent_60%),radial-gradient(circle_at_calc(100%-var(--mx,_20%))_30%,rgba(45,90,72,0.30),transparent_55%),radial-gradient(circle_at_50%_80%,rgba(30,60,48,0.30),transparent_60%)] transition-[--mx,--my] duration-300" />
+          <div ref={blobRef} className="absolute w-[38rem] h-[38rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-br from-[#3c7660]/25 via-[#2d5a48]/20 to-transparent blur-3xl opacity-70 mix-blend-multiply animate-pulse" style={{left:'50%',top:'50%'}} />
+          <div className="absolute inset-0 backdrop-blur-[2px]" />
+        </div>
+        <Navigation />
+        <main className="pt-20 pb-24">
+          <div className="max-w-6xl mx-auto px-4 md:px-8">
+            {/* Header Card */}
+            <Card className="mb-8 border-none shadow-xl bg-white/70 backdrop-blur-md relative overflow-hidden">
+              <CardHeader className="pb-4">
+                <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      <IoTime className="w-4 h-4 inline mr-1" />
-                      Duration
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {durationOptions.map((option) => (
-                        <Button
-                          key={option.value}
-                          onClick={() => setFormData(prev => ({ ...prev, duration: option.value }))}
-                          variant={formData.duration === option.value ? "default" : "outline"}
-                          size="sm"
-                          className={`h-12 p-2 text-xs transition-all duration-200 ${
-                            formData.duration === option.value
-                              ? 'bg-[#3c7660] text-white shadow-md border-[#3c7660]'
-                              : 'border-white/60 bg-white/70 backdrop-blur-sm hover:border-[#3c7660]/50'
-                          }`}
-                        >
-                          <div className="flex flex-col items-center gap-1">
-                            <span className="font-medium text-xs">{option.label}</span>
-                            <span className="text-xs opacity-80">{option.description}</span>
-                          </div>
-                        </Button>
-                      ))}
-                    </div>
+                    <h1 className="text-3xl md:text-4xl font-bold tracking-tight bg-gradient-to-r from-[#2d5a48] via-[#3c7660] to-[#2d5a48] bg-clip-text text-transparent flex items-center gap-2">Create an Adventure <IoSparkles className="w-6 h-6 text-[#3c7660]"/></h1>
+                    <p className="text-sm md:text-base text-gray-600 mt-2 max-w-xl">Pick a plan vibe (1) + up to 4 experience types. We’ll craft a locally-aware, photo-rich flow.</p>
                   </div>
-
-                  {/* Budget Input */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      <IoCash className="w-4 h-4 inline mr-1" />
-                      Budget (Optional)
-                    </label>
-                    <Input
-                      type="text"
-                      placeholder="$50-100"
-                      value={formData.budget}
-                      onChange={(e) => setFormData(prev => ({ ...prev, budget: e.target.value }))}
-                      className="h-10 text-sm border-white/60 bg-white/70 backdrop-blur-sm focus:border-[#3c7660]"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Right Stack - Bottom: Dietary Restrictions (3x4) */}
-              <Card className="border border-white/30 bg-white/50 backdrop-blur-xl rounded-2xl shadow-lg overflow-hidden">
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2 text-lg text-[#3c7660]">
-                    <IoNutrition className="w-5 h-5" />
-                    Dietary Restrictions ({formData.dietaryRestrictions.length} selected)
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[360px] overflow-y-auto p-1">
-                    {dietaryOptions.map((option) => {
-                      const IconComponent = option.icon;
-                      return (
-                        <Button
-                          key={option.value}
-                          onClick={() => handleDietaryToggle(option.value)}
-                          variant={formData.dietaryRestrictions.includes(option.value) ? "default" : "outline"}
-                          size="sm"
-                          className={`h-12 p-2 text-xs transition-all duration-200 ${
-                            formData.dietaryRestrictions.includes(option.value)
-                              ? 'bg-[#3c7660] text-white shadow-md border-[#3c7660]'
-                              : 'border-gray-200 hover:border-[#3c7660]/50 bg-white'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 justify-center">
-                            <IconComponent className={`w-4 h-4 ${
-                              formData.dietaryRestrictions.includes(option.value) ? 'text-white' : option.color
-                            }`} />
-                            <span className="font-medium leading-tight text-xs">{option.label}</span>
-                          </div>
-                        </Button>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Full-width Generate CTA */}
-              <div className="md:col-span-2 flex items-center justify-center">
-                <Button
-                  onClick={handleGenerate}
-                  disabled={isGenerating || !formData.mood || formData.categories.length === 0 || !formData.location}
-                  className="w-full h-14 bg-gradient-to-r from-[#3c7660] to-[#2d5a48] hover:from-[#2d5a48] hover:to-[#1e3c30] text-white rounded-2xl text-base font-semibold shadow-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
-                >
-                  {isGenerating ? (
-                    <div className="flex items-center gap-2">
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                      <span className="text-sm">Generating...</span>
+                  {usageStats ? (
+                    <div className="flex items-center gap-2 rounded-full bg-gradient-to-r from-[#3c7660]/90 to-[#2d5a48]/90 text-white px-5 py-2 shadow-md">
+                      <IoSparkles className="w-4 h-4" />
+                      <span className="text-xs font-medium">{usageStats.generationsUsed}/{usageStats.generationsLimit} generations</span>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2">
-                      <IoSparkles className="w-5 h-5" />
-                      <span>Generate Adventure</span>
-                    </div>
+                    <div className="w-40 h-8 rounded-full bg-gray-200/50 animate-pulse" aria-label="Loading usage stats" />
                   )}
-                </Button>
+                </div>
+              </CardHeader>
+              <div className="absolute bottom-0 left-0 h-1 w-full bg-gradient-to-r from-amber-200/40 to-yellow-100/40">
+                <div className="h-full bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-500 transition-all" style={{width: `${Math.min(100, Math.round(coreProgress * 100))}%`}} aria-label="Form completion progress" />
               </div>
+            </Card>
 
+            {/* Grid Layout */}
+            <div className="grid gap-6 md:grid-cols-12 auto-rows-min">
+              {/* Location + Budget + Group */}
+              <Card className="md:col-span-4 shadow-lg border-gray-100/60 bg-white/70 backdrop-blur-md">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2 text-[#2d5a48]"><IoLocationOutline className="w-4 h-4"/>Location & Basics</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 flex items-center gap-1 mb-1">City / Area</label>
+                    <Input placeholder="e.g. San Francisco" value={locationInput} onChange={e=>setLocationInput(e.target.value)} className="h-10 text-sm" />
+                  </div>
+                  
+                  {/* Group Size - Now full width */}
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 mb-1 flex items-center gap-1"><IoPeople className="w-3.5 h-3.5"/>Group Size</label>
+                    <Input type="number" min={1} value={formData.groupSize} onChange={e=>setFormData(p=>({...p, groupSize: e.target.value }))} className="h-10 text-sm" placeholder="Number of people" />
+                  </div>
+
+                  {/* Budget - Now has its own full section */}
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 mb-2 flex items-center gap-1"><IoCash className="w-3.5 h-3.5"/>Budget</label>
+                    <div className="grid grid-cols-3 gap-3 w-full">
+                      {budgetOptions.map(opt => {
+                        const active = formData.budget === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={()=>setFormData(p=>({...p, budget: active ? '' : opt.value }))}
+                            className={`px-3 h-12 rounded-xl text-sm font-medium border flex flex-col items-center justify-center transition w-full ${active ? 'bg-gradient-to-r from-amber-500 to-amber-600 border-amber-500 text-white shadow-md scale-105' : 'bg-white/80 border-gray-200 text-gray-700 hover:border-amber-500 hover:text-amber-600 hover:scale-102'}`}
+                            aria-pressed={active}
+                          >
+                            <span className="text-lg leading-none font-normal">{opt.symbol}</span>
+                            <span className="text-xs leading-none mt-1 opacity-80">{opt.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 mb-2 flex items-center gap-1"><IoTime className="w-3.5 h-3.5"/>Duration</label>
+                    <div className="grid grid-cols-3 gap-3">
+                      {durationOptions.map(opt => {
+                        const active = formData.duration === opt.value;
+                        return (
+                          <button 
+                            key={opt.value} 
+                            type="button" 
+                            onClick={()=>setFormData(p=>({...p, duration: active ? '' : opt.value}))} 
+                            className={`px-3 h-11 rounded-xl text-xs font-medium border transition w-full ${active ? 'bg-[#2d5a48] border-[#2d5a48] text-white shadow-md scale-105' : 'bg-white/80 border-gray-200 text-gray-700 hover:border-[#3c7660] hover:text-[#2d5a48] hover:scale-102'}`}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Vibe Selector - Enhanced with bigger buttons */}
+              <Card className="md:col-span-4 shadow-lg border-gray-100/60 bg-white/70 backdrop-blur-md">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2 text-[#2d5a48]"><IoHeart className="w-4 h-4"/>Plan Vibe</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {vibeOptions.map(v => {
+                      const active = formData.vibe === v.value;
+                      const colors = planVibeColors[v.value] || { pill: 'from-[#3c7660] to-[#2d5a48]', dot: 'from-[#2d5a48] to-[#3c7660]', icon: <IoSparkles className="w-3.5 h-3.5"/> };
+                      return (
+                        <button 
+                          key={v.value} 
+                          type="button" 
+                          onClick={()=>handleVibeSelect(active ? '' : v.value)} 
+                          className={`group relative px-4 h-11 rounded-full text-sm font-medium inline-flex items-center gap-2 border transition-all duration-200 w-full ${active ? `bg-gradient-to-r ${colors.pill} border-transparent text-white shadow-md shadow-[#2d5a48]/30` : 'bg-white/80 border-gray-200 text-gray-700 hover:border-[#3c7660] hover:text-[#2d5a48]'} `}
+                          aria-pressed={active}
+                          aria-label={`Plan vibe ${v.label}${active ? ' selected' : ''}`}
+                        >
+                          <span className="relative flex items-center gap-2">
+                            <span className={`w-7 h-7 rounded-full grid place-items-center text-white text-[11px] font-semibold shadow bg-gradient-to-br ${colors.dot} `}>
+                              {colors.icon}
+                            </span>
+                            {v.label}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Dietary */}
+              <Card className="md:col-span-4 shadow-lg border-gray-100/60 bg-white/70 backdrop-blur-md">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2 text-[#2d5a48]"><IoRestaurant className="w-4 h-4"/>Dietary</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <p className="text-[11px] font-medium text-gray-500 mb-1">Restrictions</p>
+                    <div className="flex flex-wrap gap-2">
+                      {dietaryRestrictionOptions.map(opt => {
+                        const active = formData.dietaryRestrictions.includes(opt.value);
+                        const IconComp = opt.icon;
+                        return (
+                          <button key={opt.value} type="button" onClick={()=>handleDietaryToggle(opt.value,'restriction')} className={`px-3 h-9 rounded-full text-xs font-medium border inline-flex items-center gap-1 transition ${active ? 'bg-[#3c7660] border-[#3c7660] text-white shadow-sm' : 'bg-white/80 border-gray-200 text-gray-600 hover:border-[#3c7660] hover:text-[#2d5a48]'}`}>
+                            <IconComp className="w-3.5 h-3.5" /> {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-medium text-gray-500 mb-1">Preferences</p>
+                    <div className="flex flex-wrap gap-2">
+                      {dietaryPreferenceOptions.map(opt => {
+                        const active = formData.dietaryPreferences.includes(opt.value);
+                        const IconComp = opt.icon;
+                        return (
+                          <button key={opt.value} type="button" onClick={()=>handleDietaryToggle(opt.value,'preference')} className={`px-3 h-9 rounded-full text-xs font-medium border inline-flex items-center gap-1 transition ${active ? 'bg-amber-600 border-amber-600 text-white shadow-sm' : 'bg-white/80 border-gray-200 text-gray-600 hover:border-amber-500 hover:text-amber-600'}`}>
+                            <IconComp className="w-3.5 h-3.5" /> {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Experience Types (Full width below) */}
+              <Card className="md:col-span-12 shadow-lg border-gray-100/60 bg-white/75 backdrop-blur-xl">
+                <CardHeader className="pb-3 flex flex-row items-center justify-between">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2 text-[#2d5a48]"><IoCompass className="w-4 h-4"/>Experience Types</CardTitle>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-gray-500 font-medium">{selectedCount} selected</span>
+                    <button type="button" onClick={()=>setFormData(p=>({...p, categories:[], vibe:'', duration:'', dietaryRestrictions:[], dietaryPreferences:[], budget:'', groupSize:''}))} className="text-xs text-[#2d5a48] hover:underline">Clear All</button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-2">
+                    {experienceButtons.map(et => (
+                      <ExperienceTypeButton key={et.id} id={et.id} name={et.name} icon={et.icon} />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="md:col-span-12 shadow-md border-gray-100/60 bg-white/65 backdrop-blur">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-semibold text-[#2d5a48] flex items-center gap-2"><IoSparkles className="w-4 h-4"/>Tips</CardTitle>
+                </CardHeader>
+                <CardContent className="text-xs text-gray-600 grid gap-2 md:grid-cols-3">
+                  <div><span className="font-medium text-[#2d5a48]">Balance:</span> Mix contrasting types (e.g. Hidden Gem + Nature) for richer pacing.</div>
+                  <div><span className="font-medium text-[#2d5a48]">Keep it Tight:</span> 2–4 types usually yields the most cohesive flow.</div>
+                  <div><span className="font-medium text-[#2d5a48]">Plan Vibe:</span> Pick one vibe. That sets tone; types fill texture.</div>
+                  <div><span className="font-medium text-[#2d5a48]">Photos:</span> We try to fetch real place imagery—precise locations help.</div>
+                  <div><span className="font-medium text-[#2d5a48]">Refine Later:</span> You can regenerate individual steps after creation.</div>
+                  <div><span className="font-medium text-[#2d5a48]">Dietary:</span> Add restrictions now to avoid unsuitable food steps.</div>
+                </CardContent>
+              </Card>
+
+              {/* Generate Panel */}
+              <Card className="md:col-span-12 shadow-xl border-none bg-gradient-to-r from-[#2d5a48] via-[#3c7660] to-[#2d5a48] text-white">
+                <CardContent className="py-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <IoSparkles className="w-6 h-6" />
+                    <div>
+                      <p className="text-sm font-medium">Ready to generate?</p>
+                      <p className="text-xs text-white/80">We’ll produce a step-by-step plan with photos and places.</p>
+                    </div>
+                  </div>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button disabled={disabledGenerate} onClick={handleGenerate} className="h-12 px-8 rounded-xl bg-white text-[#2d5a48] hover:bg-white/90 font-semibold inline-flex items-center gap-2 disabled:opacity-60">
+                        {isGenerating ? <><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#2d5a48]"></div><span>Generating...</span></> : <><IoSparkles className="w-5 h-5"/><span>Create Adventure</span></>}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Create an AI plan from your selections</TooltipContent>
+                  </Tooltip>
+                </CardContent>
+              </Card>
             </div>
           </div>
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
+    </TooltipProvider>
   );
 }

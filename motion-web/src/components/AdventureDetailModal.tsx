@@ -280,112 +280,158 @@ export default function AdventureDetailModal({ adventure, isOpen, onClose }: Adv
           <div className="mb-6">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Adventure Steps</h2>
             
-            {/* Steps Timeline */}
-            <div className="relative">
-              {adventure.adventure_steps?.map((step, index) => (
-                <div key={step.id} className="flex items-start mb-6 last:mb-0">
-                  {/* Step Number */}
-                  <div className="flex flex-col items-center mr-4">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold cursor-pointer transition-colors ${
+            {/* Mobile-style Steps Flow */}
+            <div className="relative bg-gray-50 rounded-xl p-6">
+              {/* Steps Navigation */}
+              <div className="flex items-center justify-center space-x-3 mb-6 overflow-x-auto pb-2">
+                {adventure.adventure_steps?.map((step, index) => (
+                  <React.Fragment key={step.id}>
+                    <button
+                      className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
                         selectedStep?.id === step.id
-                          ? 'bg-[#3c7660] text-white'
-                          : 'bg-gray-200 text-gray-700 hover:bg-[#3c7660] hover:text-white'
+                          ? 'bg-[#3c7660] text-white shadow-lg scale-110'
+                          : 'bg-white text-gray-600 hover:bg-[#3c7660] hover:text-white shadow-md'
                       }`}
                       onClick={() => setSelectedStep(selectedStep?.id === step.id ? null : step)}
                     >
                       {step.step_number}
-                    </div>
+                    </button>
                     {index < adventure.adventure_steps.length - 1 && (
-                      <div className="w-0.5 h-16 bg-gray-200 mt-2" />
+                      <div className="w-8 h-0.5 bg-gray-300" />
                     )}
-                  </div>
+                  </React.Fragment>
+                ))}
+              </div>
 
-                  {/* Step Content */}
-                  <div className="flex-1">
-                    <Card 
-                      className={`cursor-pointer transition-all ${
-                        selectedStep?.id === step.id ? 'ring-2 ring-[#3c7660] shadow-lg' : 'hover:shadow-md'
-                      }`}
-                      onClick={() => setSelectedStep(selectedStep?.id === step.id ? null : step)}
-                    >
-                      <CardContent className="p-4">
-                        <h3 className="font-bold text-gray-900 mb-2">{step.title}</h3>
-                        <p className="text-gray-700 text-sm mb-3">{step.description}</p>
-                        
-                        {step.location && (
-                          <div className="flex items-center text-sm text-gray-600 mb-2">
-                            <IoLocation className="w-4 h-4 mr-1" />
-                            {step.location}
-                          </div>
-                        )}
-                        
-                        <div className="flex items-center space-x-4 text-sm text-gray-600">
-                          {step.estimated_duration_minutes && (
-                            <div className="flex items-center">
-                              <IoTime className="w-4 h-4 mr-1" />
-                              {step.estimated_duration_minutes}min
-                            </div>
-                          )}
-                          {step.estimated_cost && (
-                            <div className="flex items-center">
-                              <IoCash className="w-4 h-4 mr-1" />
-                              {getBudgetDisplay(step.estimated_cost)}
+              {/* Step Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {adventure.adventure_steps?.map((step) => (
+                  <Card 
+                    key={step.id}
+                    className={`cursor-pointer transition-all ${
+                      selectedStep?.id === step.id ? 'ring-2 ring-[#3c7660] shadow-lg' : 'hover:shadow-md'
+                    }`}
+                    onClick={() => setSelectedStep(selectedStep?.id === step.id ? null : step)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start space-x-3">
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                          selectedStep?.id === step.id
+                            ? 'bg-[#3c7660] text-white'
+                            : 'bg-gray-200 text-gray-600'
+                        }`}>
+                          {step.step_number}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-bold text-gray-900 mb-1 text-sm">{step.title}</h3>
+                          <p className="text-gray-600 text-xs line-clamp-2">{step.description}</p>
+                          
+                          {step.location && (
+                            <div className="flex items-center text-xs text-gray-500 mt-2">
+                              <IoLocation className="w-3 h-3 mr-1" />
+                              <span className="truncate">{step.location}</span>
                             </div>
                           )}
                         </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                </div>
-              ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* Selected Step Details */}
-          {selectedStep && selectedStep.business_info && (
-            <Card className="mb-6 border-[#3c7660]">
+          {/* Selected Step Details - Enhanced Bottom Panel */}
+          {selectedStep && (
+            <Card className="mb-6 border-[#3c7660] bg-gradient-to-r from-[#3c7660]/5 to-[#f2cc6c]/5">
               <CardContent className="p-6">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">Place Details</h3>
-                
-                {/* Business Photos */}
-                {selectedStep.business_info.photos && selectedStep.business_info.photos.length > 0 && (
-                  <div className="grid grid-cols-3 gap-3 mb-4">
-                    {selectedStep.business_info.photos.slice(0, 3).map((photo, index) => (
-                      <div key={index} className="aspect-video relative rounded-lg overflow-hidden">
-                        <Image
-                          src={photo}
-                          alt={selectedStep.business_info!.name}
-                          fill
-                          className="object-cover"
-                        />
-                      </div>
-                    ))}
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-1">Step {selectedStep.step_number}</h3>
+                    <h4 className="text-xl font-bold text-[#3c7660]">{selectedStep.title}</h4>
                   </div>
-                )}
-
-                <div className="space-y-3">
-                  <h4 className="font-bold text-gray-900">{selectedStep.business_info.name}</h4>
-                  <p className="text-gray-700">{selectedStep.business_info.description}</p>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="font-medium text-gray-900">Hours:</span>
-                      <p className="text-gray-600">{selectedStep.business_info.hours}</p>
-                    </div>
-                    <div>
-                      <span className="font-medium text-gray-900">Average Price:</span>
-                      <p className="text-gray-600">{selectedStep.business_info.avg_price}</p>
-                    </div>
+                  {/* Checkbox for scheduled adventures */}
+                  <div className="flex items-center space-x-2">
+                    <input 
+                      type="checkbox" 
+                      id={`step-${selectedStep.id}`}
+                      className="w-5 h-5 text-[#3c7660] bg-gray-100 border-gray-300 rounded focus:ring-[#3c7660] focus:ring-2"
+                    />
+                    <label htmlFor={`step-${selectedStep.id}`} className="text-sm text-gray-600 select-none">
+                      Mark as completed
+                    </label>
                   </div>
+                </div>
 
-                  {selectedStep.business_info.ai_description && (
-                    <div>
-                      <span className="font-medium text-gray-900">Why visit here:</span>
-                      <p className="text-gray-600 mt-1">{selectedStep.business_info.ai_description}</p>
+                <p className="text-gray-700 mb-4">{selectedStep.description}</p>
+
+                {/* Step Details Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  {selectedStep.location && (
+                    <div className="flex items-center text-sm text-gray-600">
+                      <IoLocation className="w-4 h-4 mr-2 text-[#3c7660]" />
+                      <span>{selectedStep.location}</span>
+                    </div>
+                  )}
+                  {selectedStep.estimated_duration_minutes && (
+                    <div className="flex items-center text-sm text-gray-600">
+                      <IoTime className="w-4 h-4 mr-2 text-[#3c7660]" />
+                      <span>{selectedStep.estimated_duration_minutes} minutes</span>
+                    </div>
+                  )}
+                  {selectedStep.estimated_cost && (
+                    <div className="flex items-center text-sm text-gray-600">
+                      <IoCash className="w-4 h-4 mr-2 text-[#3c7660]" />
+                      <span>{getBudgetDisplay(selectedStep.estimated_cost)}</span>
                     </div>
                   )}
                 </div>
+                
+                {/* Business Photos */}
+                {selectedStep.business_info && selectedStep.business_info.photos && selectedStep.business_info.photos.length > 0 && (
+                  <div className="mb-4">
+                    <h5 className="font-medium text-gray-900 mb-3">Photos</h5>
+                    <div className="grid grid-cols-3 gap-3">
+                      {selectedStep.business_info.photos.slice(0, 3).map((photo, index) => (
+                        <div key={index} className="aspect-video relative rounded-lg overflow-hidden">
+                          <Image
+                            src={photo}
+                            alt={selectedStep.business_info!.name}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Business Info */}
+                {selectedStep.business_info && (
+                  <div className="bg-white rounded-lg p-4 border border-gray-200">
+                    <h5 className="font-bold text-gray-900 mb-2">{selectedStep.business_info.name}</h5>
+                    <p className="text-gray-700 text-sm mb-3">{selectedStep.business_info.description}</p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="font-medium text-gray-900">Hours:</span>
+                        <p className="text-gray-600">{selectedStep.business_info.hours}</p>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-900">Average Price:</span>
+                        <p className="text-gray-600">{selectedStep.business_info.avg_price}</p>
+                      </div>
+                    </div>
+
+                    {selectedStep.business_info.ai_description && (
+                      <div className="mt-3 p-3 bg-[#3c7660]/5 rounded-lg">
+                        <span className="font-medium text-[#3c7660]">Why visit here:</span>
+                        <p className="text-gray-700 text-sm mt-1">{selectedStep.business_info.ai_description}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}

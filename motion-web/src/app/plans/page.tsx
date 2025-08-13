@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import Navigation from '@/components/Navigation';
+import { toast } from 'sonner';
 import CalendarView from '@/components/CalendarView';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -25,7 +26,8 @@ import {
   IoTime,
   IoLocationSharp,
   IoTrash,
-  IoEye
+  IoEye,
+  IoCompass
 } from 'react-icons/io5';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -104,7 +106,7 @@ interface SavedAdventure {
 
 export default function PlansPage() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('upcoming');
+  const [activeTab, setActiveTab] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'calendar' | 'list'>('grid');
   const [savedAdventures, setSavedAdventures] = useState<SavedAdventure[]>([]);
   const [loading, setLoading] = useState(true);
@@ -128,10 +130,10 @@ export default function PlansPage() {
 
     try {
       // Get adventures; skip any slow remote photo fetching inside service
-      const savedAdventures = await AdventureService.getUserSavedAdventures(user.id);
+  const savedAdventures = await AdventureService.getUserSavedAdventures(user.id);
 
       // Quick processing only; do not fetch external photos here
-      const processedAdventures = savedAdventures.map((adventure) => {
+      const processedAdventures = savedAdventures.map((adventure: any) => {
         return {
           id: adventure.id,
           title: adventure.custom_title || 'Untitled Adventure',
@@ -140,7 +142,7 @@ export default function PlansPage() {
           duration: adventure.duration_hours ? `${adventure.duration_hours}h` : '2-4 hours',
           difficulty: 'Medium' as const,
           tags: [],
-          steps: (adventure.adventure_steps || []).map(step => ({
+          steps: (adventure.adventure_steps || []).map((step: any) => ({
             id: step.id,
             title: step.title,
             description: step.description,
@@ -151,14 +153,14 @@ export default function PlansPage() {
           })),
           // Use existing photos or placeholder - no async calls
           photos: adventure.adventure_photos?.length 
-            ? adventure.adventure_photos.map(photo => ({
+            ? adventure.adventure_photos.map((photo: any) => ({
                 url: photo.photo_url,
                 source: 'user_uploaded' as const
               }))
             : [{ url: '/api/placeholder/400/300', source: 'ai_generated' as const }],
           created_at: adventure.saved_at,
           scheduled_for: adventure.scheduled_for,
-          is_completed: false,
+          is_completed: adventure.is_completed === true,
           rating: adventure.rating,
           total_time: adventure.duration_hours ? `${adventure.duration_hours}h` : undefined
         };
@@ -175,12 +177,13 @@ export default function PlansPage() {
 
   const handleUnsave = async (adventureId: string) => {
     if (!user) return;
-    
     try {
-      await AdventureService.unsaveAdventure(user.id, adventureId);
+  await AdventureService.unsaveAdventure(user.id, adventureId);
       setSavedAdventures(prev => prev.filter(adv => adv.id !== adventureId));
+      toast.success('Adventure removed from saved!');
     } catch (err) {
       console.error('Error unsaving adventure:', err);
+      toast.error('Failed to remove adventure.');
     }
   };
 
@@ -297,54 +300,71 @@ export default function PlansPage() {
           {/* Tabs and Content */}
           {viewMode !== 'calendar' && (
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid grid-cols-3 w-full max-w-md mx-auto">
-                <TabsTrigger value="upcoming" className="data-[state=active]:bg-[#3c7660] data-[state=active]:text-white">
-                  Upcoming
+              <TabsList className="grid grid-cols-4 w-full max-w-2xl mx-auto">
+                <TabsTrigger value="all" className="data-[state=active]:bg-[#3c7660] data-[state=active]:text-white">
+                  All Plans
                 </TabsTrigger>
                 <TabsTrigger value="saved" className="data-[state=active]:bg-[#3c7660] data-[state=active]:text-white">
                   Saved
+                </TabsTrigger>
+                <TabsTrigger value="scheduled" className="data-[state=active]:bg-[#3c7660] data-[state=active]:text-white">
+                  Scheduled
                 </TabsTrigger>
                 <TabsTrigger value="completed" className="data-[state=active]:bg-[#3c7660] data-[state=active]:text-white">
                   Completed
                 </TabsTrigger>
               </TabsList>
 
-              {/* Upcoming Tab */}
-              <TabsContent value="upcoming" className="space-y-6">
+              {/* All Plans Tab */}
+              <TabsContent value="all" className="space-y-6">
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {savedAdventures.filter(adv => !adv.is_completed && (adv.scheduled_for || !adv.is_completed)).map((adventure) => (
-                    <Card key={adventure.id} className="group hover:shadow-xl transition-all duration-300 border-0 shadow-md overflow-hidden bg-gradient-to-br from-white to-yellow-50">
+                  {savedAdventures.map((adventure) => (
+                    <Card key={adventure.id} className="group hover:shadow-xl transition-all duration-300 border-0 shadow-md overflow-hidden bg-gradient-to-br from-white to-gray-50">
                       <div className="relative">
                         <div className="relative aspect-[4/3] overflow-hidden">
-                          <Image
-                            src={adventure.photos[0]?.url || '/api/placeholder/400/300'}
-                            alt={adventure.title}
-                            fill
-                            unoptimized
-                            className="object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                          {/* Glass overlay title */}
-                          <div className="absolute top-2 left-2 right-20">
-                            <div className="backdrop-blur-md bg-black/25 border border-white/10 rounded-xl px-3 py-1.5 shadow-sm">
-                              <h4 className="text-white text-xs font-semibold line-clamp-1">{adventure.title}</h4>
+                          {adventure.photos && adventure.photos.length > 0 ? (
+                            <Image
+                              src={adventure.photos[0]?.url || '/api/placeholder/400/300'}
+                              alt={adventure.title}
+                              fill
+                              unoptimized
+                              className="object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-[#3c7660]/20 to-[#f2cc6c]/20 flex items-center justify-center">
+                              <IoCompass className="w-12 h-12 text-[#3c7660] opacity-40" />
+                            </div>
+                          )}
+                          
+                          {/* Title overlay - positioned to avoid overlap */}
+                          <div className="absolute bottom-2 left-2 right-2">
+                            <div className="backdrop-blur-md bg-white/90 border border-white/20 rounded-lg px-3 py-2 shadow-sm">
+                              <h4 className="text-gray-900 text-sm font-bold line-clamp-1">{adventure.title}</h4>
                             </div>
                           </div>
-                          <div className="absolute top-2 left-2">
-                            <Badge className="bg-yellow-500 text-white">Upcoming</Badge>
-                          </div>
                         </div>
-                        <CardContent className="p-6">
-                          <h3 className="text-xl font-bold text-gray-900 mb-2">{adventure.title}</h3>
-                          <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
-                            <IoTime className="w-4 h-4" />
-                            {adventure.total_time || adventure.duration}
+                        
+                        <CardContent className="p-4">
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2 text-sm text-gray-600">
+                                <IoLocationSharp className="w-4 h-4 text-[#3c7660]" />
+                                <span className="truncate">{adventure.location}</span>
+                              </div>
+                              <div className="flex items-center gap-1 text-sm text-gray-600">
+                                <IoTime className="w-4 h-4 text-[#3c7660]" />
+                                <span>{adventure.duration}</span>
+                              </div>
+                            </div>
+                            
+                            <p className="text-gray-700 text-sm line-clamp-2">{adventure.description}</p>
+                            
+                            <Link href={`/adventures/${adventure.id}`}>
+                              <Button className="w-full bg-gradient-to-r from-[#3c7660] to-[#2a5444] hover:from-[#2a5444] hover:to-[#1e3c30] text-white">
+                                View Details
+                              </Button>
+                            </Link>
                           </div>
-                          <p className="text-gray-700 text-sm mb-4 line-clamp-3">{adventure.description}</p>
-                          <Link href={`/adventure/${adventure.id}`}>
-                            <Button className="w-full bg-gradient-to-r from-yellow-500 to-yellow-700 text-white">
-                              View Details
-                            </Button>
-                          </Link>
                         </CardContent>
                       </div>
                     </Card>
@@ -354,8 +374,20 @@ export default function PlansPage() {
 
               {/* Saved Tab */}
               <TabsContent value="saved" className="space-y-6">
+                <div className="text-center py-8">
+                  <p className="text-gray-600 mb-4">Your saved adventures from the discover page will appear here</p>
+                  <Link href="/discover">
+                    <Button className="bg-[#3c7660] hover:bg-[#2a5444] text-white">
+                      Discover Adventures
+                    </Button>
+                  </Link>
+                </div>
+              </TabsContent>
+
+              {/* Scheduled Tab */}
+              <TabsContent value="scheduled" className="space-y-6">
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {savedAdventures.filter(adv => !adv.is_completed && !adv.scheduled_for).map((adventure) => (
+                  {savedAdventures.filter(adv => !adv.is_completed && adv.scheduled_for).map((adventure) => (
                     <Card key={adventure.id} className="group hover:shadow-xl transition-all duration-300 border-0 shadow-md overflow-hidden bg-gradient-to-br from-white to-gray-50">
                       <div className="relative">
                         <div className="relative aspect-[4/3] overflow-hidden">

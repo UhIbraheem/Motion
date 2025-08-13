@@ -337,7 +337,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       await supabase.auth.signOut();
 
       // Always use our same-origin callback to avoid prod redirect
+      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       const redirectTo = `${window.location.origin}/auth/callback`;
+      
+      console.log('🔐 OAuth redirect URL:', redirectTo, '| Local env:', isLocal);
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -396,20 +399,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       console.log('🔐 Signing out user...');
       await supabase.auth.signOut();
+      // Extra: remove any cached tokens / session remnants
+      try {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('token');
+          localStorage.removeItem('supabase.auth.token');
+          sessionStorage.clear();
+        }
+      } catch {}
+      // Double-check session cleared
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        console.warn('Session still present after signOut, forcing client state reset');
+      }
       setUser(null);
       console.log('🔐 Sign out complete');
-      
-      // Force a page reload to clear any cached state
-      if (typeof window !== 'undefined') {
-        window.location.href = '/';
-      }
+      if (typeof window !== 'undefined') window.location.replace('/');
     } catch (error) {
       console.error('Sign out error:', error);
       setUser(null);
-      // Still redirect even if there's an error
-      if (typeof window !== 'undefined') {
-        window.location.href = '/';
-      }
+      if (typeof window !== 'undefined') window.location.replace('/');
     } finally {
       setLoading(false);
     }

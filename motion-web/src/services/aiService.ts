@@ -1,4 +1,6 @@
 // Web-adapted AI service for Motion web app
+import { buildAIPromptForVibes } from '@/data/vibes';
+import { detectCurrencyFromLocation, getBudgetPromptText } from '@/config/budgetConfig';
 export interface AdventureFilters {
   location?: string;
   radius?: number;
@@ -52,7 +54,6 @@ export class WebAIAdventureService {
   constructor() {
   // Use internal Next.js API for AI to avoid cross-origin/prod redirects in dev
   this.baseURL = '/api/ai';
-    console.log('🤖 Web AI Service initialized:', this.baseURL);
   }
 
   /**
@@ -63,14 +64,12 @@ export class WebAIAdventureService {
     error: string | null;
   }> {
     try {
-      console.log('🎯 Generating adventure with filters:', filters);
 
       const requestBody = {
         app_filter: this.formatFiltersForBackend(filters),
         radius: filters.radius || 10,
       };
 
-      console.log('📤 Sending to backend:', requestBody);
 
   const response = await fetch(`${this.baseURL}/generate-plan`, {
         method: 'POST',
@@ -82,7 +81,6 @@ export class WebAIAdventureService {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ Backend error:', response.status, errorText);
         return {
           data: null,
           error: `Backend error: ${response.status} - ${errorText}`,
@@ -90,7 +88,6 @@ export class WebAIAdventureService {
       }
 
       const backendData = await response.json();
-      console.log('✅ Got response:', backendData);
 
       // Transform backend response to our format
       const adventure: GeneratedAdventure = {
@@ -109,11 +106,46 @@ export class WebAIAdventureService {
       return { data: adventure, error: null };
 
     } catch (error) {
-      console.error('❌ Network error:', error);
       return {
         data: null,
         error: 'Cannot connect to backend. Check your internet connection.',
       };
+    }
+  }
+
+  /**
+   * Regenerate a single step using backend per-step endpoint
+   */
+  async regenerateStep(original: GeneratedAdventure, stepIndex: number, userRequest: string = 'Regenerate this step'): Promise<{ step: AdventureStep | null; error: string | null; }> {
+  const backendUrl = process.env.MOTION_BACKEND_URL || 'https://motion-backend-production.up.railway.app/api/ai/regenerate-step';
+    try {
+      const filters = original.filtersUsed || {} as AdventureFilters;
+      const allSteps = original.steps;
+      const currentStep = allSteps[stepIndex];
+      const radius = filters.radius || 10;
+      const res = await fetch(backendUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stepIndex,
+          currentStep,
+          allSteps,
+          userRequest,
+          originalFilters: this.formatFiltersForBackend(filters),
+          radius
+        })
+      });
+      if (!res.ok) {
+        const errorText = await res.text();
+        return { step: null, error: errorText };
+      }
+      const data = await res.json();
+      if (data.newStep) {
+        return { step: data.newStep, error: null };
+      }
+      return { step: null, error: 'No step returned' };
+    } catch (e: any) {
+      return { step: null, error: e.message || 'Unexpected error regenerating step' };
     }
   }
 
@@ -129,7 +161,6 @@ export class WebAIAdventureService {
     error: string | null;
   }> {
     try {
-      console.log('💾 Saving adventure:', adventure.title);
       
       const saveData = {
         userId,
@@ -155,11 +186,9 @@ export class WebAIAdventureService {
       }
 
       const savedAdventure = await response.json();
-      console.log('✅ Adventure saved successfully!');
       return { data: savedAdventure, error: null };
 
     } catch (error) {
-      console.error('❌ Save failed:', error);
       return { data: null, error: 'Failed to save adventure' };
     }
   }
@@ -187,7 +216,6 @@ export class WebAIAdventureService {
       return { data: adventures, error: null };
 
     } catch (error) {
-      console.error('❌ Failed to fetch adventures:', error);
       return { data: null, error: 'Failed to fetch adventures' };
     }
   }
@@ -221,7 +249,6 @@ export class WebAIAdventureService {
       return { data: updatedAdventure, error: null };
 
     } catch (error) {
-      console.error('❌ Update failed:', error);
       return { data: null, error: 'Failed to update adventure' };
     }
   }
@@ -236,7 +263,15 @@ export class WebAIAdventureService {
       parts.push(`Experience Types: ${definitions}`);
     }
     if (filters.duration) parts.push(`Duration: ${filters.duration}`);
-    if (filters.budget) parts.push(`Budget: ${filters.budget}`);
+    
+    // Enhanced budget formatting with currency detection
+    if (filters.budget) {
+      const currency = filters.location ? detectCurrencyFromLocation(filters.location) : 'USD';
+      const groupSize = filters.groupSize || 1;
+      const budgetText = getBudgetPromptText(filters.budget, currency, groupSize);
+      parts.push(budgetText);
+    }
+    
     if (filters.timeOfDay && filters.timeOfDay !== 'flexible') {
       parts.push(`Time of Day: ${filters.timeOfDay}`);
     }
@@ -258,17 +293,7 @@ export class WebAIAdventureService {
   }
 
   private getAIDefinitionsForTypes(types: string[]): string {
-    // Simple mapping - in full implementation, import from experienceTypes.ts
-    const definitions = {
-      'hidden-gem': 'Off-the-beaten-path discoveries, local favorites',
-      'explorer': 'Adventure and discovery focused activities',
-      'nature': 'Outdoor activities and green spaces',
-      'partier': 'Nightlife and social experiences',
-      'solo-freestyle': 'Flexible solo-friendly activities',
-      'academic-weapon': 'Educational and intellectual pursuits',
-    };
-
-    return types.map(type => definitions[type as keyof typeof definitions] || type).join(', ');
+    return buildAIPromptForVibes(types);
   }
 
   private transformSteps(backendSteps: any[]): AdventureStep[] {
@@ -289,18 +314,16 @@ export class WebAIAdventureService {
   }
 
   private estimateCost(steps: any[], budget?: string): string {
-    const baseMultiplier = {
-      'budget': 1,
-      'moderate': 2,
-      'premium': 3,
+    // Use the updated budget ranges
+    if (!budget) return '$15-45 per person';
+    
+    const budgetMap = {
+      'budget': '$0-30 per person',
+      'moderate': '$30-70 per person', 
+      'premium': '$70+ per person'
     };
 
-    const multiplier = baseMultiplier[budget as keyof typeof baseMultiplier] || 1;
-    const baseCost = steps.length * 15 * multiplier;
-
-    if (baseCost < 30) return '$';
-    if (baseCost < 80) return '$$';
-    return '$$$';
+    return budgetMap[budget as keyof typeof budgetMap] || '$15-45 per person';
   }
 
   private generateDefaultTitle(filters: AdventureFilters): string {

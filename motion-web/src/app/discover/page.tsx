@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import AdventureDetailModal from '@/components/AdventureDetailModal';
+import { toast } from 'sonner';
 import { 
   IoCompass, 
   IoLocationOutline, 
@@ -37,7 +38,7 @@ export default function DiscoverPage() {
       id: "1",
       custom_title: "Hidden Waterfall Discovery",
       description: "Find secret waterfalls along scenic hiking trails with local wildlife viewing opportunities. This immersive nature adventure takes you through pristine forest paths where you'll encounter cascading waters, diverse plant life, and maybe even spot some local wildlife along the way.",
-      location: "Forest Ridge Trail, Pacific Northwest",
+      location: "Forest Ridge Trail, Olympic National Park",
       duration_hours: 3,
       estimated_cost: "$",
       budget_level: "$",
@@ -109,7 +110,7 @@ export default function DiscoverPage() {
       id: "2", 
       custom_title: "Historic District Food Tour",
       description: "Taste authentic local flavors at family-owned restaurants and hidden culinary gems throughout the historic downtown area.",
-      location: "Historic Downtown District",
+      location: "Pioneer Square Historic District, Seattle",
       duration_hours: 4,
       estimated_cost: "$$$",
       budget_level: "$$$",
@@ -118,7 +119,9 @@ export default function DiscoverPage() {
       image: "/logo-swirl.svg",
       tags: ["Food", "Culture", "Walking"],
       adventure_photos: [
-        { photo_url: "/api/placeholder/800/600", is_cover_photo: true }
+        { photo_url: "/api/placeholder/800/600", is_cover_photo: true },
+        { photo_url: "/api/placeholder/800/600", is_cover_photo: false },
+        { photo_url: "/api/placeholder/800/600", is_cover_photo: false }
       ],
       profiles: {
         first_name: "Marcus",
@@ -141,7 +144,7 @@ export default function DiscoverPage() {
       id: "3",
       custom_title: "Urban Art & Coffee Journey",
       description: "Explore vibrant street art while discovering specialty coffee roasters and local artists",
-      location: "Arts Quarter",
+      location: "Capitol Hill Arts District, Denver",
       duration_hours: 2,
       estimated_cost: "$$",
       budget_level: "$$",
@@ -150,7 +153,9 @@ export default function DiscoverPage() {
       image: "/logo-swirl.svg",
       tags: ["Art", "Coffee", "Urban"],
       adventure_photos: [
-        { photo_url: "/api/placeholder/800/600", is_cover_photo: true }
+        { photo_url: "/api/placeholder/800/600", is_cover_photo: true },
+        { photo_url: "/api/placeholder/800/600", is_cover_photo: false },
+        { photo_url: "/api/placeholder/800/600", is_cover_photo: false }
       ],
       profiles: {
         first_name: "Luna",
@@ -164,7 +169,7 @@ export default function DiscoverPage() {
       id: "4",
       custom_title: "Sunrise Photography Adventure",
       description: "Capture stunning sunrise views from hidden vantage points with professional photo tips",
-      location: "Skyline Overlook",
+      location: "Griffith Observatory, Los Angeles",
       duration_hours: 2,
       estimated_cost: "$",
       budget_level: "$",
@@ -173,7 +178,9 @@ export default function DiscoverPage() {
       image: "/logo-swirl.svg",
       tags: ["Photography", "Sunrise", "Nature"],
       adventure_photos: [
-        { photo_url: "/api/placeholder/800/600", is_cover_photo: true }
+        { photo_url: "/api/placeholder/800/600", is_cover_photo: true },
+        { photo_url: "/api/placeholder/800/600", is_cover_photo: false },
+        { photo_url: "/api/placeholder/800/600", is_cover_photo: false }
       ],
       profiles: {
         first_name: "Alex",
@@ -187,7 +194,7 @@ export default function DiscoverPage() {
       id: "5",
       custom_title: "Local Brewery Crawl",
       description: "Sample craft beers and meet local brewers while learning about brewing traditions",
-      location: "Brewery District",
+      location: "Pearl District Brewery Row, Portland",
       duration_hours: 5,
       estimated_cost: "$$$",
       budget_level: "$$$",
@@ -196,7 +203,9 @@ export default function DiscoverPage() {
       image: "/logo-swirl.svg",
       tags: ["Beer", "Social", "Local"],
       adventure_photos: [
-        { photo_url: "/api/placeholder/800/600", is_cover_photo: true }
+        { photo_url: "/api/placeholder/800/600", is_cover_photo: true },
+        { photo_url: "/api/placeholder/800/600", is_cover_photo: false },
+        { photo_url: "/api/placeholder/800/600", is_cover_photo: false }
       ],
       profiles: {
         first_name: "Jake",
@@ -237,11 +246,15 @@ export default function DiscoverPage() {
   const ratings = ["all", "4.5+", "4.0+", "3.5+"];
 
   const toggleSaved = (adventureId: string) => {
-    setSavedAdventures(prev => 
-      prev.includes(adventureId) 
-        ? prev.filter(id => id !== adventureId)
-        : [...prev, adventureId]
-    );
+    setSavedAdventures(prev => {
+      if (prev.includes(adventureId)) {
+        toast.error('Adventure removed from saved!');
+        return prev.filter(id => id !== adventureId);
+      } else {
+        toast.success('Adventure saved!');
+        return [...prev, adventureId];
+      }
+    });
   };
 
   const openAdventureModal = (adventure: any) => {
@@ -332,37 +345,57 @@ export default function DiscoverPage() {
             {mockAdventures.map((adventure) => (
               <Card key={adventure.id} className="group hover:shadow-xl transition-all duration-300 border-0 shadow-md overflow-hidden bg-gradient-to-br from-white to-gray-50">
                 <div className="relative">
-                  {/* Image Placeholder */}
-                  <div className="h-48 bg-gradient-to-br from-[#3c7660]/10 to-[#f2cc6c]/10 flex items-center justify-center">
-                    <IoCompass className="w-12 h-12 text-[#3c7660] opacity-50" />
-                  </div>
-                  
-                  {/* Save Button */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="absolute top-4 right-4 bg-white/90 hover:bg-white rounded-full p-2"
-                    onClick={() => toggleSaved(adventure.id)}
-                  >
-                    {savedAdventures.includes(adventure.id) ? (
-                      <IoHeart className="w-5 h-5 text-red-500" />
+                  {/* Adventure Image */}
+                  <div className="h-64 bg-gradient-to-br from-[#3c7660]/20 to-[#f2cc6c]/20 relative overflow-hidden">
+                    {adventure.adventure_photos && adventure.adventure_photos.length > 0 ? (
+                      <div className="absolute inset-0">
+                        <img 
+                          src={adventure.adventure_photos[0].photo_url} 
+                          alt={adventure.custom_title}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                      </div>
                     ) : (
-                      <IoHeartOutline className="w-5 h-5 text-gray-600" />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <IoCompass className="w-16 h-16 text-[#3c7660] opacity-40" />
+                      </div>
                     )}
-                  </Button>
+
+                    {/* Title Overlay - positioned to avoid heart */}
+                    <div className="absolute bottom-4 left-4 right-16">
+                      <div className="bg-white/95 backdrop-blur-sm rounded-lg px-3 py-2 shadow-lg">
+                        <h3 className="font-bold text-[#2a5444] text-lg leading-tight">
+                          {adventure.custom_title}
+                        </h3>
+                      </div>
+                    </div>
+                    
+                    {/* Save Button */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute top-4 right-4 bg-white/90 hover:bg-white rounded-full p-2 shadow-md z-10"
+                      onClick={() => toggleSaved(adventure.id)}
+                    >
+                      {savedAdventures.includes(adventure.id) ? (
+                        <IoHeart className="w-5 h-5 text-red-500" />
+                      ) : (
+                        <IoHeartOutline className="w-5 h-5 text-gray-600" />
+                      )}
+                    </Button>
+                  </div>
                 </div>
 
                 <CardContent className="p-6">
                   <div className="space-y-4">
-                    {/* Title and Rating */}
-                    <div className="flex items-start justify-between">
-                      <h3 className="text-xl font-bold text-[#2a5444] group-hover:text-[#3c7660] transition-colors">
-                        {adventure.custom_title}
-                      </h3>
-                      <div className="flex items-center space-x-1">
-                        {renderStars(adventure.rating)}
-                        <span className="text-sm text-gray-600 ml-1">{adventure.rating}</span>
-                      </div>
+                    {/* Rating - moved to top */}
+                    <div className="flex items-center space-x-1">
+                      {renderStars(adventure.rating)}
+                      <span className="text-sm text-gray-600 ml-1">{adventure.rating}</span>
+                      <span className="text-xs text-gray-500 ml-2">
+                        ({adventure.saves_count} saves)
+                      </span>
                     </div>
 
                     {/* Description */}
@@ -382,27 +415,23 @@ export default function DiscoverPage() {
                     {/* Adventure Details */}
                     <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100">
                       <div className="flex items-center text-sm text-gray-600">
-                        <IoLocationOutline className="w-4 h-4 mr-2" />
-                        {adventure.location}
+                        <IoLocationOutline className="w-4 h-4 mr-2 flex-shrink-0" />
+                        <span className="truncate">{adventure.location || "Location unknown"}</span>
                       </div>
                       <div className="flex items-center text-sm text-gray-600">
-                        <IoTimeOutline className="w-4 h-4 mr-2" />
+                        <IoTimeOutline className="w-4 h-4 mr-2 flex-shrink-0" />
                         {adventure.duration_hours}h
                       </div>
 
                       <div className="flex items-center space-x-2">
-                        <Badge className={getBudgetColor(adventure.budget_level)}>
-                          {adventure.budget_level}
+                        <Badge className={getBudgetColor(adventure.estimated_cost || adventure.budget_level)}>
+                          {adventure.estimated_cost || adventure.budget_level}
                         </Badge>
-                        <span className="text-sm text-gray-600">
-                          {adventure.estimated_cost}
-                        </span>
                       </div>
-
-                      <div>
-                        <Badge className={getExperienceColor(adventure.experience_type)}>
-                          {adventure.experience_type}
-                        </Badge>
+                      
+                      <div className="flex items-center space-x-1 text-sm text-gray-500">
+                        <IoStarOutline className="w-4 h-4" />
+                        <span>{adventure.saves_count} saves</span>
                       </div>
                     </div>
 

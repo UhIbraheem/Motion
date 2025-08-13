@@ -18,7 +18,9 @@ import {
   IoCalendarOutline,
   IoPersonOutline,
   IoChevronBack,
-  IoChevronForward
+  IoChevronForward,
+  IoCalendar,
+  IoCheckmark
 } from 'react-icons/io5';
 
 interface AdventurePhoto {
@@ -101,6 +103,10 @@ export default function AdventureModal({
 }: AdventureModalProps) {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [stepCompletions, setStepCompletions] = useState<{ [key: number]: boolean }>({});
+  const [showSchedulePicker, setShowSchedulePicker] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState<string>('');
+  const [isScheduling, setIsScheduling] = useState(false);
+  const [scheduleSuccess, setScheduleSuccess] = useState(false);
 
   // Reset photo index when adventure changes
   useEffect(() => {
@@ -148,6 +154,27 @@ export default function AdventureModal({
 
   const handleShare = () => {
     onShare?.(adventure);
+  };
+
+  const handleSchedule = async () => {
+    if (!scheduleDate) {
+      setShowSchedulePicker(s => !s);
+      return;
+    }
+    try {
+      setIsScheduling(true);
+      // Optimistic UI: mark scheduled locally; TODO backend endpoint integration
+      // (Would POST to /api/adventures/{id}/schedule with { date })
+      setScheduleSuccess(false);
+      await new Promise(r => setTimeout(r, 600));
+      (adventure as any).scheduled_for = scheduleDate;
+      setScheduleSuccess(true);
+      setShowSchedulePicker(false);
+    } catch (e) {
+      console.error('Schedule failed', e);
+    } finally {
+      setIsScheduling(false);
+    }
   };
 
   const toggleStepCompletion = (stepIndex: number) => {
@@ -303,7 +330,7 @@ export default function AdventureModal({
               
               {/* Action Buttons */}
               {user && (
-                <div className="flex gap-2 ml-4">
+                <div className="flex gap-2 ml-4 flex-wrap justify-end">
                   <Button
                     variant="ghost"
                     size="sm"
@@ -328,6 +355,37 @@ export default function AdventureModal({
                   >
                     <IoShare className="w-5 h-5 text-gray-400" />
                   </Button>
+                  <div className="relative">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowSchedulePicker(s=>!s)}
+                      className="w-10 h-10 rounded-full p-0 border border-gray-200 hover:border-gray-300 shadow-sm"
+                      title="Schedule adventure"
+                    >
+                      <IoCalendar className="w-5 h-5 text-gray-400" />
+                    </Button>
+                    {showSchedulePicker && (
+                      <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-lg p-4 z-10 space-y-3">
+                        <div className="flex items-center gap-2 text-sm font-medium text-gray-700"><IoCalendarOutline className="w-4 h-4"/>Schedule</div>
+                        <input
+                          type="date"
+                          value={scheduleDate}
+                          onChange={e=>setScheduleDate(e.target.value)}
+                          className="w-full border rounded-md px-2 py-1 text-sm"
+                        />
+                        <div className="flex gap-2">
+                          <Button disabled={isScheduling} onClick={handleSchedule} size="sm" className="flex-1 bg-gradient-to-r from-[#2d5a48] to-[#3c7660] text-white hover:opacity-90">
+                            {isScheduling ? 'Saving...' : scheduleDate ? 'Save' : 'Pick date'}
+                          </Button>
+                          <Button variant="ghost" size="sm" onClick={()=>{setShowSchedulePicker(false); setScheduleDate('');}} className="flex-1">Cancel</Button>
+                        </div>
+                        {scheduleSuccess && (
+                          <div className="flex items-center gap-1 text-xs text-green-600"><IoCheckmark className="w-3 h-3"/>Scheduled</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -357,6 +415,11 @@ export default function AdventureModal({
                 <div className="flex items-center gap-2">
                   <IoCalendarOutline className="w-4 h-4" />
                   <span>{new Date(adventure.scheduled_for).toLocaleDateString()}</span>
+                </div>
+              )}
+              {scheduleSuccess && adventure.scheduled_for && (
+                <div className="flex items-center gap-2 text-green-600 text-sm font-medium">
+                  <IoCheckmark className="w-4 h-4"/> Scheduled
                 </div>
               )}
             </div>

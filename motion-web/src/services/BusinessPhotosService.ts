@@ -22,6 +22,8 @@ interface BusinessPhoto {
   label?: string; // resolved business display name
   place_id?: string;
   address?: string;
+  step_index?: number; // when returned in bulk context
+  photo_order?: number; // order within a step (0 primary, 1 secondary)
 }
 
 interface BusinessInfo {
@@ -244,6 +246,60 @@ class BusinessPhotosService {
     }
 
     return photos;
+  }
+
+  /** New multi-photo (up to perStep per step) retrieval while preserving step index metadata */
+  async getAdventurePhotosMulti(steps: Array<{ name: string; location?: string }>, perStep: number = 2): Promise<BusinessPhoto[]> {
+    const out: BusinessPhoto[] = [];
+    const per = Math.max(1, Math.min(perStep, 4)); // safety cap
+    for (let i = 0; i < steps.length; i++) {
+      const step = steps[i];
+      try {
+        const info = await this.getBusinessInfo(step.name, step.location);
+        if (info && info.photos.length) {
+          let count = 0;
+            for (const p of info.photos) {
+              if (count >= per) break;
+              out.push({ ...p, step_index: i, photo_order: count });
+              count++;
+            }
+          // If not enough photos, add mock to reach at least 1
+          if (count === 0) {
+            out.push({
+              url: this.getMockPhoto(),
+              width: 800,
+              height: 600,
+              source: 'ai_generated',
+              label: step.name,
+              step_index: i,
+              photo_order: 0
+            });
+          }
+        } else {
+          out.push({
+            url: this.getMockPhoto(),
+            width: 800,
+            height: 600,
+            source: 'ai_generated',
+            label: step.name,
+            step_index: i,
+            photo_order: 0
+          });
+        }
+      } catch (e) {
+        console.error('Multi photo step error:', e);
+        out.push({
+          url: this.getMockPhoto(),
+          width: 800,
+          height: 600,
+          source: 'ai_generated',
+          label: step.name,
+          step_index: i,
+          photo_order: 0
+        });
+      }
+    }
+    return out;
   }
 
   /** Pick the best match using simple heuristics to reduce mismatches (e.g., chain names in wrong city) */

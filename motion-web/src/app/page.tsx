@@ -49,6 +49,37 @@ interface Adventure {
 
 export default function DiscoverPage() {
   const { user, loading } = useAuth();
+  // Track liked and saved adventures for the user
+  const [userLikes, setUserLikes] = useState<string[]>([]);
+  const [userSaves, setUserSaves] = useState<string[]>([]);
+  const [selectedAdventure, setSelectedAdventure] = useState<Adventure | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Example: Fetch likes/saves for the user (replace with real API)
+  useEffect(() => {
+    if (user) {
+      // TODO: Replace with real fetch from backend
+      setUserLikes([]);
+      setUserSaves([]);
+    }
+  }, [user]);
+
+  const handleLikeAdventure = (adventureId: string) => {
+    if (!user) return;
+    setUserLikes((prev) => prev.includes(adventureId) ? prev.filter(id => id !== adventureId) : [...prev, adventureId]);
+    // TODO: Call backend to persist like
+  };
+
+  const handleSaveAdventure = (adventureId: string) => {
+    if (!user) return;
+    setUserSaves((prev) => prev.includes(adventureId) ? prev.filter(id => id !== adventureId) : [...prev, adventureId]);
+    // TODO: Call backend to persist save
+  };
+
+  const openAdventureDetailModal = (adventure: Adventure) => {
+    setSelectedAdventure(adventure);
+    setIsModalOpen(true);
+  };
   const [adventures, setAdventures] = useState<Adventure[]>([]);
   const [adventuresLoading, setAdventuresLoading] = useState(true);
   const [isHydrated, setIsHydrated] = useState(false);
@@ -217,20 +248,11 @@ export default function DiscoverPage() {
                   key={adventure.id}
                   adventure={adventure}
                   user={user}
-                  userLiked={false} // TODO: Implement like tracking
-                  userSaved={false} // TODO: Implement save tracking
-                  onLike={(adventureId) => {
-                    console.log('Like adventure:', adventureId);
-                    // TODO: Implement like functionality
-                  }}
-                  onSave={(adventureId) => {
-                    console.log('Save adventure:', adventureId);
-                    // TODO: Implement save functionality
-                  }}
-                  onClick={(adventure) => {
-                    console.log('View adventure:', adventure.id);
-                    // TODO: Implement adventure detail modal
-                  }}
+                  userLiked={userLikes.includes(adventure.id)}
+                  userSaved={userSaves.includes(adventure.id)}
+                  onLike={handleLikeAdventure}
+                  onSave={handleSaveAdventure}
+                  onClick={openAdventureDetailModal}
                 />
               ))}
             </div>

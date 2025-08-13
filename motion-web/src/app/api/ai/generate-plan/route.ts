@@ -1,156 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { OpenAI } from 'openai';
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'https://motion-backend-production.up.railway.app';
 
 export async function POST(request: NextRequest) {
   try {
-    const { app_filter, radius } = await request.json();
-
-    console.log("📝 Received request:", { app_filter, radius });
-
-    const prompt = `
-Create a detailed adventure plan with these requirements:
-
-You are an AI concierge planning a full or partial day of activities based on user input. Your goal is to recommend a personalized, enjoyable, well-paced plan with real businesses/locations, aligned with the user's preferences.
-
-Rules:
-- Keep all locations within ${radius} miles of each other and of the user's starting point.
-- Use time windows (e.g., 1:30–2:30pm) to pace the plan realistically.
-- When suggesting a restaurant or café:
-    Prioritize establishments with OpenTable listings.
-    Provide the OpenTable reservation link.
-    If unavailable, suggest alternatives with Google Reserve links or provide contact information for booking.
-- Ensure the plan flows smoothly between locations (minimize backtracking).
-- Incorporate user's dietary, ethical, or vibe preferences into all choices.
-- Add optional transitions like "Enjoy a short walk to…" to make it feel curated.
-- Make sure all recommendations are open during time of planning
-- Consider the user's budget when formulating your response, if premium, give a more expensive experience if budget, try to save money where you can with your suggestions. etc.
-- Make sure all filters are coherant with each other, for example, if the user wants a vegan restaurant, don't suggest a steakhouse,
-if multiple filters are put in place make sure not to put two restaurants after each other, instead put a placeholder/filler or activity in between.
-- Be as diverse as you can with the filters and locations and always explore new combinations, an exact plan replica with the same filters should be rare.
-- MAKE SURE ALL PLACES RECOMMENDED ARE REAL BUSINESSES/LOCATIONS, AND ARE NOT PERMANENTLY CLOSED OR OUT OF SERVICE DO NOT MAKE UP PLACES.
-
-User Filters:
-${app_filter}
-
-CRITICAL TIMING REQUIREMENTS:
-- MUST start at the specified start time
-- MUST end by the specified end time
-- Each step must have realistic timing that fits within the total duration
-- Schedule activities logically (meals at meal times, etc.)
-- Account for travel time between locations
-
-Create a JSON response with:
-{
-  "title": "Adventure name (based on adventure)",
-  "description": "Brief description,", 
-  "estimatedDuration": "X hours",
-  "estimatedCost": "$X range",
-  "steps": [
-    {
-      "time": "HH:MM format (24-hour)",
-      "title": "Activity name",
-      "location": "Specific address/location",
-      "notes": "Details and tips",
-      "booking": {
-        "method": "How to book/access",
-        "link": "website if applicable",
-        "fallback": "alternative if booking fails"
-      }
-    }
-  ]
-}
-
-ENSURE ALL STEP TIMES ARE BETWEEN THE START AND END TIME SPECIFIED!`;
-
-    const apiKey = process.env.OPENAI_API_KEY;
-
-    // Dev-friendly fallback when key isn't configured
-    if (!apiKey) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.warn('OPENAI_API_KEY not set; returning mock plan for development.');
-        const mock = {
-          title: 'Curated Local Adventure',
-          description: 'A balanced outing with real places and realistic pacing.',
-          estimatedDuration: '4-6 hours',
-          estimatedCost: '$$',
-          steps: [
-            {
-              time: '10:00',
-              title: 'Coffee at a cozy cafe',
-              location: 'Your favorite local cafe',
-              notes: 'Grab a latte and plan the day.',
-              booking: { method: 'Walk-in' }
-            },
-            {
-              time: '11:30',
-              title: 'Scenic walk',
-              location: 'Nearby park or waterfront',
-              notes: 'Enjoy the views and take photos.',
-              booking: { method: 'Free' }
-            },
-            {
-              time: '13:00',
-              title: 'Lunch with a view',
-              location: 'Casual eatery with outdoor seating',
-              notes: 'Consider OpenTable for reservations when possible.',
-              booking: { method: 'Reservation', link: 'https://www.opentable.com/' }
-            }
-          ]
-        };
-        return NextResponse.json(mock, { status: 200 });
-      }
-      return NextResponse.json(
-        { error: 'AI not configured' },
-        { status: 503 }
-      );
-    }
-
-    console.log("🤖 Sending to OpenAI...");
-
-    const openai = new OpenAI({ apiKey });
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.7,
+    const body = await request.json();
+    
+    console.log('🌐 Proxying AI request to Railway backend:', BACKEND_URL);
+    console.log('📤 Request body:', JSON.stringify(body, null, 2));
+    
+    const response = await fetch(`${BACKEND_URL}/api/ai/generate-plan`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
     });
 
-    const raw = completion.choices[0].message.content;
-    console.log("📤 Raw OpenAI response:", raw);
+    console.log('📥 Backend response status:', response.status);
 
-    if (!raw) {
-      console.error("❌ No content in OpenAI response");
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Railway backend request failed:', response.status, response.statusText);
+      console.error('❌ Error details:', errorText);
       return NextResponse.json(
-        { error: "No content in AI response." },
-        { status: 500 }
+        { error: 'Failed to generate adventure plan', details: errorText },
+        { status: response.status }
       );
     }
 
-    const clean = raw.replace(/```json\n?/, "").replace(/```$/, "");
-
-    try {
-      const parsed = JSON.parse(clean);
-      console.log("✅ Successfully parsed JSON:", parsed.title);
-      return NextResponse.json(parsed);
-    } catch (parseError) {
-      console.error("❌ Failed to parse plan JSON:", parseError);
-      console.log("🔍 Raw content that failed to parse:", clean);
-      return NextResponse.json(
-        { error: "Invalid AI response format." },
-        { status: 500 }
-      );
-    }
+    const data = await response.json();
+    console.log('✅ Successfully proxied to Railway backend');
+    console.log('📊 Received adventure with title:', data?.title || 'No title');
+    
+    return NextResponse.json(data);
   } catch (error) {
-    console.error("❌ Error generating adventure:", error);
+    console.error('❌ Error in AI generate-plan route:', error);
     return NextResponse.json(
-      { error: "Failed to generate adventure plan." },
+      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
-}
-
-export async function GET() {
-  return NextResponse.json({ 
-    message: "AI routes working! 🤖",
-    timestamp: new Date().toISOString()
-  });
 }
