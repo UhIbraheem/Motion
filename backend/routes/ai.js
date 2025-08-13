@@ -7,7 +7,11 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Test route to verify API is working
+// Test route to verif    const completion = await openai.chat.completions.create({
+      model: "gpt-4-0125-preview", // GPT-4 Turbo with better instruction following
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.3, // Lower temperature for more consistent output format
+    }); is working
 router.get("/test", (req, res) => {
   res.json({ 
     message: "AI routes working! 🤖",
@@ -92,57 +96,36 @@ CRITICAL: START WITH { - END WITH } - NO OTHER TEXT`;
     });
 
     const raw = completion.choices[0].message.content;
-    console.log("📤 Raw OpenAI response length:", raw.length);
+    console.log("📤 Raw OpenAI response (first 200 chars):", raw.substring(0, 200));
 
-    // BULLETPROOF JSON EXTRACTION - ignores ALL surrounding text
+    // SIMPLE BUT ROBUST JSON EXTRACTION
     let clean = raw.trim();
     
-    console.log("🔍 First 200 chars:", clean.substring(0, 200));
-    console.log("🔍 Last 200 chars:", clean.substring(clean.length - 200));
+    // Remove markdown code blocks if present
+    clean = clean.replace(/```json\n?/, "").replace(/```\n?$/, "");
     
-    // Special handling for "To create a personalized..." responses
-    if (clean.includes("To create a personalized") && clean.includes("{")) {
-      const jsonStart = clean.indexOf("{");
-      clean = clean.substring(jsonStart);
-      console.log("✅ Removed explanatory text prefix");
-    }
-    
-    // Method 1: Extract from ```json code block
-    let jsonBlockMatch = clean.match(/```json\s*(\{[\s\S]*?\})\s*```/i);
-    if (jsonBlockMatch) {
-      clean = jsonBlockMatch[1];
-      console.log("✅ Found JSON in markdown block");
-    } else {
-      // Method 2: Find the main/outermost JSON object
+    // If response starts with explanatory text, find the first {
+    if (!clean.startsWith('{')) {
       const firstBrace = clean.indexOf('{');
       if (firstBrace !== -1) {
-        let braceCount = 0;
-        let jsonEnd = -1;
-        
-        // Start from the first brace and count to find the complete object
-        for (let i = firstBrace; i < clean.length; i++) {
-          if (clean[i] === '{') braceCount++;
-          if (clean[i] === '}') {
-            braceCount--;
-            if (braceCount === 0) {
-              jsonEnd = i;
-              break;
-            }
-          }
-        }
-        
-        if (jsonEnd !== -1) {
-          clean = clean.substring(firstBrace, jsonEnd + 1);
-          console.log("✅ Extracted outermost JSON object");
-        } else {
-          console.log("❌ No complete JSON object found");
-          throw new Error("No complete JSON object found in OpenAI response");
-        }
-      } else {
-        console.log("❌ No JSON structure found at all");
-        throw new Error("No JSON object found in OpenAI response");
+        clean = clean.substring(firstBrace);
+        console.log("✅ Found JSON starting at position", firstBrace);
       }
     }
+    
+    // If response ends with extra text, find the last }
+    if (!clean.endsWith('}')) {
+      const lastBrace = clean.lastIndexOf('}');
+      if (lastBrace !== -1) {
+        clean = clean.substring(0, lastBrace + 1);
+        console.log("✅ Trimmed to last closing brace");
+      }
+    }
+    
+    // Basic cleanup
+    clean = clean.replace(/;\s*$/, '').trim();
+    
+    console.log("🧹 Final JSON (first 200 chars):", clean.substring(0, 200));
     
     // Fix malformed JSON structure issues
     // Remove semicolons after URLs or strings that break JSON
