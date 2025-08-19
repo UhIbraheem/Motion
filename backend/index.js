@@ -1,8 +1,12 @@
+require("dotenv").config();
+
 const express = require("express");
 const cors = require("cors");
 const net = require("net");
-const aiRouter = require("./routes/ai");
-require("dotenv").config();
+const aiRouter = require("./routes/ai_new");
+const placesRouter = require("./routes/places");
+const photosRouter = require("./routes/photos");
+const adventuresRouter = require("./routes/adventures");
 
 const app = express();
 
@@ -106,6 +110,9 @@ app.use(express.json());
 
 // Routes
 app.use("/api/ai", aiRouter);
+app.use("/api/places", placesRouter);
+app.use("/api/places", photosRouter);
+app.use("/api/adventures", adventuresRouter);
 
 // Test route - pretty HTML for humans, JSON for apps
 app.get("/", (req, res) => {

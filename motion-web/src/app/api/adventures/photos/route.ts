@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import businessPhotosService from '@/services/BusinessPhotosService';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 // Server-side Supabase client (service role key)
 const supabase = createClient(
@@ -22,15 +22,18 @@ export async function POST(req: NextRequest) {
       location: s.location,
     }));
 
-    const photos = perStep > 1
-      ? await businessPhotosService.getAdventurePhotosMulti(stepDescriptors, perStep)
-      : await businessPhotosService.getAdventurePhotos(stepDescriptors);
+    const resp = await fetch(`${API_BASE}/api/places/photos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ steps: stepDescriptors, photosPerStep: perStep })
+    });
+    const { photos = [] } = resp.ok ? await resp.json() : { photos: [] };
 
     if (!photos.length) {
       return NextResponse.json({ photos: [] });
     }
 
-    const rows = photos.map((p, idx) => ({
+  const rows = (photos as Array<any>).map((p: any, idx: number) => ({
       adventure_id: adventureId,
       step_index: typeof p.step_index === 'number' ? p.step_index : idx,
       photo_order: typeof p.photo_order === 'number' ? p.photo_order : 0,

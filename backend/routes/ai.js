@@ -1,11 +1,173 @@
 const express = require("express");
 const router = express.Router();
 const { OpenAI } = require("openai");
+const { extractFirstJsonBlock } = require("../utils/jsonExtractor");
+const GooglePlacesService = require("../services/GooglePlacesService");
 require("dotenv").config();
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+const googlePlaces = new GooglePlacesService();
+
+// Helper function to enhance adventure with Google Places data
+async function enhanceAdventureWithGooglePlaces(adventure, location) {
+  console.log("🔍 Enhancing adventure with Google Places data...");
+  
+  if (!adventure.steps || !Array.isArray(adventure.steps)) {
+    return adventure;
+  }
+
+  const enhancedSteps = await Promise.all(
+    adventure.steps.map(async (step, index) => {
+      try {
+        if (!step.business_name) {
+          console.log(`⚠️ Step ${index + 1}: No business name, skipping Google Places lookup`);
+          return step;
+        }
+
+        console.log(`🔍 Looking up: "${step.business_name}" near "${step.location || location}"`);
+        
+        // Search for the business
+        const searchQuery = step.business_name;
+        const biasLocation = step.location || location;
+        
+        const places = await googlePlaces.textSearch({
+          textQuery: searchQuery,
+          biasCenter: { latitude: 37.7749, longitude: -122.4194 }, // Default to SF, should be enhanced with geocoding
+          biasRadiusMeters: 10000, // 10km radius
+          pageSize: 1
+        });
+
+        if (places && places.length > 0) {
+          const place = places[0];
+          console.log(`✅ Found place: ${place.displayName} (Rating: ${place.rating || 'N/A'})`);
+          
+          // Get photo URL if available
+          let photoUrl = null;
+          if (place.photos && place.photos.length > 0) {
+            try {
+              photoUrl = await googlePlaces.getPhotoUri(place.photos[0].name, 400);
+              console.log(`📸 Photo URL retrieved for ${place.displayName}`);
+            } catch (photoError) {
+              console.log(`⚠️ Failed to get photo URL: ${photoError.message}`);
+            }
+          }
+          
+          return {
+            ...step,
+            google_place_id: place.id,
+            google_rating: place.rating,
+            google_price_level: place.priceLevel,
+            google_address: place.formattedAddress,
+            google_phone: place.nationalPhoneNumber,
+            google_website: place.websiteUri,
+            google_photo_reference: place.photos && place.photos.length > 0 ? place.photos[0].name : null,
+            google_photo_url: photoUrl,
+            validated: true
+          };
+        } else {
+          console.log(`❌ No place found for: ${step.business_name}`);
+          return {
+            ...step,
+            validated: false
+          };
+        }
+      } catch (error) {
+        console.error(`❌ Error looking up ${step.business_name}:`, error.message);
+        return {
+          ...step,
+          validated: false
+        };
+      }
+    })
+  );
+
+  return {
+    ...adventure,
+    steps: enhancedSteps,
+    google_places_enhanced: true
+  };
+}
+
+// Adventure Plan Schema for Structured Outputs
+const adventureSchema = {
+  name: "AdventurePlan",
+  schema: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      title: { 
+        type: "string",
+        description: "Adventure name based on the experience" 
+      },
+      description: { 
+        type: "string",
+        description: "Brief description of the adventure" 
+      },
+      estimatedDuration: { 
+        type: "string",
+        description: "Estimated duration (e.g., '4 hours', '6 hours')" 
+      },
+      estimatedCost: { 
+        type: "string",
+        description: "Budget tier symbol: '$' (budget), '$$' (premium), or '$$$' (luxury) - NOT dollar amounts" 
+      },
+      steps: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            time: { 
+              type: "string",
+              description: "Time in HH:MM format (24-hour)" 
+            },
+            title: { 
+              type: "string",
+              description: "Activity name" 
+            },
+            location: { 
+              type: "string",
+              description: "Specific address/location" 
+            },
+            business_name: { 
+              type: "string",
+              description: "Exact business/venue name" 
+            },
+            notes: { 
+              type: "string",
+              description: "Details and tips" 
+            },
+            booking: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                method: { 
+                  type: "string",
+                  description: "How to book/access" 
+                },
+                link: { 
+                  type: "string",
+                  description: "Website URL if applicable" 
+                },
+                fallback: { 
+                  type: "string",
+                  description: "Alternative if booking fails" 
+                }
+              },
+              required: ["method"]
+            }
+          },
+          required: ["time", "title", "location"]
+        }
+      }
+    },
+    required: ["title", "description", "estimatedDuration", "estimatedCost", "steps"]
+  },
+  strict: true
+};
 
 // Test route to verify API is working
 router.get("/test", (req, res) => {
@@ -22,40 +184,120 @@ router.post("/generate-plan", async (req, res) => {
 
     console.log("📝 Received request:", { app_filter, radius });
 
-    const prompt = `
-RESPOND WITH JSON ONLY - NO OTHER TEXT
+    const systemPrompt = `You are an AI concierge planning adventures. Create detailed, personalized adventure plans with real businesses and locations. Follow all user preferences and constraints exactly.
 
-Create a detailed adventure plan in JSON format with these requirements:
-You are an AI concierge planning a full or partial day of activities based on user input. Your goal is to recommend a 
-personalized, enjoyable, well-paced plan with real businesses/locations, aligned with the user's preferences.
-
-CRITICAL JSON RULES - FOLLOW EXACTLY:
-- START YOUR RESPONSE WITH { - NO TEXT BEFORE THIS
-- END YOUR RESPONSE WITH } - NO TEXT AFTER THIS
-- NO markdown code blocks, NO backticks around JSON
-- NO semicolons after URLs or any values - strict JSON format only
-- NO explanations, notes, or commentary anywhere, if there is anything you must return return it as {as_remark: ***}
+RULES:
 - Keep all locations within ${radius} miles of each other and of the user's starting point
 - Use realistic time windows (e.g., 14:30, 16:00) to pace the plan realistically
-- Budget must match user's selection: Budget ($0-30 per person), Moderate ($30-70 per person), Premium ($70+ per person)
 - When suggesting restaurants/cafés: prioritize OpenTable listings with reservation links
 - Ensure the plan flows smoothly between locations (minimize backtracking)
 - Make sure all recommendations are REAL businesses/locations that are currently open
 - Do NOT make up fictional places or businesses
-- Consider the user's budget when formulating response - stick to the specified budget range
 - Make sure all filters are coherent with each other
 - Be diverse with locations and always explore new combinations
 - URLs must NOT have semicolons after them - use proper JSON format
 
-User Filters:
-${app_filter}
+BUDGET GUIDELINES - CRITICAL:
+${app_filter?.budget ? `
+User selected ${app_filter.budget} budget tier. Follow these EXACT cost ranges:
+- $ (Budget): Total cost should be $25-50 per person, display as "$"
+- $$ (Premium): Total cost should be $50-100 per person, display as "$$" 
+- $$$ (Luxury): Total cost should be $75+ per person, display as "$$$"
+Use the budget symbol (e.g., "$$") as the estimatedCost, NOT dollar ranges like "$140-200".
+` : '- Consider moderate budget when no specific budget provided'}
 
-RETURN THIS EXACT JSON FORMAT - START WITH { AND END WITH }:
+CRITICAL BUSINESS NAME REQUIREMENTS:
+- ALWAYS include the exact business name in the "business_name" field
+- Use the official business name (e.g., "Starbucks", "The Metropolitan Museum of Art", "Central Park")
+- For restaurants: use the exact restaurant name (e.g., "Joe's Pizza", "Le Bernardin")
+- For attractions: use the official name (e.g., "Empire State Building", "Brooklyn Bridge")
+- For parks/outdoor spaces: use the official park name (e.g., "Central Park", "Prospect Park")
+- Business names should be searchable in Google Places API
+- If unsure of exact name, use the most commonly known official name`;
+
+    const userPrompt = `Create an adventure plan based on these filters: ${app_filter}`;
+
+    console.log("🤖 Sending to OpenAI with Structured Outputs...");
+
+    try {
+      // PRIMARY: Use Structured Outputs for guaranteed JSON
+      console.log("🤖 Attempting Structured Outputs with gpt-4o...");
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o", // Use gpt-4o instead of gpt-4o-mini
+        messages: [
+          {
+            role: "system",
+            content: systemPrompt
+          },
+          {
+            role: "user", 
+            content: userPrompt
+          }
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: adventureSchema
+        },
+        temperature: 0.3,
+      });
+
+      const rawContent = completion.choices[0].message.content;
+      console.log("✅ Received structured output from OpenAI");
+      
+      try {
+        const parsed = JSON.parse(rawContent);
+        console.log("✅ Successfully parsed structured JSON:", parsed.title);
+        console.log("📊 Adventure has", parsed?.steps?.length || 0, "steps");
+        
+        // Enhance with Google Places data
+        const enhancedAdventure = await enhanceAdventureWithGooglePlaces(parsed, app_filter?.location || 'San Francisco, CA');
+        console.log("🎯 Enhanced adventure with Google Places data");
+        
+        return res.json(enhancedAdventure);
+      } catch (parseError) {
+        console.log("⚠️ Structured output parse failed, trying fallback extractor...");
+        
+        // FALLBACK: Use robust JSON extraction
+        const extractedJson = extractFirstJsonBlock(rawContent);
+        if (extractedJson) {
+          const fallbackParsed = JSON.parse(extractedJson);
+          console.log("✅ Fallback extraction successful:", fallbackParsed.title);
+          
+          // Enhance with Google Places data
+          const enhancedFallback = await enhanceAdventureWithGooglePlaces(fallbackParsed, app_filter?.location || 'San Francisco, CA');
+          console.log("🎯 Enhanced fallback adventure with Google Places data");
+          
+          return res.json(enhancedFallback);
+        } else {
+          throw new Error("No valid JSON found in response");
+        }
+      }
+
+    } catch (structuredError) {
+      console.log("⚠️ Structured outputs failed:", structuredError.message);
+      console.log("🔧 Error details:", structuredError.error?.message || "No additional details");
+      console.log("🔄 Falling back to legacy method...");
+      
+      // LEGACY FALLBACK: Original approach with extraction
+      const legacyCompletion = await openai.chat.completions.create({
+        model: "gpt-4-0125-preview",
+        messages: [
+          {
+            role: "system",
+            content: "CRITICAL: You MUST respond with ONLY a JSON object. NO other text whatsoever. Start with { and end with }. NO explanations, NO markdown, NO semicolons, NO text before or after the JSON."
+          },
+          {
+            role: "user", 
+            content: `${systemPrompt}
+
+${userPrompt}
+
+RESPOND WITH VALID JSON IN THIS EXACT FORMAT:
 {
   "title": "Adventure name",
   "description": "Brief description", 
   "estimatedDuration": "X hours",
-  "estimatedCost": "$XX-$XX per person",
+  "estimatedCost": "$$",
   "steps": [
     {
       "time": "14:00",
@@ -72,133 +314,54 @@ RETURN THIS EXACT JSON FORMAT - START WITH { AND END WITH }:
   ]
 }
 
-CRITICAL: START WITH { - END WITH } - NO OTHER TEXT`;
-
-    console.log("🤖 Sending to OpenAI...");
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4-0125-preview", // GPT-4 Turbo with better instruction following
-      messages: [
-        {
-          role: "system",
-          content: "You are a strict JSON generator. CRITICAL RULES: 1) Your response must start with { and end with } 2) NO text before or after the JSON object 3) NO explanations, descriptions, or markdown 4) NO semicolons anywhere 5) If you add ANY text other than the JSON object, the system will crash. Return ONLY the JSON."
-        },
-        {
-          role: "user", 
-          content: prompt
-        }
-      ],
-      temperature: 0.3, // Lower temperature for more consistent output format
-    });
-
-    const raw = completion.choices[0].message.content;
-    console.log("📤 Raw OpenAI response length:", raw.length);
-
-    // BULLETPROOF JSON EXTRACTION - ignores ALL surrounding text
-    let clean = raw.trim();
-    
-    console.log("🔍 First 200 chars:", clean.substring(0, 200));
-    console.log("🔍 Last 200 chars:", clean.substring(clean.length - 200));
-    
-    // Special handling for "To create a personalized..." responses
-    if (clean.includes("To create a personalized") && clean.includes("{")) {
-      const jsonStart = clean.indexOf("{");
-      clean = clean.substring(jsonStart);
-      console.log("✅ Removed explanatory text prefix");
-    }
-    
-    // Method 1: Extract from ```json code block
-    let jsonBlockMatch = clean.match(/```json\s*(\{[\s\S]*?\})\s*```/i);
-    if (jsonBlockMatch) {
-      clean = jsonBlockMatch[1];
-      console.log("✅ Found JSON in markdown block");
-    } else {
-      // Method 2: Find the main/outermost JSON object
-      const firstBrace = clean.indexOf('{');
-      if (firstBrace !== -1) {
-        let braceCount = 0;
-        let jsonEnd = -1;
-        
-        // Start from the first brace and count to find the complete object
-        for (let i = firstBrace; i < clean.length; i++) {
-          if (clean[i] === '{') braceCount++;
-          if (clean[i] === '}') {
-            braceCount--;
-            if (braceCount === 0) {
-              jsonEnd = i;
-              break;
-            }
+CRITICAL: START WITH { - END WITH } - NO OTHER TEXT`
           }
-        }
+        ],
+        temperature: 0.3,
+      });
+
+      const raw = legacyCompletion.choices[0].message.content;
+      console.log("📤 Legacy response received, extracting JSON...");
+      
+      // Use robust fallback extraction
+      const extractedJson = extractFirstJsonBlock(raw);
+      if (extractedJson) {
+        const parsed = JSON.parse(extractedJson);
+        console.log("✅ Legacy extraction successful:", parsed.title);
+        console.log("📊 Adventure has", parsed?.steps?.length || 0, "steps");
         
-        if (jsonEnd !== -1) {
-          clean = clean.substring(firstBrace, jsonEnd + 1);
-          console.log("✅ Extracted outermost JSON object");
-        } else {
-          console.log("❌ No complete JSON object found");
-          throw new Error("No complete JSON object found in OpenAI response");
-        }
+        // Enhance with Google Places data
+        const enhancedLegacy = await enhanceAdventureWithGooglePlaces(parsed, app_filter?.location || 'San Francisco, CA');
+        console.log("🎯 Enhanced legacy adventure with Google Places data");
+        
+        return res.json(enhancedLegacy);
       } else {
-        console.log("❌ No JSON structure found at all");
-        throw new Error("No JSON object found in OpenAI response");
-      }
-    }
-    
-    // Fix malformed JSON structure issues
-    // Remove semicolons after URLs or strings that break JSON
-    clean = clean.replace(/("https?:\/\/[^"]*");/g, '$1');
-    clean = clean.replace(/("https?:\/\/[^"]*");\s*,/g, '$1,');
-    clean = clean.replace(/("https?:\/\/[^"]*");\s*}/g, '$1}');
-    // Fix any trailing semicolons before closing quotes
-    clean = clean.replace(/";(\s*[,}])/g, '"$1');
-    clean = clean.replace(/";$/g, '"');
-    
-    // Fix common structural issues
-    // Remove duplicate opening/closing braces or brackets
-    clean = clean.replace(/\{\s*\{/g, '{');
-    clean = clean.replace(/\}\s*\}/g, '}');
-    clean = clean.replace(/\[\s*\]/g, '[]');
-    
-    // Fix incomplete JSON structures
-    // Ensure proper comma placement in arrays and objects
-    clean = clean.replace(/\}\s*\{/g, '},{');
-    clean = clean.replace(/\]\s*\[/g, '],[');
-
-    console.log("🔧 Cleaned JSON preview:", clean.substring(0, 300) + "...");
-
-    try {
-      const parsed = JSON.parse(clean);
-      console.log("✅ Successfully parsed JSON with title:", parsed?.title || "No title found");
-      console.log("📊 Adventure has", parsed?.steps?.length || 0, "steps");
-      res.json(parsed);
-    } catch (parseError) {
-      console.error("❌ Failed to parse plan JSON:", parseError.message);
-      console.log("🔍 Cleaned content that failed to parse:", clean.substring(0, 500));
-      
-      // Return a fallback response instead of error
-      const fallbackPlan = {
-        title: "San Francisco Adventure",
-        description: "A curated adventure experience in San Francisco",
-        estimatedDuration: "4 hours",
-        estimatedCost: "$40-80 per person",
-        steps: [
-          {
-            time: "14:00",
-            title: "Starting Point",
-            location: "Union Square, San Francisco, CA",
-            business_name: "Union Square",
-            notes: "Meet up and begin your adventure",
-            booking: {
-              method: "No booking required",
-              link: "",
-              fallback: "Public space"
+        console.log("❌ All extraction methods failed");
+        
+        // Return a fallback response instead of error
+        const fallbackPlan = {
+          title: "Adventure Planning Unavailable",
+          description: "We're experiencing technical difficulties with adventure generation. Please try again in a moment.",
+          estimatedDuration: "N/A",
+          estimatedCost: "N/A",
+          steps: [
+            {
+              time: "12:00",
+              title: "Try Again Later",
+              location: "Please refresh and try your request again",
+              business_name: "Motion Support",
+              notes: "Our AI is temporarily having trouble generating adventures. This usually resolves quickly.",
+              booking: {
+                method: "Refresh page",
+                link: "",
+                fallback: "Contact support if this persists"
+              }
             }
-          }
-        ]
-      };
-      
-      console.log("🔄 Returning fallback plan due to JSON parse error");
-      res.json(fallbackPlan);
+          ]
+        };
+        
+        return res.json(fallbackPlan);
+      }
     }
 
   } catch (error) {
@@ -246,7 +409,6 @@ Respond ONLY with this JSON format:
     "time": "2:00 PM",
     "title": "New activity name",
     "location": "Full address",
-    "business_name": "Exact business/venue name for photos",
     "booking": {
       "method": "OpenTable",
       "link": "https://...",
@@ -258,24 +420,27 @@ Respond ONLY with this JSON format:
 `;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4.1",
+      model: "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
       temperature: 0.7,
     });
 
     const raw = completion.choices[0].message.content;
-    const clean = raw.replace(/```json\n?/, "").replace(/```$/, "");
-
+    
     try {
-      const parsed = JSON.parse(clean);
-      console.log("✅ Step regenerated:", parsed.newStep.title);
+      const parsed = JSON.parse(raw);
+      console.log("✅ Step regenerated:", parsed.newStep?.title);
       res.json(parsed);
     } catch (parseError) {
-      console.error("❌ Failed to parse step JSON:", parseError);
-      res.status(500).json({ 
-        error: "Invalid step response format.",
-        details: parseError.message
-      });
+      // Fallback extraction for step regeneration
+      const extractedJson = extractFirstJsonBlock(raw);
+      if (extractedJson) {
+        const parsed = JSON.parse(extractedJson);
+        res.json(parsed);
+      } else {
+        throw parseError;
+      }
     }
 
   } catch (error) {

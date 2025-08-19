@@ -31,10 +31,10 @@ export const VIBES: VibeDefinition[] = [
     aiDefinition: 'Provide a lightly scaffolded sequence with 1-2 “pick one” forks. Encourage serendipity (street market, pop-up, live busker). Keep fallback suggestions if first choice is closed or crowded.'
   },
   {
-    key: 'energized',
-    label: 'Energized',
-    shortDescription: 'Active, upbeat momentum arc',
-    aiDefinition: 'Progressively build stimulation (light movement → interactive/activity → social peak). Insert a hydration / reset midpoint. Avoid stacking high-intensity steps without a brief decompression.'
+  key: 'trending',
+  label: 'Trending',
+  shortDescription: 'What’s hot right now — viral eats, pop-ups, buzzworthy spots',
+  aiDefinition: 'Prioritize trending or buzzworthy experiences across categories (viral desserts/meals, pop-up exhibits, in-demand venues, scenic hotspots making the rounds). Cross-check recency and local relevance; avoid stale trends. If needed, swap in a comparable local alternative with similar hype energy.'
   },
   {
     key: 'mindful',

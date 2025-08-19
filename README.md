@@ -51,6 +51,7 @@ ifconfig | grep "inet " | grep -v 127.0.0.1
 ```bash
 ipconfig
 ```
+
 Look for your **IPv4 Address** (usually starts with 192.168.x.x)
 
 ### 5. Run Frontend
@@ -148,7 +149,105 @@ _(Replace with your actual IP)_
 5. **Generate adventure**
 6. **Edit individual steps** (tap any step)
 7. **Save adventure** (should see success message)
-8. **Check Supabase** → adventures table for saved data
+
+## 🛠️ Development vs Production Setup
+
+### 🔧 Local Development Testing
+
+For testing new features and debugging before deploying:
+
+#### Backend (Port 3001)
+
+```bash
+cd Motion/backend
+node index.js
+```
+
+**Expected output:**
+
+```
+🚀 Motion API successfully started!
+📱 Local access: http://localhost:3001
+🤖 AI test: http://localhost:3001/api/ai/test
+```
+
+#### Frontend Web App (Port 3000)
+
+```bash
+cd Motion/motion-web
+npm run dev
+```
+
+#### Frontend Configuration
+
+Edit `motion-web/.env.local`:
+
+```bash
+# FOR LOCAL DEVELOPMENT - Uncomment this line:
+NEXT_PUBLIC_API_URL=http://localhost:3001
+
+# FOR PRODUCTION - Comment this line:
+# NEXT_PUBLIC_API_URL=https://motion-backend-production.up.railway.app
+```
+
+**Benefits:**
+
+- ✅ Test OpenAI Structured Outputs locally
+- ✅ See backend logs in real-time
+- ✅ Debug API calls before pushing to production
+- ✅ Faster development cycle
+
+### 🚀 Production Deployment
+
+For live testing and production use:
+
+#### Backend Deployment
+
+Railway automatically deploys when you push to `main` branch:
+
+```bash
+git checkout main
+git merge dev
+git push origin main
+```
+
+#### Frontend Configuration
+
+Edit `motion-web/.env.local`:
+
+```bash
+# FOR LOCAL DEVELOPMENT - Comment this line:
+# NEXT_PUBLIC_API_URL=http://localhost:3001
+
+# FOR PRODUCTION - Uncomment this line:
+NEXT_PUBLIC_API_URL=https://motion-backend-production.up.railway.app
+```
+
+#### Frontend Deployment
+
+Vercel automatically deploys web app from your repository.
+
+**Benefits:**
+
+- ✅ Live testing with real Railway infrastructure
+- ✅ Production-grade performance
+- ✅ Real-world API response times
+- ✅ Shared testing with team/users
+
+### 🔄 Quick Environment Switching
+
+**Switch to Local Development:**
+
+1. Start backend: `cd backend && node index.js`
+2. Edit `motion-web/.env.local` → uncomment localhost URL
+3. Start frontend: `cd motion-web && npm run dev`
+
+**Switch to Production:**
+
+1. Edit `motion-web/.env.local` → uncomment Railway URL
+2. Restart frontend if running: `npm run dev`
+
+**Pro Tip:** Keep both URLs in `.env.local` as comments for easy switching! 8. **Check Supabase** → adventures table for saved data
 
 ## 🐛 Common Issues & Solutions
 

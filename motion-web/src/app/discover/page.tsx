@@ -279,7 +279,7 @@ export default function DiscoverPage() {
   const getBudgetColor = (budget: string) => {
     switch(budget) {
       case "$": return "bg-green-100 text-green-800";
-      case "$$": return "bg-yellow-100 text-yellow-800";
+      case "$$": return "bg-[#f2cc6c]/20 text-[#3c7660]";
       case "$$$": return "bg-red-100 text-red-800";
       default: return "bg-gray-100 text-gray-800";
     }
