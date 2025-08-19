@@ -36,6 +36,9 @@ interface AdventureStep {
     types: string[];
     photo_url: string;
     opening_hours: any;
+    google_maps_uri?: string;
+    website_uri?: string;
+    national_phone_number?: string;
     last_updated: string;
   };
 }
@@ -199,13 +202,27 @@ export default function EnhancedPlansModal({
   }, [adventure.steps, stepPlacesData]);
 
   const getStepPhoto = (step: AdventureStep) => {
-    const placeData = stepPlacesData[step.id];
-    if (placeData?.photo_references?.length > 0) {
-      return GooglePlacesService.getPhotoUrl(placeData.photo_references[0], 400);
-    }
+    // Priority: google_places.photo_url > step.photo_url > google_places data > fallback
     return step.google_places?.photo_url || 
            step.photo_url || 
+           stepPlacesData[step.id]?.photo_references?.[0] ? 
+             GooglePlacesService.getPhotoUrl(stepPlacesData[step.id].photo_references[0], 400) :
            `https://picsum.photos/400/300?random=${step.id}`;
+  };
+
+  const getGoogleMapsLink = (step: AdventureStep) => {
+    // Priority: google_places.google_maps_uri > constructed place_id link
+    const googleMapsUri = step.google_places?.google_maps_uri;
+    if (googleMapsUri) return googleMapsUri;
+    
+    const placeId = step.google_places?.place_id || stepPlacesData[step.id]?.place_id;
+    if (placeId) {
+      return `https://www.google.com/maps/place/?q=place_id:${placeId}`;
+    }
+    
+    // Fallback to search query
+    const query = encodeURIComponent(`${step.business_name || step.title} ${step.location || ''}`);
+    return `https://www.google.com/maps/search/${query}`;
   };
 
   return (
@@ -582,34 +599,32 @@ export default function EnhancedPlansModal({
                           )}
 
                           <div className="flex gap-2">
-                            {(stepPlacesData[step.id]?.formatted_phone_number || step.business_phone) && (
+                            {(step.google_places?.national_phone_number || stepPlacesData[step.id]?.formatted_phone_number || step.business_phone) && (
                               <Button size="sm" variant="outline" asChild>
-                                <a href={`tel:${stepPlacesData[step.id]?.formatted_phone_number || step.business_phone}`}>
+                                <a href={`tel:${step.google_places?.national_phone_number || stepPlacesData[step.id]?.formatted_phone_number || step.business_phone}`}>
                                   <Phone className="w-4 h-4 mr-1" />
                                   Call
                                 </a>
                               </Button>
                             )}
-                            {(stepPlacesData[step.id]?.website || step.business_website) && (
+                            {(step.google_places?.website_uri || stepPlacesData[step.id]?.website || step.business_website) && (
                               <Button size="sm" variant="outline" asChild>
-                                <a href={stepPlacesData[step.id]?.website || step.business_website} target="_blank" rel="noopener noreferrer">
+                                <a href={step.google_places?.website_uri || stepPlacesData[step.id]?.website || step.business_website} target="_blank" rel="noopener noreferrer">
                                   <Globe className="w-4 h-4 mr-1" />
                                   Website
                                 </a>
                               </Button>
                             )}
-                            {stepPlacesData[step.id] && (
-                              <Button size="sm" variant="outline" asChild>
-                                <a 
-                                  href={`https://www.google.com/maps/place/?q=place_id:${stepPlacesData[step.id].place_id}`} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                >
-                                  <ExternalLink className="w-4 h-4 mr-1" />
-                                  View on Maps
-                                </a>
-                              </Button>
-                            )}
+                            <Button size="sm" variant="outline" asChild>
+                              <a 
+                                href={getGoogleMapsLink(step)} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                              >
+                                <ExternalLink className="w-4 h-4 mr-1" />
+                                View on Maps
+                              </a>
+                            </Button>
                           </div>
 
                           {step.google_places && (

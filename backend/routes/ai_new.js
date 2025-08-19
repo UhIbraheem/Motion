@@ -9,6 +9,66 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+const googlePlaces = new GooglePlacesService();
+
+// Endpoint to get Google Places data for frontend
+router.post("/google-places", async (req, res) => {
+  try {
+    const { businessName, location } = req.body;
+    
+    if (!businessName) {
+      return res.status(400).json({ error: "Business name is required" });
+    }
+
+    console.log(`🔍 Frontend request: Looking up "${businessName}" in "${location}"`);
+    
+    const places = await googlePlaces.textSearch({
+      textQuery: businessName,
+      biasCenter: { latitude: 37.7749, longitude: -122.4194 }, // Default to SF
+      biasRadiusMeters: 10000,
+      pageSize: 1
+    });
+
+    if (places && places.length > 0) {
+      const place = places[0];
+      
+      // Get photo URL if available
+      let photoUrl = null;
+      if (place.photos && place.photos.length > 0) {
+        try {
+          const photoUri = await googlePlaces.getPhotoUri(place.photos[0].name, { maxWidthPx: 400 });
+          photoUrl = photoUri;
+        } catch (photoError) {
+          console.error("📷 Photo fetch error:", photoError);
+        }
+      }
+
+      const placeData = {
+        place_id: place.id || '',
+        name: place.displayName || '',
+        address: place.formattedAddress || '',
+        rating: place.rating || 0,
+        user_rating_count: place.userRatingCount || 0,
+        price_level: place.priceLevel || 0,
+        types: place.types || [],
+        photo_url: photoUrl,
+        opening_hours: place.regularOpeningHours || null,
+        website: place.websiteUri || '',
+        phone: place.nationalPhoneNumber || '',
+        google_maps_uri: place.googleMapsUri || '',
+        last_updated: new Date().toISOString()
+      };
+
+      res.json({ success: true, place: placeData });
+    } else {
+      res.json({ success: false, message: "No places found" });
+    }
+  } catch (error) {
+    console.error("❌ Google Places API error:", error);
+    res.status(500).json({ error: "Failed to fetch place data" });
+  }
+});
+
 // Adventure Plan Schema for Structured Outputs
 const adventureSchema = {
   name: "AdventurePlan",
@@ -254,16 +314,15 @@ CRITICAL: START WITH { - END WITH } - NO OTHER TEXT`
         // Validate and enrich with Google Places data
         console.log("🔍 Starting Google Places validation (legacy)...");
         console.log("📍 Location from frontend:", app_filter.location);
-        const enrichedAdventure = await GooglePlacesService.validateAndEnrichSteps(
-          parsed.steps, 
-          app_filter.location || "current location"
-        );
         
-        // Filter to only include well-rated places (3+ stars)
-        const finalAdventure = GooglePlacesService.filterByRating({
+        // Temporarily disable Google Places validation due to API restrictions
+        // TODO: Fix API key restrictions or implement alternative approach
+        console.log("⚠️ Google Places validation temporarily disabled due to API restrictions");
+        
+        const finalAdventure = {
           ...parsed,
-          steps: enrichedAdventure
-        }, 3.0);
+          steps: parsed.steps // Return steps without Google Places enhancement for now
+        };
         
         return res.json(finalAdventure);
       } else {

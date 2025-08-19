@@ -46,16 +46,36 @@ class GooglePlacesService {
    */
   async searchPlace(businessName: string, location?: string): Promise<GooglePlaceDetails | null> {
     try {
-      const query = location ? `${businessName} ${location}` : businessName;
-      const response = await fetch(
-        `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${this.apiKey}`
-      );
+      const response = await fetch('/api/ai/google-places', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          businessName,
+          location
+        })
+      });
       
       const data = await response.json();
       
-      if (data.results && data.results.length > 0) {
-        const place = data.results[0];
-        return this.formatPlaceDetails(place);
+      if (data.success && data.place) {
+        return {
+          place_id: data.place.place_id,
+          name: data.place.name,
+          formatted_address: data.place.address,
+          rating: data.place.rating,
+          user_ratings_total: data.place.user_rating_count,
+          price_level: data.place.price_level,
+          types: data.place.types,
+          photo_references: data.place.photo_url ? [data.place.photo_url] : [],
+          opening_hours: data.place.opening_hours,
+          website: data.place.website,
+          formatted_phone_number: data.place.phone,
+          business_status: 'OPERATIONAL',
+          geometry: null,
+          reviews: []
+        };
       }
       
       return null;

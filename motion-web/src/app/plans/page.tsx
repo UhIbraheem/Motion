@@ -430,7 +430,7 @@ export default function PlansPage() {
         key={adventure.id}
         className={`group hover:shadow-xl transition-all duration-300 overflow-hidden bg-gradient-to-br from-white to-gray-50 ${
           isHighlighted 
-            ? 'border-4 border-[#f2cc6c] shadow-2xl shadow-[#f2cc6c]/25 animate-pulse' 
+            ? 'border-2 border-[#f2cc6c] shadow-lg shadow-[#f2cc6c]/20 transition-all duration-500 ease-in-out' 
             : 'border-0 shadow-md'
         }`}
       >
@@ -521,9 +521,9 @@ export default function PlansPage() {
 
             {adventure.scheduled_for && !adventure.is_completed && (
               <div className="absolute top-3 left-3">
-                <Badge className="bg-[#3c7660]/90 text-white border-0 text-xs">
+                <Badge className="bg-black/20 backdrop-blur-md border border-white/20 text-white text-xs">
                   <IoCalendarOutline className="mr-1 h-3 w-3" />
-                  Scheduled
+                  Scheduled {new Date(adventure.scheduled_for).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}
                 </Badge>
               </div>
             )}
