@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'https://motion-backend-production.up.railway.app';
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.motionflow.app';
 
 export async function POST(request: NextRequest) {
   try {

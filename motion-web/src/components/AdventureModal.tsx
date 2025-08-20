@@ -114,6 +114,25 @@ export default function AdventureModal({
     setStepCompletions({});
   }, [adventure?.id]);
 
+  // JS-based preloading of adjacent images
+  useEffect(() => {
+    if (typeof window === 'undefined' || !adventure) return;
+    const arr = photos as any[];
+    if (!arr || arr.length <= 1) return;
+    const nextIdx = (currentPhotoIndex + 1) % arr.length;
+    const prevIdx = (currentPhotoIndex - 1 + arr.length) % arr.length;
+    const nextUrl = arr[nextIdx]?.url || arr[nextIdx]?.photo_url;
+    const prevUrl = arr[prevIdx]?.url || arr[prevIdx]?.photo_url;
+    if (nextUrl) {
+      const imgNext = new (window as any).Image();
+      imgNext.src = nextUrl;
+    }
+    if (prevUrl) {
+      const imgPrev = new (window as any).Image();
+      imgPrev.src = prevUrl;
+    }
+  }, [currentPhotoIndex, adventure]);
+
   if (!adventure) return null;
 
   const photos = adventure.photos || 
@@ -225,9 +244,16 @@ export default function AdventureModal({
               src={photos[currentPhotoIndex]?.url || '/api/placeholder/600/400'}
               alt={adventure.custom_title}
               fill
-              unoptimized
+              priority
+              sizes="(max-width: 768px) 100vw, 800px"
               className="object-cover"
             />
+            {photos.length > 1 && (
+              <div className="hidden">
+                <Image src={photos[(currentPhotoIndex + 1) % photos.length]?.url || '/api/placeholder/600/400'} alt="preload next" width={10} height={10} />
+                <Image src={photos[(currentPhotoIndex - 1 + photos.length) % photos.length]?.url || '/api/placeholder/600/400'} alt="preload prev" width={10} height={10} />
+              </div>
+            )}
             
             {/* Photo Navigation */}
             {photos.length > 1 && (

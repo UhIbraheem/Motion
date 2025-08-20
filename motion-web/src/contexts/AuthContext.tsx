@@ -108,6 +108,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       if (session?.user) {
         await fetchUserProfile(session.user.id);
+      } else {
+        setUser(null);
       }
     } catch (error) {
       console.error('Auth initialization error:', error);
@@ -331,26 +333,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const signInWithGoogle = async (): Promise<{ success: boolean; error?: string }> => {
     try {
-      setLoading(true);
-
-      // Clear any existing session first
-      await supabase.auth.signOut();
+      console.log('🔐 Starting Google OAuth...');
 
       // Always use our same-origin callback to avoid prod redirect
-      const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       const redirectTo = `${window.location.origin}/auth/callback`;
       
-      console.log('🔐 OAuth redirect URL:', redirectTo, '| Local env:', isLocal);
+      console.log('🔐 OAuth redirect URL:', redirectTo);
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo,
-          // Request offline access; Supabase will use OAuth code flow and exchange server-side
           queryParams: {
             access_type: 'offline',
             prompt: 'select_account',
-            // Explicitly ask for code response to avoid implicit hash tokens
             response_type: 'code'
           },
           skipBrowserRedirect: false,

@@ -29,6 +29,14 @@ export interface AdventureStep {
     fallback?: string;
   };
   notes?: string;
+  // Google Places business data
+  business_name?: string;
+  rating?: number;
+  business_hours?: string;
+  business_phone?: string;
+  business_website?: string;
+  validated?: boolean;
+  photos?: any[];
 }
 
 export interface GeneratedAdventure {
@@ -46,6 +54,12 @@ export interface GeneratedAdventure {
   scheduledFor?: string;
   rating?: number;
   category?: string;
+  // Enhanced data for new schema
+  experienceTypes?: string[];
+  vibe?: string;
+  budget?: string;
+  groupSize?: number;
+  radius?: number;
 }
 
 export class WebAIAdventureService {
@@ -89,18 +103,24 @@ export class WebAIAdventureService {
 
       const backendData = await response.json();
 
-      // Transform backend response to our format
+      // Transform backend response to our format (with enhanced data)
       const adventure: GeneratedAdventure = {
-        title: backendData.plan_title || this.generateDefaultTitle(filters),
+        title: backendData.title || backendData.plan_title || this.generateDefaultTitle(filters),
         steps: this.transformSteps(backendData.steps || []),
-        estimatedDuration: this.calculateDuration(backendData.steps || []),
-        estimatedCost: this.estimateCost(backendData.steps || [], filters.budget),
+        estimatedDuration: backendData.estimatedDuration || this.calculateDuration(backendData.steps || []),
+        estimatedCost: backendData.estimatedCost || this.estimateCost(backendData.steps || [], filters.budget),
         createdAt: new Date().toISOString(),
-        description: this.generateDefaultDescription(filters),
+        description: backendData.description || this.generateDefaultDescription(filters),
         location: filters.location,
         filtersUsed: filters,
+        // Enhanced data for new schema
+        experienceTypes: filters.experienceTypes,
+        vibe: this.extractVibe(filters.experienceTypes || []),
+        budget: filters.budget,
+        groupSize: filters.groupSize,
+        radius: filters.radius,
         category: this.determineCategory(filters.experienceTypes || []),
-        rating: 4.5, // Default rating for new adventures
+        rating: 4.5 // Default rating for new adventures
       };
 
       return { data: adventure, error: null };
@@ -275,6 +295,12 @@ export class WebAIAdventureService {
     if (filters.timeOfDay && filters.timeOfDay !== 'flexible') {
       parts.push(`Time of Day: ${filters.timeOfDay}`);
     }
+    if (filters.startTime) {
+      parts.push(`Start at: ${filters.startTime}`);
+    }
+    if (filters.endTime) {
+      parts.push(`End by: ${filters.endTime}`);
+    }
     if (filters.groupSize) parts.push(`Group Size: ${filters.groupSize}`);
     if (filters.transportMethod && filters.transportMethod !== 'flexible') {
       parts.push(`Transportation: ${filters.transportMethod}`);
@@ -303,6 +329,14 @@ export class WebAIAdventureService {
       location: step.location || '',
       booking: step.booking || undefined,
       notes: step.notes || step.description || '',
+      // Preserve Google Places business data
+      business_name: step.business_name || '',
+      rating: step.rating || undefined,
+      business_hours: step.business_hours || undefined,
+      business_phone: step.business_phone || undefined,
+      business_website: step.business_website || undefined,
+      validated: step.validated || false,
+      photos: step.photos || [],
     }));
   }
 
@@ -342,6 +376,12 @@ export class WebAIAdventureService {
     if (experienceTypes.includes('academic-weapon')) return 'Culture';
     if (experienceTypes.includes('hidden-gem')) return 'Local Gems';
     return 'Adventure';
+  }
+
+  private extractVibe(experienceTypes: string[]): string | undefined {
+  // Extract vibe from experience types (vibes are: romantic, chill, spontaneous, trending, mindful, special-occasion)
+  const vibes = ['romantic', 'chill', 'spontaneous', 'trending', 'mindful', 'special-occasion'];
+    return experienceTypes.find(type => vibes.includes(type));
   }
 }
 

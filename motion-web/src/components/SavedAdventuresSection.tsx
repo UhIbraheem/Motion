@@ -7,7 +7,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { IoCalendar, IoTime, IoLocationSharp, IoStar, IoTrash, IoEye } from 'react-icons/io5';
 import { useAuth } from '@/contexts/AuthContext';
-import businessPhotosService from '@/services/BusinessPhotosService';
+import { fetchStepPhotos } from '@/services/PlacesPhotoService';
 import adventureService from '@/services/AdventureService';
 
 interface SavedAdventure {
@@ -142,7 +142,7 @@ export default function SavedAdventuresSection() {
         adventures.map(async (adventure: SavedAdventure) => {
           if (adventure.steps && adventure.steps.length > 0 && adventure.photos.length === 0) {
             try {
-              const googlePhotos = await businessPhotosService.getAdventurePhotos(
+              const googlePhotos = await fetchStepPhotos(
                 adventure.steps.map((step: any) => ({
                   name: step.business_name || step.title,
                   location: step.location || adventure.location
@@ -154,7 +154,7 @@ export default function SavedAdventuresSection() {
                 photos: googlePhotos.map((photo, index) => ({
                   id: `google_${index}`,
                   url: photo.url,
-                  source: photo.source,
+                  source: (photo.source === 'google' ? 'google' : 'ai_generated') as 'google' | 'ai_generated' | 'user_uploaded',
                   width: photo.width,
                   height: photo.height
                 }))
@@ -197,7 +197,7 @@ export default function SavedAdventuresSection() {
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
       case 'Easy': return 'text-green-600 bg-green-50';
-      case 'Medium': return 'text-yellow-600 bg-yellow-50';
+      case 'Medium': return 'text-[#3c7660] bg-[#f2cc6c]/20';
       case 'Hard': return 'text-red-600 bg-red-50';
       default: return 'text-gray-600 bg-gray-50';
     }

@@ -1,8 +1,12 @@
+require("dotenv").config();
+
 const express = require("express");
 const cors = require("cors");
 const net = require("net");
 const aiRouter = require("./routes/ai");
-require("dotenv").config();
+const placesRouter = require("./routes/places");
+const photosRouter = require("./routes/photos");
+const adventuresRouter = require("./routes/adventures");
 
 const app = express();
 
@@ -97,8 +101,16 @@ const getPriority = (interfaceName, ip) => {
 };
 
 // Middleware
+const allowedOrigins = process.env.NODE_ENV === 'production' 
+  ? [
+      'https://app.motionflow.app',
+      'https://motionflow.app',
+      'https://www.motionflow.app'
+    ]
+  : "*"; // Allow all origins for development
+
 app.use(cors({
-  origin: "*", // Allow all origins for development
+  origin: allowedOrigins,
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
@@ -106,6 +118,9 @@ app.use(express.json());
 
 // Routes
 app.use("/api/ai", aiRouter);
+app.use("/api/places", placesRouter);
+app.use("/api/places", photosRouter);
+app.use("/api/adventures", adventuresRouter);
 
 // Test route - pretty HTML for humans, JSON for apps
 app.get("/", (req, res) => {
@@ -197,23 +212,32 @@ app.get("/health", (req, res) => {
 // Start server with dynamic port detection
 const startServer = async () => {
   try {
-    // Try preferred ports in order: 5000, 3001, 3000, then find any available
-    const preferredPorts = [5000, 3001, 3000];
+    // Use Railway's PORT environment variable if available, otherwise use local preferences
+    const railwayPort = process.env.PORT;
     let port;
     
-    // First try preferred ports
-    for (const preferredPort of preferredPorts) {
-      try {
-        port = await findAvailablePort(preferredPort);
-        if (port === preferredPort) break; // Found our preferred port
-      } catch (e) {
-        continue; // Try next preferred port
+    if (railwayPort) {
+      // Railway deployment - use the provided port
+      port = parseInt(railwayPort, 10);
+      console.log(`🚂 Railway deployment detected - using port ${port}`);
+    } else {
+      // Local development - try preferred ports in order: 5000, 3001, 3000, then find any available
+      const preferredPorts = [5000, 3001, 3000];
+      
+      // First try preferred ports
+      for (const preferredPort of preferredPorts) {
+        try {
+          port = await findAvailablePort(preferredPort);
+          if (port === preferredPort) break; // Found our preferred port
+        } catch (e) {
+          continue; // Try next preferred port
+        }
       }
-    }
-    
-    // If no preferred port available, find any available port starting from 3000
-    if (!port) {
-      port = await findAvailablePort(3000);
+      
+      // If no preferred port available, find any available port starting from 3000
+      if (!port) {
+        port = await findAvailablePort(3000);
+      }
     }
     
     const allIPs = getAllLocalIPs();
@@ -221,19 +245,28 @@ const startServer = async () => {
     
     app.listen(port, "0.0.0.0", () => {
       console.log(`🚀 Motion API successfully started!`);
-      console.log(`📱 Local access: http://localhost:${port}`);
-      console.log(`🌐 Primary mobile access: http://${primaryIP}:${port}`);
-      console.log(`💚 Health check: http://localhost:${port}/health`);
-      console.log(`🤖 AI test: http://localhost:${port}/api/ai/test`);
-      console.log(`⚡ Port ${port} automatically selected`);
-      console.log(`\n📍 All available IPs for mobile access:`);
       
-      allIPs.forEach((ip, index) => {
-        const prefix = index === 0 ? '🎯 PRIMARY' : '   ';
-        console.log(`   ${prefix} ${ip.interface}: http://${ip.ip}:${port}`);
-      });
-      
-      console.log(`\n💡 Copy one of these URLs to your mobile frontend!`);
+      if (process.env.PORT) {
+        // Railway deployment
+        console.log(`� Railway deployment running on port ${port}`);
+        console.log(`💚 Health check: https://api.motionflow.app/health`);
+        console.log(`🤖 AI endpoint: https://api.motionflow.app/api/ai`);
+      } else {
+        // Local development
+        console.log(`�📱 Local access: http://localhost:${port}`);
+        console.log(`🌐 Primary mobile access: http://${primaryIP}:${port}`);
+        console.log(`💚 Health check: http://localhost:${port}/health`);
+        console.log(`🤖 AI test: http://localhost:${port}/api/ai/test`);
+        console.log(`⚡ Port ${port} automatically selected`);
+        console.log(`\n📍 All available IPs for mobile access:`);
+        
+        allIPs.forEach((ip, index) => {
+          const prefix = index === 0 ? '🎯 PRIMARY' : '   ';
+          console.log(`   ${prefix} ${ip.interface}: http://${ip.ip}:${port}`);
+        });
+        
+        console.log(`\n💡 Copy one of these URLs to your mobile frontend!`);
+      }
       
       // Write comprehensive server info for frontend auto-detection
       const fs = require('fs');

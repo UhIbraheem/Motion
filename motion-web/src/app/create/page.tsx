@@ -53,8 +53,8 @@ const experienceIconMap: Record<string, React.ComponentType<any>> = {
   'body': IoFitnessOutline,
 };
 
-// Restrict plan vibes to curated 6 keys only (updated: include special-occasion, drop explorer)
-const PLAN_VIBE_KEYS = ['romantic','chill','spontaneous','energized','mindful','special-occasion'];
+// Restrict plan vibes to curated 6 keys only (updated: include special-occasion, replace mindful with elegant)
+const PLAN_VIBE_KEYS = ['romantic','chill','spontaneous','trending','elegant','special-occasion'];
 const vibeOptions = VIBES.filter(v => PLAN_VIBE_KEYS.includes(v.key)).map(v => ({
   value: v.key,
   label: v.label,
@@ -100,6 +100,9 @@ interface FormData {
   duration: string;
   budget: string;
   groupSize: string;
+  radius: string;
+  startTime: string;
+  endTime: string;
   dietaryRestrictions: string[];
   dietaryPreferences: string[];
 }
@@ -118,16 +121,27 @@ export default function CreatePage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [usageStats, setUsageStats] = useState<UsageStats | null>(null);
   // Persistent selections (localStorage) for user convenience
-  const [formData, setFormData] = usePersistentState<FormData>('motion:create:form', {
+  const defaultFormData: FormData = {
     vibe: '',
     categories: [],
     location: '',
     duration: '',
     budget: '',
     groupSize: '',
+  radius: '10',
+  startTime: '10:00',
+  endTime: '',
     dietaryRestrictions: [],
     dietaryPreferences: []
-  });
+  };
+  
+  const [formData, setFormData] = usePersistentState<FormData>('motion:create:form', defaultFormData);
+
+  // Reset form to defaults
+  const resetForm = () => {
+    setFormData(defaultFormData);
+    setLocationInput('');
+  };
 
   // Backward compatibility: ensure newly added arrays exist if older localStorage version
   useEffect(() => {
@@ -160,6 +174,7 @@ export default function CreatePage() {
       setUsageStats(stats);
     } catch (error) {
       // silently ignore usage stats load errors
+      console.log('Usage stats error, continuing without stats');
     }
   };
   const handleVibeSelect = (vibe: string) => setFormData(prev => ({ ...prev, vibe }));
@@ -203,36 +218,27 @@ export default function CreatePage() {
       const ai = new WebAIAdventureService();
       const filters: AdventureFilters = {
         location: formData.location || undefined,
+        radius: formData.radius ? parseInt(formData.radius, 10) : undefined,
         duration: formData.duration === 'short' ? 'quick' : formData.duration === 'half-day' ? 'half-day' : formData.duration === 'full-day' ? 'full-day' : undefined,
         budget: formData.budget ? formData.budget as 'budget' | 'moderate' | 'premium' : undefined,
         dietaryRestrictions: [...formData.dietaryRestrictions, ...formData.dietaryPreferences],
         groupSize: formData.groupSize ? parseInt(formData.groupSize, 10) : undefined,
-        experienceTypes: Array.from(new Set([...formData.categories, formData.vibe ? formData.vibe : ''])).filter(Boolean),
+  experienceTypes: Array.from(new Set([...formData.categories, formData.vibe ? formData.vibe : ''])).filter(Boolean),
+  startTime: formData.startTime || undefined,
+  endTime: formData.endTime || undefined,
       };
 
       const { data, error } = await ai.generateAdventure(filters);
       if (error || !data) {
         toast.error('Generation failed. Try adjusting filters.');
       } else {
-        // For now, stash the result in sessionStorage and navigate to a simple reader page later
+        // Store the result in sessionStorage for temporary viewing
         if (typeof window !== 'undefined') {
           sessionStorage.setItem('lastGeneratedAdventure', JSON.stringify(data));
         }
-        // After generation we'll attempt to persist server-side so photos get stored
-        try {
-          const userId = user.id;
-          const persistRes = await fetch('/api/adventures', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId, adventure: data, persistPhotos: true }) });
-          if (persistRes.ok) {
-            const json = await persistRes.json();
-            if (json.adventureId) {
-              router.push(`/adventures/${json.adventureId}`);
-              return;
-            }
-          }
-        } catch (e) {
-      toast('Temporary adventure created (not fully saved)');
-        }
-        // Fallback: use session-only representation with pseudo id 'local'
+        
+        // Navigate to temporary adventure view (not saved to database yet)
+        toast.success('Adventure created! Save it to your plans when ready.');
         router.push('/adventures/local');
       }
     } catch (error) {
@@ -301,7 +307,7 @@ export default function CreatePage() {
     'romantic': { pill: 'from-rose-500 to-pink-500', dot: 'from-pink-400 to-rose-500', icon: <IoHeart className="w-3.5 h-3.5"/> },
     'chill': { pill: 'from-sky-400 to-cyan-500', dot: 'from-cyan-400 to-sky-500', icon: <IoCafeOutline className="w-3.5 h-3.5"/> },
     'spontaneous': { pill: 'from-violet-500 to-fuchsia-500', dot: 'from-fuchsia-500 to-violet-500', icon: <IoSparkles className="w-3.5 h-3.5"/> },
-    'energized': { pill: 'from-amber-500 to-orange-600', dot: 'from-orange-500 to-amber-500', icon: <IoFlash className="w-3.5 h-3.5"/> },
+  'trending': { pill: 'from-amber-500 to-orange-600', dot: 'from-orange-500 to-amber-500', icon: <IoSparkles className="w-3.5 h-3.5"/> },
     'mindful': { pill: 'from-emerald-500 to-teal-600', dot: 'from-teal-500 to-emerald-600', icon: <IoFlower className="w-3.5 h-3.5"/> },
     'special-occasion': { pill: 'from-indigo-500 to-purple-600', dot: 'from-purple-500 to-indigo-600', icon: <IoGift className="w-3.5 h-3.5"/> }
   };
@@ -371,21 +377,144 @@ export default function CreatePage() {
 
             {/* Grid Layout */}
             <div className="grid gap-6 md:grid-cols-12 auto-rows-min">
-              {/* Location + Budget + Group */}
-              <Card className="md:col-span-4 shadow-lg border-gray-100/60 bg-white/70 backdrop-blur-md">
+      {/* Location + Budget + Group (left 1/3, spans two rows) */}
+    <Card className="md:col-span-4 md:row-span-2 shadow-lg border-gray-100/60 bg-white/70 backdrop-blur-md">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2 text-[#2d5a48]"><IoLocationOutline className="w-4 h-4"/>Location & Basics</CardTitle>
+          <CardTitle className="text-sm font-semibold flex items-center gap-2 text-black"><IoLocationOutline className="w-4 h-4"/>Location & Basics</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+        <CardContent className="flex flex-col justify-between gap-4 min-h-[28rem]">
                   <div>
                     <label className="text-xs font-medium text-gray-600 flex items-center gap-1 mb-1">City / Area</label>
                     <Input placeholder="e.g. San Francisco" value={locationInput} onChange={e=>setLocationInput(e.target.value)} className="h-10 text-sm" />
                   </div>
                   
-                  {/* Group Size - Now full width */}
+                  {/* Group Size */}
                   <div>
                     <label className="text-xs font-medium text-gray-600 mb-1 flex items-center gap-1"><IoPeople className="w-3.5 h-3.5"/>Group Size</label>
-                    <Input type="number" min={1} value={formData.groupSize} onChange={e=>setFormData(p=>({...p, groupSize: e.target.value }))} className="h-10 text-sm" placeholder="Number of people" />
+                    <Input type="number" min={1} max={14} value={formData.groupSize} onChange={e=>setFormData(p=>({...p, groupSize: e.target.value }))} className="h-10 text-sm" placeholder="1-14 people" />
+                  </div>
+
+                  {/* Radius and Start Time */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-medium text-gray-600 mb-1 flex items-center gap-1">
+                        <IoCompass className="w-3.5 h-3.5"/>
+                        Radius: {formData.radius || '10'} miles
+                      </label>
+                      <style jsx>{`
+                        input[type="range"]::-webkit-slider-thumb {
+                          appearance: none;
+                          width: 20px;
+                          height: 20px;
+                          border-radius: 50%;
+                          background: #3c7660;
+                          cursor: pointer;
+                          border: 2px solid white;
+                          box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                        }
+                        input[type="range"]::-moz-range-thumb {
+                          width: 20px;
+                          height: 20px;
+                          border-radius: 50%;
+                          background: #3c7660;
+                          cursor: pointer;
+                          border: 2px solid white;
+                          box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                        }
+                      `}</style>
+                      <input 
+                        type="range" 
+                        min="1" 
+                        max="25" 
+                        step="1" 
+                        value={formData.radius || '10'} 
+                        onChange={e=>setFormData(p=>({...p, radius: e.target.value}))} 
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                        style={{
+                          background: `linear-gradient(to right, #3c7660 0%, #3c7660 ${((parseInt(formData.radius || '10') - 1) / 24) * 100}%, #e5e7eb ${((parseInt(formData.radius || '10') - 1) / 24) * 100}%, #e5e7eb 100%)`
+                        }}
+                      />
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>1mi</span>
+                        <span>13mi</span>
+                        <span>25mi</span>
+                      </div>
+                    </div>
+                    <div>
+                      {/* 30-min slider from 6:00 to 23:00, with live value and progress fill */}
+                      {(() => {
+                        const toMinutes = (hhmm: string) => {
+                          if (!hhmm) return 600; // 10:00 default
+                          const [h, m] = hhmm.split(':').map(Number);
+                          return h * 60 + m;
+                        };
+                        const toHHMM = (min: number) => {
+                          const h = Math.floor(min / 60);
+                          const m = min % 60;
+                          return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+                        };
+                        const label = (min: number) => {
+                          const h = Math.floor(min / 60);
+                          const m = min % 60;
+                          const ampm = h >= 12 ? 'PM' : 'AM';
+                          const hr12 = ((h + 11) % 12) + 1;
+                          return `${hr12}:${m.toString().padStart(2,'0')} ${ampm}`;
+                        };
+                        const min = 6*60;
+                        const max = 23*60;
+                        const val = Math.min(Math.max(toMinutes(formData.startTime || '10:00'), min), max);
+                        const pct = ((val - min) / (max - min)) * 100;
+                        return (
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-xs font-medium text-gray-600 flex items-center gap-1"><IoTime className="w-3.5 h-3.5"/>Start Time</label>
+                              <span className="text-[11px] font-semibold text-[#2d5a48]">{label(val)}</span>
+                            </div>
+                            <style jsx>{`
+                              input[type="range"]::-webkit-slider-thumb {
+                                appearance: none;
+                                width: 20px;
+                                height: 20px;
+                                border-radius: 50%;
+                                background: #3c7660;
+                                cursor: pointer;
+                                border: 2px solid white;
+                                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                              }
+                              input[type="range"]::-moz-range-thumb {
+                                width: 20px;
+                                height: 20px;
+                                border-radius: 50%;
+                                background: #3c7660;
+                                cursor: pointer;
+                                border: 2px solid white;
+                                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                              }
+                            `}</style>
+                            <input
+                              type="range"
+                              min={min}
+                              max={max}
+                              step={30}
+                              value={val}
+                              onChange={e=>{
+                                const v = parseInt(e.target.value,10);
+                                setFormData(p=>({...p, startTime: toHHMM(v)}));
+                              }}
+                              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                              style={{
+                                background: `linear-gradient(to right, #3c7660 0%, #3c7660 ${pct}%, #e5e7eb ${pct}%, #e5e7eb 100%)`
+                              }}
+                            />
+                            <div className="flex justify-between text-[10px] text-gray-500 mt-1">
+                              <span>6:00 AM</span>
+                              <span>{label(val)}</span>
+                              <span>11:00 PM</span>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
                   </div>
 
                   {/* Budget - Now has its own full section */}
@@ -428,15 +557,91 @@ export default function CreatePage() {
                       })}
                     </div>
                   </div>
+                  {/* Optional End Time slider */}
+                  <div>
+                    {(() => {
+                      const toMinutes = (hhmm: string) => {
+                        if (!hhmm) return 0;
+                        const [h, m] = hhmm.split(':').map(Number);
+                        return h * 60 + m;
+                      };
+                      const toHHMM = (min: number) => {
+                        const h = Math.floor(min / 60);
+                        const m = min % 60;
+                        return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+                      };
+                      const label = (min: number) => {
+                        if (!min) return 'Not set';
+                        const h = Math.floor(min / 60);
+                        const m = min % 60;
+                        const ampm = h >= 12 ? 'PM' : 'AM';
+                        const hr12 = ((h + 11) % 12) + 1;
+                        return `${hr12}:${m.toString().padStart(2,'0')} ${ampm}`;
+                      };
+                      const min = 6*60;
+                      const max = 23*60;
+                      const val = formData.endTime ? Math.min(Math.max(toMinutes(formData.endTime), min), max) : 0;
+                      const pct = val ? ((val - min) / (max - min)) * 100 : 0;
+                      return (
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="text-xs font-medium text-gray-600 flex items-center gap-1"><IoTime className="w-3.5 h-3.5"/>End Time (optional)</label>
+                            <span className="text-[11px] font-semibold text-[#2d5a48]">{label(val)}</span>
+                          </div>
+                          <style jsx>{`
+                            input[type="range"]::-webkit-slider-thumb {
+                              appearance: none;
+                              width: 20px;
+                              height: 20px;
+                              border-radius: 50%;
+                              background: #3c7660;
+                              cursor: pointer;
+                              border: 2px solid white;
+                              box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                            }
+                            input[type="range"]::-moz-range-thumb {
+                              width: 20px;
+                              height: 20px;
+                              border-radius: 50%;
+                              background: #3c7660;
+                              cursor: pointer;
+                              border: 2px solid white;
+                              box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                            }
+                          `}</style>
+                          <input
+                            type="range"
+                            min={min}
+                            max={max}
+                            step={30}
+                            value={val || min}
+                            onChange={e=>{
+                              const v = parseInt(e.target.value,10);
+                              setFormData(p=>({...p, endTime: toHHMM(v)}));
+                            }}
+                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                            style={{
+                              background: `linear-gradient(to right, #3c7660 0%, #3c7660 ${pct}%, #e5e7eb ${pct}%, #e5e7eb 100%)`
+                            }}
+                          />
+                          <div className="flex justify-between text-[10px] text-gray-500 mt-1">
+                            <span>6:00 AM</span>
+                            <span>{label(val)}</span>
+                            <span>11:00 PM</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </CardContent>
               </Card>
 
-              {/* Vibe Selector - Enhanced with bigger buttons */}
-              <Card className="md:col-span-4 shadow-lg border-gray-100/60 bg-white/70 backdrop-blur-md">
+      {/* Vibe Selector - Enhanced with bigger buttons (right 2/3, top) */}
+    <Card className="md:col-span-8 shadow-lg border-gray-100/60 bg-white/70 backdrop-blur-md">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2 text-[#2d5a48]"><IoHeart className="w-4 h-4"/>Plan Vibe</CardTitle>
+          <CardTitle className="text-sm font-semibold flex items-center gap-2 text-black"><IoHeart className="w-4 h-4"/>Plan Vibe</CardTitle>
                 </CardHeader>
-                <CardContent>
+        <CardContent className="pt-0 pb-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {vibeOptions.map(v => {
                       const active = formData.vibe === v.value;
@@ -463,12 +668,12 @@ export default function CreatePage() {
                 </CardContent>
               </Card>
 
-              {/* Dietary */}
-              <Card className="md:col-span-4 shadow-lg border-gray-100/60 bg-white/70 backdrop-blur-md">
+      {/* Dietary (right 2/3, bottom) */}
+    <Card className="md:col-span-8 shadow-lg border-gray-100/60 bg-white/70 backdrop-blur-md">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2 text-[#2d5a48]"><IoRestaurant className="w-4 h-4"/>Dietary</CardTitle>
+          <CardTitle className="text-sm font-semibold flex items-center gap-2 text-black"><IoRestaurant className="w-4 h-4"/>Dietary</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-0 pb-4">
                   <div>
                     <p className="text-[11px] font-medium text-gray-500 mb-1">Restrictions</p>
                     <div className="flex flex-wrap gap-2">
@@ -503,10 +708,10 @@ export default function CreatePage() {
               {/* Experience Types (Full width below) */}
               <Card className="md:col-span-12 shadow-lg border-gray-100/60 bg-white/75 backdrop-blur-xl">
                 <CardHeader className="pb-3 flex flex-row items-center justify-between">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2 text-[#2d5a48]"><IoCompass className="w-4 h-4"/>Experience Types</CardTitle>
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2 text-gray-900"><IoCompass className="w-4 h-4"/>Experience Types</CardTitle>
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-gray-500 font-medium">{selectedCount} selected</span>
-                    <button type="button" onClick={()=>setFormData(p=>({...p, categories:[], vibe:'', duration:'', dietaryRestrictions:[], dietaryPreferences:[], budget:'', groupSize:''}))} className="text-xs text-[#2d5a48] hover:underline">Clear All</button>
+                    <button type="button" onClick={()=>setFormData(p=>({...p, categories:[], vibe:'', duration:'', dietaryRestrictions:[], dietaryPreferences:[], budget:'', groupSize:'', radius:'10', startTime:''}))} className="text-xs text-[#2d5a48] hover:underline">Clear All</button>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -519,7 +724,7 @@ export default function CreatePage() {
               </Card>
               <Card className="md:col-span-12 shadow-md border-gray-100/60 bg-white/65 backdrop-blur">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold text-[#2d5a48] flex items-center gap-2"><IoSparkles className="w-4 h-4"/>Tips</CardTitle>
+                  <CardTitle className="text-sm font-semibold text-gray-900 flex items-center gap-2"><IoSparkles className="w-4 h-4"/>Tips</CardTitle>
                 </CardHeader>
                 <CardContent className="text-xs text-gray-600 grid gap-2 md:grid-cols-3">
                   <div><span className="font-medium text-[#2d5a48]">Balance:</span> Mix contrasting types (e.g. Hidden Gem + Nature) for richer pacing.</div>
@@ -541,14 +746,24 @@ export default function CreatePage() {
                       <p className="text-xs text-white/80">We’ll produce a step-by-step plan with photos and places.</p>
                     </div>
                   </div>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button disabled={disabledGenerate} onClick={handleGenerate} className="h-12 px-8 rounded-xl bg-white text-[#2d5a48] hover:bg-white/90 font-semibold inline-flex items-center gap-2 disabled:opacity-60">
-                        {isGenerating ? <><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#2d5a48]"></div><span>Generating...</span></> : <><IoSparkles className="w-5 h-5"/><span>Create Adventure</span></>}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Create an AI plan from your selections</TooltipContent>
-                  </Tooltip>
+                  <div className="flex items-center gap-3">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="outline" onClick={resetForm} className="h-12 px-6 rounded-xl bg-transparent border-white/30 text-white hover:bg-white/10 font-medium inline-flex items-center gap-2">
+                          Reset Form
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Clear all selections and start over</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button disabled={disabledGenerate} onClick={handleGenerate} className="h-12 px-8 rounded-xl bg-white text-[#2d5a48] hover:bg-white/90 font-semibold inline-flex items-center gap-2 disabled:opacity-60">
+                          {isGenerating ? <><div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#2d5a48]"></div><span>Generating...</span></> : <><IoSparkles className="w-5 h-5"/><span>Create Adventure</span></>}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Create an AI plan from your selections</TooltipContent>
+                    </Tooltip>
+                  </div>
                 </CardContent>
               </Card>
             </div>

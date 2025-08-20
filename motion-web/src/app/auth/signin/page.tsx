@@ -24,27 +24,44 @@ export default function SignInPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showFallback, setShowFallback] = useState(false);
+
+  // Show fallback UI if loading takes too long
+  useEffect(() => {
+    const fallbackTimer = setTimeout(() => {
+      if (loading) {
+        setShowFallback(true);
+      }
+    }, 8000); // Increased to 8 seconds
+
+    return () => clearTimeout(fallbackTimer);
+  }, [loading]);
 
   // Redirect if already authenticated
   useEffect(() => {
-    if (!loading && user) {
-      console.log('🔐 User already authenticated, redirecting to home...');
-      const stored = sessionStorage.getItem('redirectAfterLogin');
-      let redirectTo = '/';
-      if (stored) {
-        try {
-          // Only allow same-origin redirects
-          const url = new URL(stored, window.location.origin);
-          if (url.origin === window.location.origin) {
-            redirectTo = url.pathname + url.search + url.hash;
+    // Add timeout to prevent infinite loading
+    const redirectTimeout = setTimeout(() => {
+      if (!loading && user) {
+        console.log('🔐 User already authenticated, redirecting to home...');
+        const stored = sessionStorage.getItem('redirectAfterLogin');
+        let redirectTo = '/';
+        if (stored) {
+          try {
+            // Only allow same-origin redirects
+            const url = new URL(stored, window.location.origin);
+            if (url.origin === window.location.origin) {
+              redirectTo = url.pathname + url.search + url.hash;
+            }
+          } catch {
+            // ignore invalid URL
           }
-        } catch {
-          // ignore invalid URL
         }
+        sessionStorage.removeItem('redirectAfterLogin');
+        router.push(redirectTo);
       }
-      sessionStorage.removeItem('redirectAfterLogin');
-      router.push(redirectTo);
-    }
+    }, 100); // Small delay to prevent race conditions
+
+    return () => clearTimeout(redirectTimeout);
   }, [user, loading, router]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -83,7 +100,7 @@ export default function SignInPage() {
       } else {
         setError(result.error || "Sign in failed");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Sign in error:", error);
       setError("An unexpected error occurred");
     } finally {
@@ -110,12 +127,30 @@ export default function SignInPage() {
   };
 
   // Show loading state while checking authentication
-  if (loading) {
+  if (loading && !showFallback) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#3c7660] mx-auto mb-4"></div>
           <p className="text-[#3c7660]">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show fallback if loading takes too long
+  if (loading && showFallback) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-6">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#3c7660] mx-auto mb-4"></div>
+          <p className="text-[#3c7660] mb-4">Taking longer than expected...</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="bg-[#3c7660] text-white px-4 py-2 rounded-lg hover:bg-[#2d5a48] transition-colors"
+          >
+            Refresh Page
+          </button>
         </div>
       </div>
     );

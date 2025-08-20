@@ -28,6 +28,23 @@ export interface AdventureStep {
   duration_minutes?: number
   booking_info?: string
   address?: string
+  // Legacy fields (mapping to new structure)
+  title?: string
+  notes?: string
+  booking?: {
+    method?: string
+    link?: string
+    fallback?: string
+  }
+  // Google Places enrichment fields
+  business_name?: string
+  place_id?: string
+  rating?: number
+  price_level?: number
+  business_hours?: string
+  business_phone?: string
+  business_website?: string
+  validated?: boolean
 }
 
 export interface User {

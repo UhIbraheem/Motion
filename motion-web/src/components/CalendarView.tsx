@@ -109,7 +109,7 @@ export default function CalendarView({
     switch (type) {
       case 'adventure': return 'bg-[#3c7660]';
       case 'scheduled': return 'bg-blue-500';
-      case 'suggestion': return 'bg-yellow-500';
+      case 'suggestion': return 'bg-[#f2cc6c]';
       default: return 'bg-gray-400';
     }
   };

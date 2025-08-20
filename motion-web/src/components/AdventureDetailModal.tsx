@@ -119,8 +119,16 @@ export default function AdventureDetailModal({ adventure, isOpen, onClose }: Adv
             src={photos[currentPhotoIndex]?.photo_url || '/api/placeholder/400/300'}
             alt={adventure.custom_title}
             fill
+            priority
+            sizes="(max-width: 768px) 100vw, 800px"
             className="object-cover"
           />
+          {photos.length > 1 && (
+            <div className="hidden">
+              <Image src={photos[(currentPhotoIndex + 1) % photos.length]?.photo_url || '/api/placeholder/400/300'} alt="preload next" width={10} height={10} />
+              <Image src={photos[(currentPhotoIndex - 1 + photos.length) % photos.length]?.photo_url || '/api/placeholder/400/300'} alt="preload prev" width={10} height={10} />
+            </div>
+          )}
           
           {/* Photo Navigation */}
           {photos.length > 1 && (

@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { IoHeart, IoHeartOutline, IoBookmark, IoBookmarkOutline, IoChevronBack, IoChevronForward, IoStar, IoTime, IoLocationOutline, IoExpand } from 'react-icons/io5';
-import businessPhotosService from '@/services/BusinessPhotosService';
+import { fetchStepPhotos } from '@/services/PlacesPhotoService';
 import AdventureModal from './AdventureModal';
 
 interface AdventurePhoto {
@@ -99,7 +99,7 @@ export default function EnhancedAdventureCard({
           location: step.location || adventure.location
         }));
 
-  const stepPhotos = await businessPhotosService.getAdventurePhotos(stepInputs);
+  const stepPhotos = await fetchStepPhotos(stepInputs);
 
         // Combine with existing adventure photos
         const existingPhotos: AdventurePhoto[] = adventure.adventure_photos?.map(photo => ({
@@ -110,7 +110,10 @@ export default function EnhancedAdventureCard({
         // Merge photos, prioritizing Google Places photos
         const allPhotos: AdventurePhoto[] = [
           ...stepPhotos.map((p, i) => ({
-            ...p,
+            url: p.url,
+            width: p.width,
+            height: p.height,
+            source: (p.source === 'google' ? 'google' : 'ai_generated') as 'google' | 'ai_generated',
             label: (p.label ?? stepInputs[i]?.name) || undefined,
           })),
           ...existingPhotos
@@ -177,6 +180,23 @@ export default function EnhancedAdventureCard({
     console.log('Sharing adventure:', adventure.custom_title);
   };
 
+  // Preload adjacent images when the current index changes
+  useEffect(() => {
+    if (typeof window === 'undefined' || photos.length <= 1) return;
+    const nextIdx = (currentPhotoIndex + 1) % photos.length;
+    const prevIdx = (currentPhotoIndex - 1 + photos.length) % photos.length;
+    const nextUrl = photos[nextIdx]?.url;
+    const prevUrl = photos[prevIdx]?.url;
+    if (nextUrl) {
+      const imgNext = new (window as any).Image();
+      imgNext.src = nextUrl;
+    }
+    if (prevUrl) {
+      const imgPrev = new (window as any).Image();
+      imgPrev.src = prevUrl;
+    }
+  }, [currentPhotoIndex, photos]);
+
   const getDurationText = (hours?: number): string => {
     if (!hours) return 'Duration varies';
     if (hours < 1) return `${Math.round(hours * 60)} minutes`;
@@ -213,9 +233,18 @@ export default function EnhancedAdventureCard({
                 src={photos[currentPhotoIndex]?.url || '/api/placeholder/400/300'}
                 alt={adventure.custom_title}
                 fill
-                unoptimized
+                priority
+                sizes="(max-width: 768px) 100vw, 33vw"
                 className="object-cover group-hover:scale-105 transition-transform duration-300"
               />
+
+              {/* Preload adjacent images for instant next/prev */}
+              {photos.length > 1 && (
+                <div className="hidden">
+                  <Image src={photos[(currentPhotoIndex + 1) % photos.length]?.url || '/api/placeholder/400/300'} alt="preload next" width={10} height={10} />
+                  <Image src={photos[(currentPhotoIndex - 1 + photos.length) % photos.length]?.url || '/api/placeholder/400/300'} alt="preload prev" width={10} height={10} />
+                </div>
+              )}
 
               {/* Glass title overlay over cover image */}
               <div className="absolute top-3 left-3 right-20">

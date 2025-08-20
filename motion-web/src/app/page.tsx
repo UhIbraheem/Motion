@@ -92,7 +92,7 @@ export default function DiscoverPage() {
     if (isHydrated) {
       fetchAdventures();
     }
-  }, [isHydrated, user]);
+  }, [isHydrated]); // Remove user dependency to prevent multiple calls
 
   const fetchAdventures = async () => {
     try {
