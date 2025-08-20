@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSearchParams } from 'next/navigation';
 import Navigation from '@/components/Navigation';
@@ -82,6 +82,23 @@ const mockCalendarEvents = [
 ];
 
 export default function PlansPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50">
+        <Navigation />
+        <main className="pt-20 pb-24 w-[95%] max-w-7xl mx-auto">
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin h-8 w-8 border-b-2 border-[#3c7660] rounded-full"/>
+          </div>
+        </main>
+      </div>
+    }>
+      <PlansContent />
+    </Suspense>
+  );
+}
+
+function PlansContent() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState('all');
