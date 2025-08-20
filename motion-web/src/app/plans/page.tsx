@@ -389,13 +389,33 @@ export default function PlansPage() {
 
   // Get real photo URL from Google Places data
   const getAdventurePhoto = (adventure: SavedAdventure) => {
-    // Use adventure photos first, then fallback
+    // Use adventure photos first
     if (adventure.adventure_photos?.length > 0) {
       return adventure.adventure_photos[0].photo_url;
     }
     
-  // Fallback to local brand image (no external host or SVG)
-  return '/icon.png';
+    // Try to get from Google Places data in adventure steps
+    if (adventure.adventure_steps?.length > 0) {
+      for (const step of adventure.adventure_steps) {
+        const stepData = step as any; // Type assertion for Google Places data
+        
+        // Check for Google Places photo URL
+        if (stepData.google_photo_url) {
+          return stepData.google_photo_url;
+        }
+        // Check in google_places object
+        if (stepData.google_places?.photo_url) {
+          return stepData.google_places.photo_url;
+        }
+        // Check for photo_url field
+        if (stepData.photo_url) {
+          return stepData.photo_url;
+        }
+      }
+    }
+    
+    // Fallback to local brand image (no external host or SVG)
+    return '/icon.png';
   };
 
   // Calendar event handler

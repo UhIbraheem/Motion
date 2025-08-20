@@ -314,15 +314,16 @@ CRITICAL: START WITH { - END WITH } - NO OTHER TEXT`
         // Validate and enrich with Google Places data
         console.log("🔍 Starting Google Places validation (legacy)...");
         console.log("📍 Location from frontend:", app_filter.location);
+        const enrichedAdventure = await GooglePlacesService.validateAndEnrichSteps(
+          parsed.steps, 
+          app_filter.location || "current location"
+        );
         
-        // Temporarily disable Google Places validation due to API restrictions
-        // TODO: Fix API key restrictions or implement alternative approach
-        console.log("⚠️ Google Places validation temporarily disabled due to API restrictions");
-        
-        const finalAdventure = {
+        // Filter to only include well-rated places (3+ stars)
+        const finalAdventure = GooglePlacesService.filterByRating({
           ...parsed,
-          steps: parsed.steps // Return steps without Google Places enhancement for now
-        };
+          steps: enrichedAdventure
+        }, 3.0);
         
         return res.json(finalAdventure);
       } else {

@@ -37,10 +37,10 @@ export const VIBES: VibeDefinition[] = [
   aiDefinition: 'Prioritize trending or buzzworthy experiences across categories (viral desserts/meals, pop-up exhibits, in-demand venues, scenic hotspots making the rounds). Cross-check recency and local relevance; avoid stale trends. If needed, swap in a comparable local alternative with similar hype energy.'
   },
   {
-    key: 'mindful',
-    label: 'Mindful',
-    shortDescription: 'Grounded, reflective cadence',
-    aiDefinition: 'Calming sensory profile (nature textures, tea / light nourishment, contemplative space). Integrate a brief guided reflection suggestion. Avoid chaotic or high-noise venues.'
+    key: 'elegant',
+    label: 'Elegant',
+    shortDescription: 'Premium, refined experiences with sophisticated touches',
+    aiDefinition: 'Curate upscale, refined experiences that showcase fine quality and sophistication. Think rooftop restaurants, wine tastings, boat excursions, art galleries with curator talks, boutique shopping, or exclusive access experiences. Respect budget constraints by finding elegant touches within range - maybe a boat ride for premium budget, jetski for moderate, or scenic ferry for budget. Focus on quality over quantity, refined atmosphere, and memorable premium touches.'
   },
   // Legacy / detailed vibes (kept for backward compatibility with existing adventure records)
   {

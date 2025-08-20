@@ -65,7 +65,7 @@ const WelcomeScreen: React.FC<{ navigation: any }> = ({ navigation }) => {
           marginBottom: 36,
           lineHeight: 24 
         }}>
-          Discover mindful adventures tailored to your mood and preferences
+          Discover elegant adventures tailored to your mood and preferences
         </Text>
 
         {/* Button Container - Closer Together */}

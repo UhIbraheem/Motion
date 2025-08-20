@@ -53,8 +53,8 @@ const experienceIconMap: Record<string, React.ComponentType<any>> = {
   'body': IoFitnessOutline,
 };
 
-// Restrict plan vibes to curated 6 keys only (updated: include special-occasion, replace energized with trending)
-const PLAN_VIBE_KEYS = ['romantic','chill','spontaneous','trending','mindful','special-occasion'];
+// Restrict plan vibes to curated 6 keys only (updated: include special-occasion, replace mindful with elegant)
+const PLAN_VIBE_KEYS = ['romantic','chill','spontaneous','trending','elegant','special-occasion'];
 const vibeOptions = VIBES.filter(v => PLAN_VIBE_KEYS.includes(v.key)).map(v => ({
   value: v.key,
   label: v.label,
@@ -708,7 +708,7 @@ export default function CreatePage() {
               {/* Experience Types (Full width below) */}
               <Card className="md:col-span-12 shadow-lg border-gray-100/60 bg-white/75 backdrop-blur-xl">
                 <CardHeader className="pb-3 flex flex-row items-center justify-between">
-                  <CardTitle className="text-sm font-semibold flex items-center gap-2 text-[#2d5a48]"><IoCompass className="w-4 h-4"/>Experience Types</CardTitle>
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2 text-gray-900"><IoCompass className="w-4 h-4"/>Experience Types</CardTitle>
                   <div className="flex items-center gap-3">
                     <span className="text-xs text-gray-500 font-medium">{selectedCount} selected</span>
                     <button type="button" onClick={()=>setFormData(p=>({...p, categories:[], vibe:'', duration:'', dietaryRestrictions:[], dietaryPreferences:[], budget:'', groupSize:'', radius:'10', startTime:''}))} className="text-xs text-[#2d5a48] hover:underline">Clear All</button>
@@ -724,7 +724,7 @@ export default function CreatePage() {
               </Card>
               <Card className="md:col-span-12 shadow-md border-gray-100/60 bg-white/65 backdrop-blur">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold text-[#2d5a48] flex items-center gap-2"><IoSparkles className="w-4 h-4"/>Tips</CardTitle>
+                  <CardTitle className="text-sm font-semibold text-gray-900 flex items-center gap-2"><IoSparkles className="w-4 h-4"/>Tips</CardTitle>
                 </CardHeader>
                 <CardContent className="text-xs text-gray-600 grid gap-2 md:grid-cols-3">
                   <div><span className="font-medium text-[#2d5a48]">Balance:</span> Mix contrasting types (e.g. Hidden Gem + Nature) for richer pacing.</div>

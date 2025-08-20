@@ -50,6 +50,8 @@ export default function LocalAdventurePage() {
         const json = await persistRes.json();
         if (json.adventureId) {
           toast.success('Adventure saved successfully!');
+          // Clear the session storage to clean up the create page
+          sessionStorage.removeItem('lastGeneratedAdventure');
           // Redirect to plans page with highlight parameter
           router.push(`/plans?highlight=${json.adventureId}`);
           return;

@@ -77,7 +77,7 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onGetStarted }) => {
                   </View>
                   <View className="flex-1">
                     <Text className="text-xl font-bold text-white mb-1">
-                      Mindful Exploration
+                      Elegant Exploration
                     </Text>
                     <Text className="text-white/80 text-base">
                       Every adventure is intentionally chosen for you

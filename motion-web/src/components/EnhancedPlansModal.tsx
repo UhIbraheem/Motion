@@ -477,14 +477,20 @@ export default function EnhancedPlansModal({
                         <h4 className={`font-medium ${step.completed ? 'line-through text-gray-500' : 'text-gray-900'}`}>
                           {step.title}
                         </h4>
-                        {step.rating && (
+                        {/* Show Google Places rating or step rating */}
+                        {(step.google_places?.rating || stepPlacesData[step.id]?.rating || step.rating) && (
                           <div className="flex items-center gap-1">
                             <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                            <span className="text-sm text-gray-600">{step.rating}</span>
+                            <span className="text-sm text-gray-600">
+                              {step.google_places?.rating || stepPlacesData[step.id]?.rating || step.rating}
+                            </span>
                           </div>
                         )}
                       </div>
-                      <p className="text-sm text-gray-600">{step.location}</p>
+                      {/* Show business name instead of location */}
+                      <p className="text-sm text-gray-600">
+                        {step.business_name || step.google_places?.name || stepPlacesData[step.id]?.name || 'Business'}
+                      </p>
                     </div>
 
                     <Button

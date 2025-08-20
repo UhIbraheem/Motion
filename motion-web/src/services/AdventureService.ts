@@ -290,7 +290,7 @@ class AdventureService {
     try {
       const { error } = await this.supabase
         .from('adventures')
-        .update({ scheduled_date: date.toISOString() })
+        .update({ scheduled_for: date.toISOString() })
         .eq('id', adventureId);
       if (error) throw error;
       return true;

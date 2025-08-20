@@ -2,7 +2,7 @@
 export interface StepDescriptor { name: string; location?: string }
 export interface PhotoItem { url: string; width?: number; height?: number; source?: string; label?: string; step_index?: number; photo_order?: number }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.motionflow.app';
 
 export async function fetchStepPhotos(steps: StepDescriptor[], photosPerStep = 1): Promise<PhotoItem[]> {
   const res = await fetch(`${API_BASE}/api/places/photos`, {

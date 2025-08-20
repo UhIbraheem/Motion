@@ -9,7 +9,7 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const googlePlaces = new GooglePlacesService();
+const googlePlaces = require("../services/GooglePlacesService");
 
 // Endpoint to get Google Places data for frontend
 router.post("/google-places", async (req, res) => {
@@ -36,7 +36,7 @@ router.post("/google-places", async (req, res) => {
       let photoUrl = null;
       if (place.photos && place.photos.length > 0) {
         try {
-          const photoUri = await googlePlaces.getPhotoUri(place.photos[0].name, { maxWidthPx: 400 });
+          const photoUri = await googlePlaces.getPhotoUri(place.photos[0].name, 400);
           photoUrl = photoUri;
         } catch (photoError) {
           console.error("📷 Photo fetch error:", photoError);
@@ -520,6 +520,36 @@ Respond ONLY with this JSON format:
     console.error("💥 Step regeneration error:", error);
     res.status(500).json({ 
       error: "Failed to regenerate step",
+      details: error.message
+    });
+  }
+});
+
+// Google Places details endpoint
+router.get('/google-places/details/:placeId', async (req, res) => {
+  try {
+    const { placeId } = req.params;
+    
+    if (!placeId) {
+      return res.status(400).json({ error: 'Place ID is required' });
+    }
+
+    console.log(`🔍 Fetching place details for: ${placeId}`);
+
+    const placeDetails = await googlePlaces.getPlaceDetailsById(placeId);
+    
+    if (!placeDetails) {
+      return res.status(404).json({ error: 'Place not found' });
+    }
+
+    console.log(`✅ Place details fetched: ${placeDetails.displayName?.text || 'Unknown'} (${placeDetails.rating}⭐)`);
+    
+    res.json(placeDetails);
+    
+  } catch (error) {
+    console.error("💥 Google Places details error:", error);
+    res.status(500).json({ 
+      error: "Failed to fetch place details",
       details: error.message
     });
   }

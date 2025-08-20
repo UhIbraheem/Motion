@@ -6,10 +6,9 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
-    console.log('🌐 Proxying AI request to Railway backend:', BACKEND_URL);
-    console.log('📤 Request body:', JSON.stringify(body, null, 2));
+    console.log('🔍 Proxying Google Places request to backend:', BACKEND_URL);
     
-    const response = await fetch(`${BACKEND_URL}/api/ai/generate-plan`, {
+    const response = await fetch(`${BACKEND_URL}/api/ai/google-places`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -17,25 +16,20 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify(body),
     });
 
-    console.log('📥 Backend response status:', response.status);
-
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ Railway backend request failed:', response.status, response.statusText);
-      console.error('❌ Error details:', errorText);
+      console.error('❌ Backend Google Places request failed:', response.status, response.statusText);
       return NextResponse.json(
-        { error: 'Failed to generate adventure plan', details: errorText },
+        { error: 'Failed to fetch place data', details: errorText },
         { status: response.status }
       );
     }
 
     const data = await response.json();
-    console.log('✅ Successfully proxied to Railway backend');
-    console.log('📊 Received adventure with title:', data?.title || 'No title');
-    
     return NextResponse.json(data);
+    
   } catch (error) {
-    console.error('❌ Error in AI generate-plan route:', error);
+    console.error('❌ Google Places proxy error:', error);
     return NextResponse.json(
       { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
