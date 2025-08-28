@@ -66,15 +66,10 @@ export class AIAdventureService {
 
   constructor() {
     // Detect if we're on mobile or web and use appropriate URL
-    const Platform = require('react-native').Platform;
-    
-    if (Platform.OS === 'web') {
-      // Web can use localhost
-      this.baseURL = 'http://localhost:5000/api/ai';
-    } else {
-      // Mobile needs your Mac's IP address
-      this.baseURL = 'http://192.168.4.30:5000/api/ai';
-    }
+  const { Platform } = require('react-native');
+  // Prefer Expo env var when available; fall back to production domain
+  const apiBase = process.env.Expo_PUBLIC_API_URL || process.env.EXPO_PUBLIC_API_URL || 'https://api.motionflow.app';
+  this.baseURL = `${apiBase}/api/ai`;
     
     console.log('🤖 AI Service using:', this.baseURL);
   }

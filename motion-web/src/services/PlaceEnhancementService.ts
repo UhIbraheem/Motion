@@ -24,9 +24,7 @@ interface EnhancedStep {
 }
 
 class PlaceEnhancementService {
-  private baseUrl = process.env.NODE_ENV === 'production' 
-    ? 'https://api.motionflow.app' 
-    : 'https://api.motionflow.app';
+  private baseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.motionflow.app';
 
   /**
    * Enhance an adventure with Google Places data for missing info

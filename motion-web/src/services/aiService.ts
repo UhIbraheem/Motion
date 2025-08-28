@@ -137,7 +137,7 @@ export class WebAIAdventureService {
    * Regenerate a single step using backend per-step endpoint
    */
   async regenerateStep(original: GeneratedAdventure, stepIndex: number, userRequest: string = 'Regenerate this step'): Promise<{ step: AdventureStep | null; error: string | null; }> {
-  const backendUrl = process.env.MOTION_BACKEND_URL || 'https://motion-backend-production.up.railway.app/api/ai/regenerate-step';
+  const backendUrl = '/api/ai/regenerate-step';
     try {
       const filters = original.filtersUsed || {} as AdventureFilters;
       const allSteps = original.steps;
