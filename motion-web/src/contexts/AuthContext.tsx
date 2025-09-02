@@ -73,29 +73,37 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Initialize auth state on mount
   useEffect(() => {
     if (isHydrated) {
+  // Safety timeout to avoid indefinite loading if callbacks stall
+  const failSafe = setTimeout(() => setLoading(false), 4000);
       initializeAuth();
       
       // Listen for auth changes
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
         console.log('🔐 Auth state change:', event, session?.user?.email);
         
         if (event === 'SIGNED_IN' && session) {
           console.log('🔐 User signed in, fetching profile...');
-          await fetchUserProfile(session.user.id);
+      await fetchUserProfile(session.user.id);
+      setLoading(false);
         } else if (event === 'SIGNED_OUT') {
           console.log('🔐 User signed out');
           setUser(null);
           setLoading(false);
         } else if (event === 'TOKEN_REFRESHED' && session) {
           console.log('🔐 Token refreshed, updating profile...');
-          await fetchUserProfile(session.user.id);
+      await fetchUserProfile(session.user.id);
+      setLoading(false);
         } else if (event === 'INITIAL_SESSION' && session) {
           console.log('🔐 Initial session found, fetching profile...');
-          await fetchUserProfile(session.user.id);
+      await fetchUserProfile(session.user.id);
+      setLoading(false);
         }
       });
 
-      return () => subscription.unsubscribe();
+      return () => {
+        clearTimeout(failSafe);
+        subscription.unsubscribe();
+      };
     }
   }, [isHydrated]);
 
@@ -336,7 +344,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.log('🔐 Starting Google OAuth...');
 
       // Always use our same-origin callback to avoid prod redirect
-      const redirectTo = `${window.location.origin}/auth/callback`;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+  const redirectTo = `${siteUrl}/auth/callback`;
       
       console.log('🔐 OAuth redirect URL:', redirectTo);
 
@@ -371,7 +380,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const linkGoogle = async (): Promise<{ success: boolean; error?: string }> => {
     try {
-      const redirectTo = `${window.location.origin}/auth/callback`;
+  const siteUrl2 = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+  const redirectTo = `${siteUrl2}/auth/callback`;
       // linkIdentity is available in newer supabase-js; cast to any to call
       const { data, error } = await (supabase.auth as any).linkIdentity({
         provider: 'google',

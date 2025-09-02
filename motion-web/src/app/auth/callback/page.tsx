@@ -81,8 +81,8 @@ function AuthCallbackContent() {
             }
 
             console.log('🔐 Redirecting to home page...');
-            // Ensure we stay on same-origin (localhost during dev)
-            window.location.assign('/');
+            const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : '/');
+            window.location.assign(siteUrl + '/');
             return;
           }
         }
