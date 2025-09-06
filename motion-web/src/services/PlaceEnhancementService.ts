@@ -24,7 +24,11 @@ interface EnhancedStep {
 }
 
 class PlaceEnhancementService {
-  private baseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.motionflow.app';
+  private baseUrl: string;
+
+  constructor() {
+    this.baseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.motionflow.app';
+  }
 
   /**
    * Enhance an adventure with Google Places data for missing info

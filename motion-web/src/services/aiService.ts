@@ -1,6 +1,7 @@
 // Web-adapted AI service for Motion web app
 import { buildAIPromptForVibes } from '@/data/vibes';
 import { detectCurrencyFromLocation, getBudgetPromptText } from '@/config/budgetConfig';
+
 export interface AdventureFilters {
   location?: string;
   radius?: number;
@@ -66,8 +67,9 @@ export class WebAIAdventureService {
   private baseURL: string;
 
   constructor() {
-  // Use internal Next.js API for AI to avoid cross-origin/prod redirects in dev
-  this.baseURL = '/api/ai';
+    // Use environment variable with fallback
+    this.baseURL = process.env.NEXT_PUBLIC_API_URL || 'https://api.motionflow.app';
+    console.log('🔧 AI Service initialized with baseURL:', this.baseURL);
   }
 
   /**
@@ -78,14 +80,14 @@ export class WebAIAdventureService {
     error: string | null;
   }> {
     try {
-
       const requestBody = {
         app_filter: this.formatFiltersForBackend(filters),
         radius: filters.radius || 10,
       };
 
+      console.log('🚀 Generating adventure:', requestBody);
 
-  const response = await fetch(`${this.baseURL}/generate-plan`, {
+      const response = await fetch(`${this.baseURL}/api/ai/generate-plan`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -95,6 +97,7 @@ export class WebAIAdventureService {
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error('❌ Backend error:', response.status, errorText);
         return {
           data: null,
           error: `Backend error: ${response.status} - ${errorText}`,
@@ -102,6 +105,7 @@ export class WebAIAdventureService {
       }
 
       const backendData = await response.json();
+      console.log('✅ Adventure generated:', backendData.title);
 
       // Transform backend response to our format (with enhanced data)
       const adventure: GeneratedAdventure = {
@@ -126,9 +130,10 @@ export class WebAIAdventureService {
       return { data: adventure, error: null };
 
     } catch (error) {
+      console.error('💥 Network error:', error);
       return {
         data: null,
-        error: 'Cannot connect to backend. Check your internet connection.',
+        error: 'Cannot connect to backend. Please check your internet connection.',
       };
     }
   }
@@ -137,7 +142,7 @@ export class WebAIAdventureService {
    * Regenerate a single step using backend per-step endpoint
    */
   async regenerateStep(original: GeneratedAdventure, stepIndex: number, userRequest: string = 'Regenerate this step'): Promise<{ step: AdventureStep | null; error: string | null; }> {
-  const backendUrl = '/api/ai/regenerate-step';
+    const backendUrl = `${this.baseURL}/api/ai/regenerate-step`;
     try {
       const filters = original.filtersUsed || {} as AdventureFilters;
       const allSteps = original.steps;
@@ -181,7 +186,6 @@ export class WebAIAdventureService {
     error: string | null;
   }> {
     try {
-      
       const saveData = {
         userId,
         adventure: {
@@ -191,11 +195,10 @@ export class WebAIAdventureService {
         }
       };
 
-      const response = await fetch('https://motion-backend-production.up.railway.app/api/adventures', {
+      const response = await fetch(`${this.baseURL}/api/adventures`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
         body: JSON.stringify(saveData),
       });
@@ -209,6 +212,7 @@ export class WebAIAdventureService {
       return { data: savedAdventure, error: null };
 
     } catch (error) {
+      console.error('💥 Save adventure error:', error);
       return { data: null, error: 'Failed to save adventure' };
     }
   }
@@ -221,10 +225,8 @@ export class WebAIAdventureService {
     error: string | null;
   }> {
     try {
-      const response = await fetch(`https://motion-backend-production.up.railway.app/api/adventures/user/${userId}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
+      const response = await fetch(`${this.baseURL}/api/adventures/user/${userId}`, {
+        // Remove Authorization header as it's not being used
       });
 
       if (!response.ok) {
@@ -236,6 +238,7 @@ export class WebAIAdventureService {
       return { data: adventures, error: null };
 
     } catch (error) {
+      console.error('💥 Fetch adventures error:', error);
       return { data: null, error: 'Failed to fetch adventures' };
     }
   }
@@ -251,11 +254,10 @@ export class WebAIAdventureService {
     error: string | null;
   }> {
     try {
-      const response = await fetch(`https://motion-backend-production.up.railway.app/api/adventures/${adventureId}`, {
+      const response = await fetch(`${this.baseURL}/api/adventures/${adventureId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
         },
         body: JSON.stringify(updates),
       });
@@ -269,6 +271,7 @@ export class WebAIAdventureService {
       return { data: updatedAdventure, error: null };
 
     } catch (error) {
+      console.error('💥 Update adventure error:', error);
       return { data: null, error: 'Failed to update adventure' };
     }
   }
@@ -379,8 +382,8 @@ export class WebAIAdventureService {
   }
 
   private extractVibe(experienceTypes: string[]): string | undefined {
-  // Extract vibe from experience types (vibes are: romantic, chill, spontaneous, trending, mindful, special-occasion)
-  const vibes = ['romantic', 'chill', 'spontaneous', 'trending', 'mindful', 'special-occasion'];
+    // Extract vibe from experience types (vibes are: romantic, chill, spontaneous, trending, mindful, special-occasion)
+    const vibes = ['romantic', 'chill', 'spontaneous', 'trending', 'mindful', 'special-occasion'];
     return experienceTypes.find(type => vibes.includes(type));
   }
 }

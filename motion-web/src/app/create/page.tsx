@@ -116,10 +116,18 @@ interface UsageStats {
 }
 
 export default function CreatePage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [isGenerating, setIsGenerating] = useState(false);
   const [usageStats, setUsageStats] = useState<UsageStats | null>(null);
+
+  // Handle authentication state
+  useEffect(() => {
+    if (!authLoading && !user) {
+      // Redirect to sign in if not authenticated
+      router.push('/auth/signin');
+    }
+  }, [user, authLoading, router]);
   // Persistent selections (localStorage) for user convenience
   const defaultFormData: FormData = {
     vibe: '',
@@ -312,8 +320,33 @@ export default function CreatePage() {
     'special-occasion': { pill: 'from-indigo-500 to-purple-600', dot: 'from-purple-500 to-indigo-600', icon: <IoGift className="w-3.5 h-3.5"/> }
   };
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#3c7660] mx-auto mb-4"></div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Loading Motion</h1>
+          <p className="text-gray-600">Preparing your adventure creation...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!user) {
-    return null; // safe early return AFTER all hooks declared
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Authentication Required</h1>
+          <p className="text-gray-600 mb-6">Please sign in to create your adventure.</p>
+          <Button 
+            onClick={() => router.push('/auth/signin')}
+            className="bg-[#3c7660] hover:bg-[#2d5a48]"
+          >
+            Sign In
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   const ExperienceTypeButton = memo(({ id, name, icon }: { id: string; name: string; icon: string; }) => {

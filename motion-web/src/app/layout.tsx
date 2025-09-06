@@ -5,6 +5,7 @@ import { AuthProvider } from '@/contexts/AuthContext'
 // Navigation is rendered within pages as needed
 import { Toaster } from '@/components/ui/toaster'
 import AuthHashGuard from '@/components/AuthHashGuard'
+import ErrorBoundary from '@/components/ErrorBoundary'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -26,13 +27,15 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} antialiased`} suppressHydrationWarning>
-        <AuthProvider>
-          <div className="min-h-screen bg-white">
-            <AuthHashGuard />
-            {children}
-            <Toaster />
-          </div>
-        </AuthProvider>
+        <ErrorBoundary>
+          <AuthProvider>
+            <div className="min-h-screen bg-white">
+              <AuthHashGuard />
+              {children}
+              <Toaster />
+            </div>
+          </AuthProvider>
+        </ErrorBoundary>
       </body>
     </html>
   )

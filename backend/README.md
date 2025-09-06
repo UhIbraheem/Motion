@@ -3,6 +3,7 @@
 Public base URL: https://api.motionflow.app
 
 Key routes:
+
 - GET /health
 - POST /api/ai/generate-plan
 - POST /api/ai/regenerate-step
@@ -10,6 +11,7 @@ Key routes:
 - POST /api/places/enhance
 
 Environment variables (Railway):
+
 - SUPABASE_URL
 - SUPABASE_SERVICE_ROLE_KEY
 - OPENAI_API_KEY
