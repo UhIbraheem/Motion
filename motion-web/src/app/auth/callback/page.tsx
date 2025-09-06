@@ -80,9 +80,9 @@ function AuthCallbackContent() {
               }
             }
 
-            console.log('🔐 Redirecting to home page...');
+            console.log('🔐 Redirecting to discover page...');
             const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : '/');
-            window.location.assign(siteUrl + '/');
+            window.location.assign(siteUrl + '/discover');
             return;
           }
         }
