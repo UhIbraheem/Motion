@@ -87,7 +87,8 @@ export class WebAIAdventureService {
 
       console.log('🚀 Generating adventure:', requestBody);
 
-      const response = await fetch(`${this.baseURL}/api/ai/generate-plan`, {
+      // Use Next.js API route instead of calling Railway directly
+      const response = await fetch(`/api/ai/generate-plan`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -142,13 +143,14 @@ export class WebAIAdventureService {
    * Regenerate a single step using backend per-step endpoint
    */
   async regenerateStep(original: GeneratedAdventure, stepIndex: number, userRequest: string = 'Regenerate this step'): Promise<{ step: AdventureStep | null; error: string | null; }> {
-    const backendUrl = `${this.baseURL}/api/ai/regenerate-step`;
     try {
       const filters = original.filtersUsed || {} as AdventureFilters;
       const allSteps = original.steps;
       const currentStep = allSteps[stepIndex];
       const radius = filters.radius || 10;
-      const res = await fetch(backendUrl, {
+      
+      // Use Next.js API route instead of calling Railway directly
+      const res = await fetch(`/api/ai/regenerate-step`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -195,7 +197,7 @@ export class WebAIAdventureService {
         }
       };
 
-      const response = await fetch(`${this.baseURL}/api/adventures`, {
+      const response = await fetch(`/api/adventures/save`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -225,7 +227,7 @@ export class WebAIAdventureService {
     error: string | null;
   }> {
     try {
-      const response = await fetch(`${this.baseURL}/api/adventures/user/${userId}`, {
+      const response = await fetch(`/api/adventures/user/${userId}`, {
         // Remove Authorization header as it's not being used
       });
 
@@ -254,7 +256,7 @@ export class WebAIAdventureService {
     error: string | null;
   }> {
     try {
-      const response = await fetch(`${this.baseURL}/api/adventures/${adventureId}`, {
+      const response = await fetch(`/api/adventures/${adventureId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
