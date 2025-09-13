@@ -58,11 +58,6 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-        timestamp: new Date().toISOString()
-      },
-      { status: 500 }
-    );
-  }
 }
 
 // Health check for this specific route
