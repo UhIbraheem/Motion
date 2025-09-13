@@ -101,20 +101,50 @@ const getPriority = (interfaceName, ip) => {
 };
 
 // Middleware
-const allowedOrigins = process.env.NODE_ENV === 'production' 
-  ? [
-      'https://app.motionflow.app',
-      'https://motionflow.app',
-      'https://www.motionflow.app'
-    ]
-  : "*"; // Allow all origins for development
+const allowedOrigins = [
+  'https://app.motionflow.app',
+  'https://motionflow.app',
+  'https://www.motionflow.app',
+  'http://localhost:3000',
+  'http://localhost:3001'
+];
+
+// For development, allow all origins
+if (process.env.NODE_ENV !== 'production') {
+  console.log('🔓 Development mode - allowing all origins for CORS');
+  allowedOrigins.push('*');
+}
+
+console.log('🔒 CORS allowed origins:', allowedOrigins);
 
 app.use(cors({
-  origin: allowedOrigins,
-  methods: ["GET", "POST", "PUT", "DELETE"],
-  allowedHeaders: ["Content-Type", "Authorization"]
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    // Check if origin is allowed
+    if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    console.error('❌ CORS blocked origin:', origin);
+    const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+    return callback(new Error(msg), false);
+  },
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Forwarded-For", "User-Agent", "X-Requested-With"],
+  credentials: true,
+  preflightContinue: false,
+  optionsSuccessStatus: 200
 }));
 app.use(express.json());
+
+// Request logging middleware
+app.use((req, res, next) => {
+  const timestamp = new Date().toISOString();
+  console.log(`📝 ${timestamp} ${req.method} ${req.path} - Origin: ${req.get('Origin') || 'none'} - User-Agent: ${req.get('User-Agent') || 'none'}`);
+  next();
+});
 
 // Routes
 app.use("/api/ai", aiRouter);
@@ -212,6 +242,15 @@ app.get("/health", (req, res) => {
 // Start server with dynamic port detection
 const startServer = async () => {
   try {
+    // Log environment variables for debugging (without secrets)
+    console.log('🔍 Environment check:');
+    console.log('   NODE_ENV:', process.env.NODE_ENV || 'undefined');
+    console.log('   PORT:', process.env.PORT || 'undefined');
+    console.log('   OPENAI_API_KEY:', process.env.OPENAI_API_KEY ? '✅ Set' : '❌ Missing');
+    console.log('   GOOGLE_PLACES_API_KEY:', process.env.GOOGLE_PLACES_API_KEY ? '✅ Set' : '❌ Missing');
+    console.log('   SUPABASE_URL:', process.env.SUPABASE_URL ? '✅ Set' : '❌ Missing');
+    console.log('   SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? '✅ Set' : '❌ Missing');
+    
     // Use Railway's PORT environment variable if available, otherwise use local preferences
     const railwayPort = process.env.PORT;
     let port;

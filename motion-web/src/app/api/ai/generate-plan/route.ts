@@ -6,13 +6,16 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     
-    console.log('🌐 Proxying AI request to Railway backend:', BACKEND_URL);
-    console.log('📤 Request body:', JSON.stringify(body, null, 2));
+    console.log('🌐 [VERCEL] Proxying AI request to Railway backend:', BACKEND_URL);
+    console.log('📤 [VERCEL] Request body:', JSON.stringify(body, null, 2));
+    console.log('🕐 [VERCEL] Timestamp:', new Date().toISOString());
     
     const response = await fetch(`${BACKEND_URL}/api/ai/generate-plan`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-Forwarded-For': request.headers.get('x-forwarded-for') || 'unknown',
+        'User-Agent': 'Motion-Web-Vercel-Proxy',
         // Forward any auth headers if present
         ...(request.headers.get('authorization') && {
           'Authorization': request.headers.get('authorization')!
@@ -21,33 +24,40 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify(body),
     });
 
-    console.log('📥 Backend response status:', response.status);
+    console.log('📥 [VERCEL] Railway response status:', response.status);
+    console.log('📊 [VERCEL] Railway response headers:', Object.fromEntries(response.headers.entries()));
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ Railway backend request failed:', response.status, response.statusText);
-      console.error('❌ Error details:', errorText);
+      console.error('❌ [VERCEL] Railway backend request failed:', response.status, response.statusText);
+      console.error('❌ [VERCEL] Error details:', errorText);
       return NextResponse.json(
         { 
           error: 'Failed to generate adventure plan', 
           details: errorText,
-          status: response.status 
+          status: response.status,
+          backendUrl: BACKEND_URL
         },
         { status: response.status }
       );
     }
 
     const data = await response.json();
-    console.log('✅ Successfully proxied to Railway backend');
-    console.log('📊 Received adventure with title:', data?.title || 'No title');
+    console.log('✅ [VERCEL] Successfully proxied to Railway backend');
+    console.log('📊 [VERCEL] Received adventure with title:', data?.title || 'No title');
     
     return NextResponse.json(data);
   } catch (error) {
-    console.error('❌ Error in AI generate-plan route:', error);
+    console.error('❌ [VERCEL] Error in AI generate-plan route:', error);
     return NextResponse.json(
       { 
         error: 'Internal server error', 
         details: error instanceof Error ? error.message : 'Unknown error',
+        backendUrl: BACKEND_URL
+      },
+      { status: 500 }
+    );
+  }
         timestamp: new Date().toISOString()
       },
       { status: 500 }
