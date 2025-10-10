@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, MapPin, Clock, Calendar as CalendarIcon, Star, CheckCircle2, Circle, Phone, Globe, ChevronDown, ChevronUp, ExternalLink, RefreshCw } from 'lucide-react';
+import { X, MapPin, Clock, Calendar as CalendarIcon, Star, CheckCircle2, Circle, Phone, Globe, ChevronDown, ChevronUp, ExternalLink, RefreshCw, TrendingUp, DollarSign, Navigation, Sparkles, Award, Users, ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -28,7 +28,7 @@ interface AdventureStep {
   photo_url?: string; // Real Google Places photo
   google_places?: {
     place_id: string;
-    name: string;
+    name: string | { text: string; languageCode: string };
     address: string;
     rating: number;
     user_rating_count: number;
@@ -92,6 +92,10 @@ export default function EnhancedPlansModal({
   const [stepPlacesData, setStepPlacesData] = useState<Record<string, any>>({});
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState(adventure.title);
+  const [isScheduleSectionOpen, setIsScheduleSectionOpen] = useState(!adventure.scheduled_for);
+  const [tempSelectedDate, setTempSelectedDate] = useState<Date | undefined>(
+    adventure.scheduled_for ? new Date(adventure.scheduled_for) : undefined
+  );
   
   if (!isOpen) return null;
 
@@ -109,10 +113,16 @@ export default function EnhancedPlansModal({
   const canMarkComplete = canCompleteSteps && allStepsCompleted;
 
   const handleScheduleSubmit = () => {
-    if (selectedDate) {
-      onSchedule(selectedDate);
-      toast.success('Adventure scheduled successfully!');
+    if (tempSelectedDate) {
+      setSelectedDate(tempSelectedDate);
+      onSchedule(tempSelectedDate);
+      setIsScheduleSectionOpen(false);
+      toast.success(`Adventure scheduled for ${tempSelectedDate.toLocaleDateString()}! 🎉`);
     }
+  };
+
+  const handleDateSelect = (date: Date | undefined) => {
+    setTempSelectedDate(date);
   };
 
   const handleStepToggle = (stepId: string, completed: boolean) => {
@@ -173,41 +183,104 @@ export default function EnhancedPlansModal({
     setExpandedSteps(newExpanded);
   };
 
-  // Fetch Google Places data for steps with business names
+  // Fetch Google Places data AND photos for steps
   useEffect(() => {
     const fetchPlacesData = async () => {
-      for (const step of adventure.steps) {
-        if (step.business_name && !stepPlacesData[step.id]) {
+      const fetchPromises = adventure.steps
+        .filter(step => step.business_name && !stepPlacesData[step.id])
+        .map(async (step) => {
           try {
+            if (!step.business_name) return null;
+            
             const placeData = await GooglePlacesService.getPlaceDataWithCache(
               step.business_name,
               step.location
             );
+            
             if (placeData) {
-              setStepPlacesData(prev => ({
-                ...prev,
-                [step.id]: placeData
-              }));
+              // Fetch multiple photos if available
+              let photos: string[] = [];
+              const placeDataAny = placeData as any;
+              
+              if (placeDataAny.photos && Array.isArray(placeDataAny.photos) && placeDataAny.photos.length > 0) {
+                // Get up to 3 photos
+                photos = placeDataAny.photos.slice(0, 3).map((photo: any) => photo.url || photo);
+              } else if (placeData.photo_url) {
+                photos = [placeData.photo_url];
+              }
+              
+              return { 
+                stepId: step.id, 
+                placeData: {
+                  ...placeData,
+                  photos // Array of photo URLs
+                }
+              };
             }
           } catch (error) {
             console.error('Error fetching place data for step:', step.id, error);
           }
+          return null;
+        });
+
+      const results = await Promise.all(fetchPromises);
+      
+      const newPlacesData: Record<string, any> = {};
+      results.forEach(result => {
+        if (result) {
+          newPlacesData[result.stepId] = result.placeData;
         }
+      });
+
+      if (Object.keys(newPlacesData).length > 0) {
+        setStepPlacesData(prev => ({
+          ...prev,
+          ...newPlacesData
+        }));
       }
     };
 
     if (adventure.steps.length > 0) {
       fetchPlacesData();
     }
-  }, [adventure.steps, stepPlacesData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adventure.id]); // Only run when adventure changes
+
+  const getStepPhotos = (step: AdventureStep): string[] => {
+    // Get multiple photos for the step
+    const photos: string[] = [];
+    
+    // Priority 1: stepPlacesData photos array (freshly fetched)
+    if (stepPlacesData[step.id]?.photos && Array.isArray(stepPlacesData[step.id].photos)) {
+      photos.push(...stepPlacesData[step.id].photos);
+    }
+    
+    // Priority 2: google_places.photo_url from database
+    if (step.google_places?.photo_url && !photos.includes(step.google_places.photo_url)) {
+      photos.push(step.google_places.photo_url);
+    }
+    
+    // Priority 3: step.photo_url
+    if (step.photo_url && !photos.includes(step.photo_url)) {
+      photos.push(step.photo_url);
+    }
+    
+    // Priority 4: stepPlacesData single photo_url
+    if (stepPlacesData[step.id]?.photo_url && !photos.includes(stepPlacesData[step.id].photo_url)) {
+      photos.push(stepPlacesData[step.id].photo_url);
+    }
+    
+    // Return up to 3 photos, or fallback if none found
+    if (photos.length > 0) {
+      return photos.slice(0, 3);
+    }
+    
+    return [`https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=400&h=300&fit=crop`];
+  };
 
   const getStepPhoto = (step: AdventureStep) => {
-    // Priority: google_places.photo_url > step.photo_url > google_places data > fallback
-    return step.google_places?.photo_url || 
-           step.photo_url || 
-           stepPlacesData[step.id]?.photo_references?.[0] ? 
-             GooglePlacesService.getPhotoUrl(stepPlacesData[step.id].photo_references[0], 400) :
-           `https://picsum.photos/400/300?random=${step.id}`;
+    // Get first photo from the array
+    return getStepPhotos(step)[0];
   };
 
   const getGoogleMapsLink = (step: AdventureStep) => {
@@ -226,19 +299,19 @@ export default function EnhancedPlansModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-        {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between rounded-t-2xl">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-3xl max-w-5xl w-full max-h-[92vh] overflow-hidden shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-300">
+        {/* Premium Header */}
+        <div className="sticky top-0 bg-gradient-to-br from-white via-white to-[#f8f2d5]/30 border-b border-gray-100 px-8 py-6 flex items-center justify-between rounded-t-3xl z-10 backdrop-blur-sm">
           <div className="flex-1 mr-4">
             {/* Editable Title */}
             {isEditingTitle ? (
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex items-center gap-3 mb-2">
                 <input
                   type="text"
                   value={editedTitle}
                   onChange={(e) => setEditedTitle(e.target.value)}
-                  className="text-2xl font-bold text-gray-900 bg-transparent border-b-2 border-[#f2cc6c] focus:outline-none focus:border-[#3c7660] transition-colors flex-1"
+                  className="text-3xl font-bold text-gray-900 bg-white/50 backdrop-blur-sm border-2 border-[#f2cc6c] rounded-xl px-4 py-2 focus:outline-none focus:border-[#3c7660] focus:ring-2 focus:ring-[#3c7660]/20 transition-all flex-1"
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleTitleSave();
@@ -248,7 +321,7 @@ export default function EnhancedPlansModal({
                 <Button
                   size="sm"
                   onClick={handleTitleSave}
-                  className="bg-[#3c7660] hover:bg-[#2d5a47] text-white border border-[#f2cc6c]/30"
+                  className="bg-gradient-to-r from-[#3c7660] to-[#4d987b] hover:shadow-lg text-white px-6"
                 >
                   Save
                 </Button>
@@ -256,14 +329,14 @@ export default function EnhancedPlansModal({
                   size="sm"
                   variant="outline"
                   onClick={handleTitleCancel}
-                  className="border-gray-300"
+                  className="border-gray-300 hover:bg-gray-50"
                 >
                   Cancel
                 </Button>
               </div>
             ) : (
               <h2 
-                className="text-2xl font-bold text-gray-900 mb-1 cursor-pointer hover:text-[#3c7660] transition-colors border-b-2 border-transparent hover:border-[#f2cc6c]/50 inline-block"
+                className="text-3xl font-bold mb-2 cursor-pointer transition-all inline-block bg-gradient-to-r from-[#3c7660] to-[#4d987b] bg-clip-text text-transparent hover:from-[#2d5a47] hover:to-[#3c7660]"
                 onClick={() => setIsEditingTitle(true)}
                 title="Click to edit title"
               >
@@ -271,479 +344,584 @@ export default function EnhancedPlansModal({
               </h2>
             )}
             
-            <div className="flex items-center gap-4 text-sm text-gray-600">
-              <div className="flex items-center gap-1">
+            <div className="flex items-center gap-5 text-sm">
+              <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-full px-3 py-1.5 border border-gray-100">
                 <MapPin className="w-4 h-4 text-[#3c7660]" />
-                {adventure.location}
+                <span className="font-medium text-gray-700">{adventure.location}</span>
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-full px-3 py-1.5 border border-gray-100">
                 <Clock className="w-4 h-4 text-[#3c7660]" />
-                {adventure.duration}
+                <span className="font-medium text-gray-700">{adventure.duration}</span>
               </div>
               {adventure.google_places_validated && (
-                <Badge variant="outline" className="text-green-700 border-green-200 bg-green-50">
-                  <span className="text-green-600">✓</span>
-                  Google Verified
+                <Badge className="bg-gradient-to-r from-emerald-500 to-green-500 text-white border-0 shadow-sm">
+                  <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                  Verified
                 </Badge>
               )}
             </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose} className="hover:bg-gray-100">
-            <X className="w-5 h-5" />
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={onClose} 
+            className="hover:bg-gray-100/80 backdrop-blur-sm rounded-full p-2.5 transition-all hover:scale-110"
+          >
+            <X className="w-5 h-5 text-gray-600" />
           </Button>
         </div>
 
-        <div className="p-6">
-          {/* Progress Bar */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-gray-700">Progress</span>
-              <span className="text-sm text-gray-500">{completedSteps}/{totalSteps} completed</span>
+        {/* Scrollable Content */}
+        <div className="overflow-y-auto max-h-[calc(92vh-120px)] px-8 py-6 bg-gradient-to-br from-gray-50/50 via-white to-[#f8f2d5]/20">
+          {/* Premium Progress Section */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-[#3c7660]" />
+                Quest Progress
+              </span>
+              <span className="text-sm font-bold text-[#3c7660]">{completedSteps}/{totalSteps} steps</span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className="relative w-full bg-gray-100 rounded-full h-3 overflow-hidden border border-gray-200 shadow-inner">
               <div 
-                className="bg-[#3c7660] h-2 rounded-full transition-all duration-300" 
+                className="absolute inset-y-0 left-0 bg-gradient-to-r from-[#3c7660] to-[#4d987b] rounded-full transition-all duration-700 shadow-sm" 
                 style={{ width: `${progressPercentage}%` }}
               />
+              {/* Shimmer effect */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
             </div>
           </div>
 
-          {/* Status Section */}
-          <div className="mb-6 p-4 bg-gradient-to-r from-white to-gray-50 rounded-lg border border-gray-200 shadow-sm">
-            <h3 className="text-lg font-semibold mb-4 text-gray-900 flex items-center">
-              <div className="w-2 h-2 bg-[#3c7660] rounded-full mr-2"></div>
-              Adventure Status
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-3">
-                <div>
-                  <span className="text-sm font-medium text-gray-700 block mb-1">Current Status</span>
-                  <div className="flex items-center gap-2">
-                    {adventure.is_completed ? (
-                      <Badge className="bg-green-100 text-green-800 border-green-200">
-                        <CheckCircle2 className="w-3 h-3 mr-1" />
-                        Completed
-                      </Badge>
-                    ) : isScheduled ? (
-                      <Badge className="bg-blue-100 text-blue-800 border-blue-200">
-                        <CalendarIcon className="w-3 h-3 mr-1" />
-                        Scheduled
-                      </Badge>
-                    ) : (
-                      <Badge className="bg-gray-100 text-gray-700 border-gray-200">
-                        <Clock className="w-3 h-3 mr-1" />
-                        Planning
-                      </Badge>
-                    )}
-                  </div>
+          {/* Premium Status Cards Grid */}
+          <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Status Card */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-100 shadow-lg hover:shadow-xl transition-all">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-3 bg-gradient-to-br from-[#3c7660]/10 to-[#4d987b]/10 rounded-xl">
+                  {adventure.is_completed ? (
+                    <Award className="w-5 h-5 text-emerald-600" />
+                  ) : isScheduled ? (
+                    <CalendarIcon className="w-5 h-5 text-[#3c7660]" />
+                  ) : (
+                    <Sparkles className="w-5 h-5 text-[#f2cc6c]" />
+                  )}
                 </div>
-                
                 <div>
-                  <span className="text-sm font-medium text-gray-700 block mb-1">Scheduled Date</span>
-                  <div className="text-sm text-gray-600">
-                    {scheduledDate ? (
-                      <div className="flex items-center gap-1">
-                        <CalendarIcon className="w-4 h-4 text-[#3c7660]" />
-                        {scheduledDate.toLocaleDateString('en-US', { 
-                          weekday: 'long', 
-                          year: 'numeric', 
-                          month: 'long', 
-                          day: 'numeric' 
-                        })}
-                      </div>
-                    ) : (
-                      <span className="text-gray-500 italic">Not scheduled yet</span>
-                    )}
-                  </div>
+                  <p className="text-xs text-gray-500 font-medium mb-1">Current Status</p>
+                  {adventure.is_completed ? (
+                    <Badge className="bg-gradient-to-r from-emerald-500 to-green-500 text-white border-0">
+                      <Award className="w-3.5 h-3.5 mr-1" />
+                      Completed
+                    </Badge>
+                  ) : isScheduled ? (
+                    <Badge className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white border-0">
+                      <CalendarIcon className="w-3.5 h-3.5 mr-1" />
+                      Scheduled
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-gradient-to-r from-gray-400 to-gray-500 text-white border-0">
+                      <Clock className="w-3.5 h-3.5 mr-1" />
+                      Planning
+                    </Badge>
+                  )}
                 </div>
               </div>
+              <div className="text-sm">
+                {scheduledDate ? (
+                  <div className="flex items-center gap-2 text-gray-700">
+                    <CalendarIcon className="w-4 h-4 text-[#3c7660]" />
+                    <span className="font-medium">
+                      {scheduledDate.toLocaleDateString('en-US', { 
+                        weekday: 'short', 
+                        month: 'short', 
+                        day: 'numeric',
+                        year: 'numeric'
+                      })}
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-gray-400 italic">Not scheduled</span>
+                )}
+              </div>
+            </div>
 
-              <div className="space-y-3">
-                <div>
-                  <span className="text-sm font-medium text-gray-700 block mb-1">Progress Status</span>
-                  <div className="flex items-center gap-2">
-                    {canCompleteSteps ? (
-                      <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">
-                        <CheckCircle2 className="w-3 h-3 mr-1" />
-                        Ready to Complete
-                      </Badge>
-                    ) : adventure.is_completed ? (
-                      <Badge className="bg-green-100 text-green-800 border-green-200">
-                        <Star className="w-3 h-3 mr-1" />
-                        Finished
-                      </Badge>
-                    ) : !isScheduled ? (
-                      <Badge className="bg-amber-100 text-amber-800 border-amber-200">
-                        <CalendarIcon className="w-3 h-3 mr-1" />
-                        Needs Scheduling
-                      </Badge>
-                    ) : (
-                      <Badge className="bg-blue-100 text-blue-800 border-blue-200">
-                        <Clock className="w-3 h-3 mr-1" />
-                        Waiting for Date
-                      </Badge>
-                    )}
-                  </div>
+            {/* Schedule Card */}
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-100 shadow-lg hover:shadow-xl transition-all">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-3 bg-gradient-to-br from-[#f2cc6c]/20 to-[#f2cc6c]/10 rounded-xl">
+                  <TrendingUp className="w-5 h-5 text-[#3c7660]" />
                 </div>
-                
-                {isScheduled && (
-                  <div>
-                    <span className="text-sm font-medium text-gray-700 block mb-1">Time Status</span>
-                    <div className="text-sm text-gray-600">
-                      {adventure.is_completed ? (
-                        <span className="text-green-600 font-medium">Adventure completed!</span>
-                      ) : scheduledDate! > today ? (
-                        <span className="text-blue-600">
-                          {Math.ceil((scheduledDate!.getTime() - today.getTime()) / (1000 * 3600 * 24))} days to go
-                        </span>
-                      ) : (
-                        <span className="text-emerald-600 font-medium">Available now!</span>
-                      )}
-                    </div>
-                  </div>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 font-medium mb-1">Progress</p>
+                {canCompleteSteps ? (
+                  <Badge className="bg-gradient-to-r from-emerald-500 to-green-500 text-white border-0">
+                    <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                    Ready to Complete
+                  </Badge>
+                ) : adventure.is_completed ? (
+                  <Badge className="bg-gradient-to-r from-emerald-600 to-green-600 text-white border-0">
+                    <Star className="w-3.5 h-3.5 mr-1" />
+                    Finished
+                  </Badge>
+                ) : !isScheduled ? (
+                  <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0">
+                    <CalendarIcon className="w-3.5 h-3.5 mr-1" />
+                    Needs Scheduling
+                  </Badge>
+                ) : (
+                  <Badge className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white border-0">
+                    <Clock className="w-3.5 h-3.5 mr-1" />
+                    In Progress
+                  </Badge>
+                )}
+              </div>
+              <div className="mt-3 text-sm">
+                {adventure.is_completed ? (
+                  <span className="text-emerald-600 font-semibold flex items-center gap-1">
+                    <Sparkles className="w-4 h-4" />
+                    Adventure completed!
+                  </span>
+                ) : isScheduled && scheduledDate! > today ? (
+                  <span className="text-blue-600 font-medium">
+                    {Math.ceil((scheduledDate!.getTime() - today.getTime()) / (1000 * 3600 * 24))} days to go
+                  </span>
+                ) : isScheduled ? (
+                  <span className="text-emerald-600 font-semibold flex items-center gap-1">
+                    <CheckCircle2 className="w-4 h-4" />
+                    Available now!
+                  </span>
+                ) : (
+                  <span className="text-gray-500">Schedule to begin</span>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Scheduling Section */}
-          <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-            <h3 className="text-lg font-semibold mb-3 text-gray-900">Schedule Adventure</h3>
-            <div className="flex items-center gap-4">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="justify-start text-left font-normal">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {selectedDate ? format(selectedDate, 'PPP') : 'Pick a date'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={setSelectedDate}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-              <Button 
-                onClick={handleScheduleSubmit}
-                disabled={!selectedDate}
-                className="bg-[#3c7660] hover:bg-[#2d5a47]"
+          {/* Collapsible Interactive Calendar Scheduling Section */}
+          {!adventure.is_completed && (
+            <div className="mb-8">
+              {/* Header Button - Always Visible */}
+              <button
+                onClick={() => setIsScheduleSectionOpen(!isScheduleSectionOpen)}
+                className="w-full relative overflow-hidden rounded-2xl transition-all duration-300 hover:shadow-xl group"
               >
-                {adventure.scheduled_for ? 'Reschedule' : 'Schedule'}
-              </Button>
-            </div>
-            {adventure.scheduled_for && (
-              <p className="text-sm text-gray-600 mt-2">
-                Currently scheduled for {format(new Date(adventure.scheduled_for), 'PPP')}
-              </p>
-            )}
-          </div>
-
-          {/* Steps Checklist */}
-          <div className="space-y-4 mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">Adventure Steps</h3>
-            {adventure.steps
-              .sort((a, b) => a.step_order - b.step_order)
-              .map((step, index) => (
-              <Card key={step.id} className="overflow-hidden hover:shadow-md transition-shadow">
-                <CardContent className="p-0">
-                  {/* Step Header */}
-                  <div className="flex items-center p-4">
-                    <button
-                      onClick={() => handleStepToggle(step.id, !step.completed)}
-                      className={`mr-3 transition-all ${
-                        canCompleteSteps 
-                          ? 'hover:scale-110 cursor-pointer' 
-                          : 'cursor-not-allowed opacity-50'
-                      }`}
-                      disabled={!canCompleteSteps}
-                    >
-                      {step.completed ? (
-                        <CheckCircle2 className="w-6 h-6 text-[#3c7660]" />
-                      ) : (
-                        <Circle className="w-6 h-6 text-gray-400" />
-                      )}
-                    </button>
-                    
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        {step.time && (
-                          <Badge variant="outline" className="text-xs">
-                            {step.time}
-                          </Badge>
-                        )}
-                        <h4 className={`font-medium ${step.completed ? 'line-through text-gray-500' : 'text-gray-900'}`}>
-                          {step.title}
-                        </h4>
-                        {/* Show Google Places rating or step rating */}
-                        {(step.google_places?.rating || stepPlacesData[step.id]?.rating || step.rating) && (
-                          <div className="flex items-center gap-1">
-                            <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                            <span className="text-sm text-gray-600">
-                              {step.google_places?.rating || stepPlacesData[step.id]?.rating || step.rating}
-                            </span>
-                          </div>
-                        )}
+                {/* Background gradient */}
+                <div className="absolute inset-0 bg-gradient-to-br from-[#f8f2d5] via-[#f2cc6c]/10 to-[#3c7660]/5" />
+                <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/40 to-transparent" />
+                
+                <div className="relative p-6 border-2 border-[#f2cc6c]/40 rounded-2xl backdrop-blur-sm group-hover:border-[#3c7660]/50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 bg-gradient-to-br from-[#3c7660] to-[#4d987b] rounded-xl shadow-lg group-hover:scale-110 transition-transform">
+                        <CalendarIcon className="w-6 h-6 text-white" />
                       </div>
-                      {/* Show business name instead of location */}
-                      <p className="text-sm text-gray-600">
-                        {step.business_name || step.google_places?.name || stepPlacesData[step.id]?.name || 'Business'}
-                      </p>
+                      <div className="text-left">
+                        <h4 className="text-xl font-bold text-gray-900 mb-1">
+                          {scheduledDate ? 'Scheduled Adventure' : 'Schedule Your Adventure'}
+                        </h4>
+                        <p className="text-sm text-gray-600">
+                          {scheduledDate 
+                            ? `${scheduledDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}`
+                            : 'Click to pick the perfect day to explore'
+                          }
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      {scheduledDate && (
+                        <div className="text-right mr-4">
+                          <div className="bg-white px-4 py-2 rounded-xl shadow-md border border-[#3c7660]/20">
+                            <p className="text-2xl font-bold text-[#3c7660]">
+                              {scheduledDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </p>
+                            <p className="text-xs text-gray-600">
+                              {scheduledDate.toLocaleDateString('en-US', { weekday: 'short' })}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      <div className={`p-2 rounded-lg transition-all ${
+                        isScheduleSectionOpen 
+                          ? 'bg-[#3c7660] text-white rotate-180' 
+                          : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        <ChevronDown className="w-5 h-5" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </button>
+
+              {/* Expandable Calendar Section */}
+              {isScheduleSectionOpen && (
+                <div className="mt-4 relative overflow-hidden animate-in slide-in-from-top-2 duration-300">
+                  {/* Animated background gradient */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#f8f2d5] via-[#f2cc6c]/10 to-[#3c7660]/5 rounded-3xl" />
+                  <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/40 to-transparent rounded-3xl" />
+                  
+                  <div className="relative rounded-3xl p-8 border-2 border-[#f2cc6c]/40 shadow-2xl backdrop-blur-sm">
+                    {/* Inline Calendar - Beautiful Design */}
+                    <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-xl border border-gray-100">
+                      <Calendar
+                        mode="single"
+                        selected={tempSelectedDate}
+                        onSelect={handleDateSelect}
+                        disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                        className="rounded-xl border-0 mx-auto"
+                        classNames={{
+                          months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
+                          month: "space-y-4",
+                          caption: "flex justify-center pt-1 relative items-center",
+                          caption_label: "text-lg font-bold text-gray-900",
+                          nav: "space-x-1 flex items-center",
+                          nav_button: "h-9 w-9 bg-transparent hover:bg-[#3c7660]/10 rounded-lg transition-all p-0 inline-flex items-center justify-center",
+                          nav_button_previous: "absolute left-1",
+                          nav_button_next: "absolute right-1",
+                          table: "w-full border-collapse space-y-1",
+                          head_row: "flex",
+                          head_cell: "text-gray-500 rounded-md w-12 font-semibold text-sm uppercase",
+                          row: "flex w-full mt-2",
+                          cell: "relative p-0 text-center text-sm focus-within:relative focus-within:z-20 [&:has([aria-selected])]:bg-[#3c7660]/10 [&:has([aria-selected])]:rounded-lg",
+                          day: "h-12 w-12 p-0 font-semibold hover:bg-[#3c7660]/20 hover:text-[#3c7660] rounded-lg transition-all inline-flex items-center justify-center aria-selected:opacity-100 aria-selected:bg-gradient-to-br aria-selected:from-[#3c7660] aria-selected:to-[#4d987b] aria-selected:text-white aria-selected:shadow-lg aria-selected:scale-105",
+                          day_selected: "bg-gradient-to-br from-[#3c7660] to-[#4d987b] text-white hover:bg-[#3c7660] hover:text-white focus:bg-[#3c7660] focus:text-white shadow-lg scale-105",
+                          day_today: "bg-[#f2cc6c]/30 text-[#3c7660] font-bold border-2 border-[#f2cc6c]",
+                          day_outside: "text-gray-300 opacity-50",
+                          day_disabled: "text-gray-300 opacity-30 cursor-not-allowed hover:bg-transparent",
+                          day_hidden: "invisible",
+                        }}
+                      />
+                      
+                      {/* Quick Date Suggestions */}
+                      <div className="mt-6 pt-6 border-t border-gray-200">
+                        <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-3">Quick Pick</p>
+                        <div className="flex gap-2 flex-wrap">
+                          {[
+                            { label: 'Today', days: 0 },
+                            { label: 'Tomorrow', days: 1 },
+                            { label: 'This Weekend', days: (6 - new Date().getDay() + 7) % 7 || 7 },
+                            { label: 'Next Week', days: 7 },
+                          ].map((suggestion) => {
+                            const suggestedDate = new Date();
+                            suggestedDate.setDate(suggestedDate.getDate() + suggestion.days);
+                            
+                            return (
+                              <button
+                                key={suggestion.label}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDateSelect(suggestedDate);
+                                }}
+                                className="px-4 py-2 bg-gradient-to-br from-gray-50 to-gray-100 hover:from-[#3c7660]/10 hover:to-[#4d987b]/10 border border-gray-200 hover:border-[#3c7660]/30 rounded-xl text-sm font-medium text-gray-700 hover:text-[#3c7660] transition-all hover:shadow-md"
+                              >
+                                {suggestion.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
 
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => toggleStepExpansion(step.id)}
-                      className="ml-2"
-                    >
-                      {expandedSteps.has(step.id) ? (
-                        <ChevronUp className="w-4 h-4" />
-                      ) : (
-                        <ChevronDown className="w-4 h-4" />
-                      )}
-                    </Button>
-                  </div>
-
-                  {/* Expanded Step Details */}
-                  {expandedSteps.has(step.id) && (
-                    <div className="border-t border-gray-100 p-4 bg-gray-50">
-                      <div className="grid md:grid-cols-2 gap-4">
-                        {/* Step Photo */}
-                        <div>
-                          <div className="relative aspect-video rounded-lg overflow-hidden mb-3">
-                            <Image
-                              src={getStepPhoto(step)}
-                              alt={step.title}
-                              fill
-                              className="object-cover"
-                            />
-                          </div>
-                          {step.google_places && (
-                            <div className="text-xs text-green-600 flex items-center gap-1">
-                              <CheckCircle2 className="w-3 h-3" />
-                              Verified by Google Places
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Step Info */}
-                        <div className="space-y-3">
+                    {/* Confirm/Cancel Buttons */}
+                    {tempSelectedDate && (
+                      <div className="mt-6 flex items-center justify-between gap-4 bg-emerald-50 rounded-xl p-5 border border-emerald-200 animate-in slide-in-from-bottom-2 duration-300">
+                        <div className="flex items-start gap-3 flex-1">
+                          <CalendarIcon className="w-5 h-5 text-emerald-600 mt-0.5 flex-shrink-0" />
                           <div>
-                            <h5 className="font-medium text-gray-900 mb-1">Details</h5>
-                            <p className="text-sm text-gray-600">{step.description}</p>
+                            <p className="text-sm font-semibold text-emerald-900">
+                              {tempSelectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                            </p>
+                            <p className="text-xs text-emerald-700 mt-1">
+                              Ready to confirm this date for your adventure?
+                            </p>
                           </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setTempSelectedDate(scheduledDate || undefined);
+                              setIsScheduleSectionOpen(false);
+                            }}
+                            variant="outline"
+                            className="border-gray-300 hover:bg-gray-50"
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleScheduleSubmit();
+                            }}
+                            className="bg-gradient-to-br from-[#3c7660] to-[#4d987b] text-white hover:shadow-lg"
+                          >
+                            <CheckCircle2 className="w-4 h-4 mr-2" />
+                            Confirm Schedule
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
-                          {/* Google Places Enhanced Info */}
-                          {stepPlacesData[step.id] && (
-                            <>
-                              <div>
-                                <h5 className="font-medium text-gray-900 mb-2 flex items-center gap-1">
-                                  <CheckCircle2 className="w-4 h-4 text-green-600" />
-                                  Business Information
-                                </h5>
-                                <div className="bg-white rounded-lg p-3 border border-gray-200 space-y-2">
-                                  <div className="flex items-center justify-between">
-                                    <span className="font-medium text-gray-900">{stepPlacesData[step.id].name}</span>
-                                    {stepPlacesData[step.id].rating && (
-                                      <div className="flex items-center gap-1">
-                                        <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                                        <span className="text-sm font-medium">{stepPlacesData[step.id].rating}</span>
-                                        <span className="text-xs text-gray-500">
-                                          ({stepPlacesData[step.id].user_ratings_total} reviews)
-                                        </span>
-                                      </div>
+          {/* Flowing Adventure Timeline - Modern Card Design */}
+          <div className="mb-6">
+            <h3 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-3">
+              <div className="p-2 bg-gradient-to-br from-[#f2cc6c] to-[#e6b84d] rounded-xl">
+                <Sparkles className="w-6 h-6 text-gray-900" />
+              </div>
+              Your Adventure Journey
+            </h3>
+            <p className="text-sm text-gray-600 mb-8">Follow each step in your personalized local experience</p>
+            
+            {/* Timeline Flow */}
+            <div className="relative">
+              {adventure.steps
+                .sort((a, b) => a.step_order - b.step_order)
+                .map((step, index) => {
+                  const stepNumber = index + 1;
+                  const isLast = index === adventure.steps.length - 1;
+                  const stepPhotos = getStepPhotos(step);
+                  const placeInfo = stepPlacesData[step.id] || step.google_places;
+                  
+                  return (
+                    <div key={step.id} className="relative">
+                      {/* Dynamic Step Card */}
+                      <div className={`relative bg-white rounded-2xl border-2 overflow-hidden transition-all duration-500 hover:shadow-2xl group ${
+                        step.completed 
+                          ? 'border-emerald-400 shadow-lg shadow-emerald-100' 
+                          : 'border-gray-200 hover:border-[#3c7660]/50'
+                      }`}>
+                        {/* Completed Ribbon */}
+                        {step.completed && (
+                          <div className="absolute top-0 right-0 bg-gradient-to-br from-emerald-500 to-green-600 text-white px-6 py-1 text-xs font-bold rounded-bl-xl shadow-lg flex items-center gap-1 z-10">
+                            <CheckCircle2 className="w-3 h-3" />
+                            COMPLETED
+                          </div>
+                        )}
+
+                        <div className="flex flex-col md:flex-row">
+                          {/* Left: Photo Gallery */}
+                          <div className="md:w-2/5 relative">
+                            <div className="relative h-64 md:h-full min-h-[300px] bg-gradient-to-br from-gray-100 to-gray-200">
+                              {/* Main Photo */}
+                              <Image
+                                src={stepPhotos[0]}
+                                alt={step.title}
+                                fill
+                                className="object-cover"
+                                sizes="(max-width: 768px) 100vw, 40vw"
+                                quality={95}
+                                priority={index < 2}
+                              />
+                              
+                              {/* Gradient Overlay */}
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+                              
+                              {/* Step Number Badge - Floating */}
+                              <div className={`absolute top-6 left-6 w-16 h-16 rounded-2xl flex items-center justify-center font-black text-2xl shadow-2xl transition-all ${
+                                step.completed
+                                  ? 'bg-gradient-to-br from-emerald-500 to-green-600 text-white scale-110'
+                                  : 'bg-gradient-to-br from-[#3c7660] to-[#4d987b] text-white group-hover:scale-110'
+                              }`}>
+                                {step.completed ? <CheckCircle2 className="w-8 h-8" /> : stepNumber}
+                              </div>
+
+                              {/* Time & Rating Overlay - Bottom */}
+                              <div className="absolute bottom-0 left-0 right-0 p-4 flex items-center justify-between">
+                                {step.time && (
+                                  <div className="flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/20">
+                                    <Clock className="w-4 h-4 text-white" />
+                                    <span className="text-sm font-semibold text-white">{step.time}</span>
+                                  </div>
+                                )}
+                                {(placeInfo?.rating || step.rating) && (
+                                  <div className="flex items-center gap-1.5 bg-[#f2cc6c]/90 backdrop-blur-md px-3 py-1.5 rounded-lg shadow-lg">
+                                    <Star className="w-4 h-4 fill-gray-900 text-gray-900" />
+                                    <span className="text-sm font-bold text-gray-900">
+                                      {placeInfo?.rating || step.rating}
+                                    </span>
+                                    {(placeInfo?.user_ratings_total || placeInfo?.user_rating_count) && (
+                                      <span className="text-xs text-gray-700">
+                                        ({(placeInfo.user_ratings_total || placeInfo.user_rating_count).toLocaleString()})
+                                      </span>
                                     )}
                                   </div>
-                                  
-                                  {stepPlacesData[step.id].formatted_address && (
-                                    <div className="flex items-start gap-2">
-                                      <MapPin className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                                      <span className="text-sm text-gray-600">{stepPlacesData[step.id].formatted_address}</span>
+                                )}
+                              </div>
+
+                              {/* Additional Photos Thumbnails - Top Right */}
+                              {stepPhotos.length > 1 && (
+                                <div className="absolute top-6 right-6 flex gap-2">
+                                  {stepPhotos.slice(1, 3).map((photo, photoIndex) => (
+                                    <div key={photoIndex} className="relative w-12 h-12 rounded-lg overflow-hidden border-2 border-white shadow-lg hover:scale-110 transition-transform cursor-pointer">
+                                      <Image
+                                        src={photo}
+                                        alt={`${step.title} photo ${photoIndex + 2}`}
+                                        fill
+                                        className="object-cover"
+                                        sizes="48px"
+                                        quality={90}
+                                      />
+                                    </div>
+                                  ))}
+                                  {stepPhotos.length > 3 && (
+                                    <div className="w-12 h-12 rounded-lg bg-black/60 backdrop-blur-md border-2 border-white shadow-lg flex items-center justify-center">
+                                      <span className="text-xs font-bold text-white">+{stepPhotos.length - 3}</span>
                                     </div>
                                   )}
-
-                                  <div className="flex items-center gap-4">
-                                    {stepPlacesData[step.id].price_level !== undefined && (
-                                      <div className="flex items-center gap-1">
-                                        <span className="text-sm text-gray-600">Budget:</span>
-                                        <Badge variant="outline" className="text-xs">
-                                          {GooglePlacesService.getPriceLevelText(stepPlacesData[step.id].price_level)}
-                                        </Badge>
-                                      </div>
-                                    )}
-                                    
-                                    {stepPlacesData[step.id].opening_hours && (
-                                      <div className="flex items-center gap-1">
-                                        <Clock className="w-4 h-4 text-gray-500" />
-                                        <span className="text-sm text-gray-600">
-                                          {GooglePlacesService.getOpeningStatus(stepPlacesData[step.id].opening_hours).status}
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
                                 </div>
-                              </div>
-                            </>
-                          )}
-
-                          {/* Legacy business info for non-Google Places steps */}
-                          {!stepPlacesData[step.id] && step.business_name && (
-                            <div>
-                              <h5 className="font-medium text-gray-900 mb-1">Business</h5>
-                              <p className="text-sm text-gray-700">{step.business_name}</p>
+                              )}
                             </div>
-                          )}
-
-                          {step.business_hours && (
-                            <div>
-                              <h5 className="font-medium text-gray-900 mb-1">Hours</h5>
-                              <p className="text-sm text-gray-600">{step.business_hours}</p>
-                            </div>
-                          )}
-
-                          <div className="flex gap-2">
-                            {(step.google_places?.national_phone_number || stepPlacesData[step.id]?.formatted_phone_number || step.business_phone) && (
-                              <Button size="sm" variant="outline" asChild>
-                                <a href={`tel:${step.google_places?.national_phone_number || stepPlacesData[step.id]?.formatted_phone_number || step.business_phone}`}>
-                                  <Phone className="w-4 h-4 mr-1" />
-                                  Call
-                                </a>
-                              </Button>
-                            )}
-                            {(step.google_places?.website_uri || stepPlacesData[step.id]?.website || step.business_website) && (
-                              <Button size="sm" variant="outline" asChild>
-                                <a href={step.google_places?.website_uri || stepPlacesData[step.id]?.website || step.business_website} target="_blank" rel="noopener noreferrer">
-                                  <Globe className="w-4 h-4 mr-1" />
-                                  Website
-                                </a>
-                              </Button>
-                            )}
-                            <Button size="sm" variant="outline" asChild>
-                              <a 
-                                href={getGoogleMapsLink(step)} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                              >
-                                <ExternalLink className="w-4 h-4 mr-1" />
-                                View on Maps
-                              </a>
-                            </Button>
                           </div>
 
-                          {step.google_places && (
-                            <div className="text-xs text-gray-500 space-y-1">
-                              <p>Google Rating: {step.google_places.rating}⭐ ({step.google_places.user_rating_count} reviews)</p>
-                              <p>Last updated: {new Date(step.google_places.last_updated).toLocaleDateString()}</p>
+                          {/* Right: Content */}
+                          <div className="md:w-3/5 p-6 flex flex-col">
+                            {/* Title & Location */}
+                            <div className="mb-4">
+                              <h4 className={`text-2xl font-bold text-gray-900 mb-2 ${
+                                step.completed ? 'line-through opacity-70' : ''
+                              }`}>
+                                {step.title}
+                              </h4>
+                              <div className="flex items-center gap-2 text-gray-600">
+                                <MapPin className="w-4 h-4 text-[#3c7660]" />
+                                <span className="text-sm font-medium">
+                                  {step.business_name || 
+                                   (typeof placeInfo?.name === 'object' ? placeInfo?.name?.text : placeInfo?.name) || 
+                                   'Location'}
+                                </span>
+                                {placeInfo && (
+                                  <span className="ml-auto flex items-center gap-1 text-xs text-emerald-600 font-semibold">
+                                    <CheckCircle2 className="w-3 h-3" />
+                                    Google Verified
+                                  </span>
+                                )}
+                              </div>
+                              {(placeInfo?.formatted_address || placeInfo?.address) && (
+                                <p className="text-xs text-gray-500 mt-1 ml-6">
+                                  {placeInfo.formatted_address || placeInfo.address}
+                                </p>
+                              )}
                             </div>
-                          )}
+
+                            {/* Description */}
+                            <p className="text-sm text-gray-700 leading-relaxed mb-4 flex-1">
+                              {step.description}
+                            </p>
+
+                            {/* Action Buttons Row */}
+                            <div className="flex flex-wrap gap-2 mb-4">
+                              {(placeInfo?.formatted_phone_number || placeInfo?.national_phone_number) && (
+                                <a
+                                  href={`tel:${placeInfo.formatted_phone_number || placeInfo.national_phone_number}`}
+                                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#3c7660] to-[#4d987b] text-white rounded-lg hover:shadow-lg transition-all text-sm font-semibold"
+                                >
+                                  <Phone className="w-4 h-4" />
+                                  Call
+                                </a>
+                              )}
+                              {(placeInfo?.website || placeInfo?.website_uri) && (
+                                <a
+                                  href={placeInfo.website || placeInfo.website_uri}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:shadow-lg transition-all text-sm font-semibold"
+                                >
+                                  <Globe className="w-4 h-4" />
+                                  Website
+                                </a>
+                              )}
+                              <a
+                                href={getGoogleMapsLink(step)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#f2cc6c] to-[#e6b84d] text-gray-900 rounded-lg hover:shadow-lg transition-all text-sm font-semibold"
+                              >
+                                <Navigation className="w-4 h-4" />
+                                Directions
+                              </a>
+                            </div>
+
+                            {/* Price & Hours */}
+                            {((placeInfo?.price_level || placeInfo?.price_level) || placeInfo?.opening_hours) && (
+                              <div className="flex items-center gap-4 text-sm pb-4 border-b border-gray-100">
+                                {(placeInfo?.price_level) && (
+                                  <span className="flex items-center gap-1.5 text-gray-600 font-medium">
+                                    <DollarSign className="w-4 h-4 text-[#3c7660]" />
+                                    {'$'.repeat(placeInfo.price_level)}
+                                  </span>
+                                )}
+                                {placeInfo?.opening_hours?.open_now !== undefined && (
+                                  <span className={`flex items-center gap-1.5 font-semibold ${
+                                    placeInfo.opening_hours.open_now ? 'text-emerald-600' : 'text-red-600'
+                                  }`}>
+                                    <Clock className="w-4 h-4" />
+                                    {placeInfo.opening_hours.open_now ? 'Open Now' : 'Closed'}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Completion Checkbox */}
+                            <div className="pt-4 flex items-center justify-between">
+                              <span className="text-sm text-gray-600">
+                                {step.completed ? 'Completed on this adventure' : 'Mark as complete when done'}
+                              </span>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleStepToggle(step.id, !step.completed);
+                                }}
+                                disabled={!canCompleteSteps}
+                                className={`transition-all ${
+                                  canCompleteSteps ? 'cursor-pointer hover:scale-110' : 'cursor-not-allowed opacity-40'
+                                }`}
+                              >
+                                {step.completed ? (
+                                  <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border-2 border-emerald-500 rounded-lg">
+                                    <CheckCircle2 className="w-6 h-6 text-emerald-500" />
+                                    <span className="text-sm font-bold text-emerald-700">Done!</span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 border-2 border-gray-300 rounded-lg hover:border-[#3c7660] hover:bg-[#3c7660]/5">
+                                    <Circle className="w-6 h-6 text-gray-400" />
+                                    <span className="text-sm font-medium text-gray-600">Complete</span>
+                                  </div>
+                                )}
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       </div>
+
+                      {/* Flowing Arrow Connector */}
+                      {!isLast && (
+                        <div className="flex justify-center my-4 relative">
+                          <div className="flex flex-col items-center gap-2">
+                            {/* Dotted line */}
+                            <div className="w-0.5 h-8 bg-gradient-to-b from-[#3c7660] to-[#4d987b] rounded-full opacity-30" />
+                            {/* Arrow */}
+                            <div className="p-2 bg-gradient-to-br from-[#3c7660] to-[#4d987b] rounded-full shadow-lg animate-bounce">
+                              <ChevronDown className="w-5 h-5 text-white" />
+                            </div>
+                            {/* Dotted line */}
+                            <div className="w-0.5 h-8 bg-gradient-to-b from-[#4d987b] to-[#3c7660] rounded-full opacity-30" />
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex flex-col gap-4 pt-4 border-t border-gray-100">
-            {/* Share block */}
-            <div className="flex items-start justify-between">
-              <div className="space-y-2">
-                <Button
-                  onClick={() => setShareOpen((v) => !v)}
-                  disabled={!allStepsCompleted && !adventure.is_completed}
-                  className="bg-[#3c7660] hover:bg-[#2d5a47] disabled:bg-gray-300"
-                >
-                  Share to Discover
-                </Button>
-                {!allStepsCompleted && !adventure.is_completed && (
-                  <p className="text-xs text-gray-500">Complete all steps to share your adventure.</p>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="destructive"
-                  onClick={onDelete}
-                  className="bg-red-500 hover:bg-red-600"
-                >
-                  <X className="w-4 h-4 mr-2" />
-                  Delete Adventure
-                </Button>
-                
-                {adventure.is_completed && onDuplicate && (
-                  <Button
-                    onClick={onDuplicate}
-                    className="bg-[#f2cc6c] hover:bg-[#e6b85c] text-[#3c7660] border border-[#f2cc6c]/30"
-                  >
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Do it Again
-                  </Button>
-                )}
-                
-                <Button
-                  onClick={handleMarkCompleted}
-                  disabled={!canMarkComplete}
-                  className={`${
-                    canMarkComplete 
-                      ? 'bg-[#3c7660] hover:bg-[#2d5a47]' 
-                      : 'bg-gray-300 cursor-not-allowed'
-                  }`}
-                >
-                  <CheckCircle2 className="w-4 h-4 mr-2" />
-                  {adventure.is_completed 
-                    ? 'Completed' 
-                    : canMarkComplete 
-                      ? 'Mark as Completed' 
-                      : !isScheduled 
-                        ? 'Schedule first'
-                        : !isScheduledDateReached
-                          ? `Available ${scheduledDate?.toLocaleDateString()}`
-                          : `Complete ${totalSteps - completedSteps} more steps`
-                  }
-                </Button>
-              </div>
+                  );
+                })}
             </div>
-
-            {shareOpen && (
-              <div className="rounded-lg border border-gray-200 p-4 bg-gray-50">
-                <h4 className="font-medium text-gray-900 mb-2">Add a quick review</h4>
-                <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-3">
-                  <div className="flex items-center gap-1">
-                    {[1,2,3,4,5].map(n => (
-                      <button
-                        key={n}
-                        onClick={() => setShareRating(n)}
-                        className="p-1"
-                        aria-label={`Rate ${n} star${n>1?'s':''}`}
-                      >
-                        <Star className={`w-5 h-5 ${n <= shareRating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`} />
-                      </button>
-                    ))}
-                  </div>
-                  <input
-                    type="text"
-                    value={shareText}
-                    onChange={(e) => setShareText(e.target.value)}
-                    placeholder="What did you think? (optional)"
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm"
-                  />
-                  <Button
-                    onClick={() => onShare(shareRating, shareText?.trim() || undefined)}
-                    className="bg-[#3c7660] hover:bg-[#2d5a47]"
-                  >
-                    Publish
-                  </Button>
-                </div>
-                <p className="text-xs text-gray-500">We'll share your plan to the community feed.</p>
-              </div>
-            )}
           </div>
+
         </div>
       </div>
     </div>
   );
-}
+};

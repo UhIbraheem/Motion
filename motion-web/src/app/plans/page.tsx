@@ -23,24 +23,32 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { 
-  IoLocationOutline,
-  IoTimeOutline,
-  IoStar,
-  IoCalendarOutline,
-  IoCheckmarkCircle,
-  IoAdd,
-  IoEllipsisHorizontal,
-  IoGridOutline,
-  IoCalendar,
-  IoTrash,
-  IoEye,
-  IoChevronDown,
-  IoCompass,
-  IoChevronUp
-} from 'react-icons/io5';
+  MapPin,
+  Clock,
+  Star,
+  CalendarDays,
+  CheckCircle2,
+  Plus,
+  MoreHorizontal,
+  LayoutGrid,
+  Trash2,
+  Eye,
+  ChevronLeft,
+  ChevronRight,
+  Compass,
+  TrendingUp,
+  DollarSign,
+  Sparkles,
+  Award,
+  Navigation as NavigationIcon,
+  Calendar as CalendarIcon,
+  Filter,
+  Search
+} from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import AdventureService from '@/services/AdventureService';
+import GooglePlacesService from '@/services/GooglePlacesService';
 import { SavedAdventure } from '@/types/adventureTypes';
 import EnhancedPlansModal from '@/components/EnhancedPlansModal';
 
@@ -107,6 +115,8 @@ function PlansContent() {
   const [scheduledAdventures, setScheduledAdventures] = useState<SavedAdventure[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [adventurePhotos, setAdventurePhotos] = useState<Record<string, string>>({}); // Cache for fetched photos
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState<Record<string, number>>({}); // Track photo index per adventure
   
   // Modal state
   const [selectedAdventure, setSelectedAdventure] = useState<SavedAdventure | null>(null);
@@ -163,6 +173,72 @@ function PlansContent() {
       return () => clearTimeout(timer);
     }
   }, [searchParams]);
+
+  // Fetch photos for adventures that don't have them
+  useEffect(() => {
+    const fetchMissingPhotos = async () => {
+      for (const adventure of savedAdventures) {
+        // Skip if we already have a photo cached
+        if (adventurePhotos[adventure.id]) continue;
+        
+        // Skip if adventure_photos exists
+        if (adventure.adventure_photos?.length > 0 && adventure.adventure_photos[0]?.photo_url) {
+          setAdventurePhotos(prev => ({
+            ...prev,
+            [adventure.id]: adventure.adventure_photos[0].photo_url
+          }));
+          continue;
+        }
+        
+        // Check steps for existing photo data
+        if (adventure.adventure_steps?.length > 0) {
+          for (const step of adventure.adventure_steps) {
+            const stepData = step as any;
+            if (stepData.google_photo_url) {
+              setAdventurePhotos(prev => ({
+                ...prev,
+                [adventure.id]: stepData.google_photo_url
+              }));
+              break;
+            }
+            if (stepData.google_places?.photo_url) {
+              setAdventurePhotos(prev => ({
+                ...prev,
+                [adventure.id]: stepData.google_places.photo_url
+              }));
+              break;
+            }
+          }
+          
+          // If still no photo, fetch from Google Places
+          if (!adventurePhotos[adventure.id]) {
+            const firstStep = adventure.adventure_steps[0] as any;
+            if (firstStep?.business_name) {
+              console.log('🔍 Fetching photo for:', adventure.custom_title, firstStep.business_name);
+              try {
+                const placeData = await GooglePlacesService.getPlaceDataWithCache(
+                  firstStep.business_name,
+                  firstStep.location || adventure.location
+                );
+                if (placeData?.photo_url) {
+                  setAdventurePhotos(prev => ({
+                    ...prev,
+                    [adventure.id]: placeData.photo_url as string
+                  }));
+                }
+              } catch (err) {
+                console.error('Failed to fetch photo:', err);
+              }
+            }
+          }
+        }
+      }
+    };
+    
+    if (savedAdventures.length > 0) {
+      fetchMissingPhotos();
+    }
+  }, [savedAdventures]);
 
   const loadAdventures = async () => {
     if (!user) {
@@ -252,24 +328,26 @@ function PlansContent() {
     if (!selectedAdventure) return;
 
     try {
+      console.log('📅 Scheduling adventure:', selectedAdventure.id, 'for', date);
+      
+      // Sync with backend first
+      await AdventureService.scheduleAdventure(selectedAdventure.id, date);
+      
       // Update locally
       const updatedAdventure = { 
         ...selectedAdventure, 
         scheduled_for: date.toISOString() 
       };
       setSelectedAdventure(updatedAdventure);
-
-  // Sync with backend
-  await AdventureService.scheduleAdventure(selectedAdventure.id, date);
       
-      toast.success('Adventure scheduled successfully!');
+      toast.success(`Adventure scheduled for ${date.toLocaleDateString()}! 🎉`);
       
       // Reload to sync
       await loadAdventures();
       
-    } catch (error) {
-      console.error('Error scheduling adventure:', error);
-      toast.error('Failed to schedule adventure');
+    } catch (error: any) {
+      console.error('❌ Scheduling failed:', error);
+      toast.error(error?.message || 'Failed to schedule adventure. Please try again.');
     }
   };
 
@@ -285,15 +363,15 @@ function PlansContent() {
     }
 
     try {
+      // Sync with backend first
+      await AdventureService.markAdventureCompleted(selectedAdventure.id);
+      
       // Update locally
       const updatedAdventure = { 
         ...selectedAdventure, 
         is_completed: true 
       };
       setSelectedAdventure(updatedAdventure);
-
-  // Sync with backend
-  await AdventureService.markAdventureCompleted(selectedAdventure.id);
       
       toast.success('Adventure completed! 🎉');
       setIsModalOpen(false);
@@ -301,33 +379,34 @@ function PlansContent() {
       // Reload to sync
       await loadAdventures();
       
-    } catch (error) {
-      console.error('Error completing adventure:', error);
-      toast.error('Failed to mark as completed');
+    } catch (error: any) {
+      console.error('❌ Completion failed:', error);
+      toast.error(error?.message || 'Failed to mark as completed');
     }
   };
 
   // Delete adventure
-  const handleDelete = async () => {
-    if (!selectedAdventure) return;
+  const handleDelete = async (adventureToDelete?: SavedAdventure) => {
+    const targetAdventure = adventureToDelete || selectedAdventure;
+    if (!targetAdventure) return;
 
     if (!confirm('Are you sure you want to delete this adventure? This action cannot be undone.')) {
       return;
     }
 
     try {
-      console.log('🗑️ Deleting adventure:', selectedAdventure.id);
+      console.log('🗑️ Deleting adventure:', targetAdventure.id);
       
       // Remove from backend
-      const success = await AdventureService.deleteAdventure(selectedAdventure.id);
+      const success = await AdventureService.deleteAdventure(targetAdventure.id);
       
       if (success) {
         toast.success('Adventure deleted successfully');
         setIsModalOpen(false);
         
         // Remove from local state immediately
-        setSavedAdventures(prev => prev.filter(a => a.id !== selectedAdventure.id));
-        setScheduledAdventures(prev => prev.filter(a => a.id !== selectedAdventure.id));
+        setSavedAdventures(prev => prev.filter(a => a.id !== targetAdventure.id));
+        setScheduledAdventures(prev => prev.filter(a => a.id !== targetAdventure.id));
         
         // Reload to ensure sync
         await loadAdventures();
@@ -406,33 +485,84 @@ function PlansContent() {
 
   // Get real photo URL from Google Places data
   const getAdventurePhoto = (adventure: SavedAdventure) => {
-    // Use adventure photos first
-    if (adventure.adventure_photos?.length > 0) {
+    // Check cache first
+    if (adventurePhotos[adventure.id]) {
+      return adventurePhotos[adventure.id];
+    }
+
+    // Priority 1: adventure_photos table
+    if (adventure.adventure_photos?.length > 0 && adventure.adventure_photos[0]?.photo_url) {
       return adventure.adventure_photos[0].photo_url;
     }
     
-    // Try to get from Google Places data in adventure steps
+    // Priority 2: Google Places data in steps
     if (adventure.adventure_steps?.length > 0) {
       for (const step of adventure.adventure_steps) {
-        const stepData = step as any; // Type assertion for Google Places data
+        const stepData = step as any;
         
-        // Check for Google Places photo URL
-        if (stepData.google_photo_url) {
-          return stepData.google_photo_url;
-        }
-        // Check in google_places object
-        if (stepData.google_places?.photo_url) {
-          return stepData.google_places.photo_url;
-        }
-        // Check for photo_url field
-        if (stepData.photo_url) {
-          return stepData.photo_url;
+        if (stepData.google_photo_url) return stepData.google_photo_url;
+        if (stepData.google_places?.photo_url) return stepData.google_places.photo_url;
+        if (stepData.photo_url) return stepData.photo_url;
+      }
+    }
+    
+    // Fallback
+    return 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400&h=300&fit=crop';
+  };
+
+  // Get all available photos for an adventure
+  const getAllAdventurePhotos = (adventure: SavedAdventure): string[] => {
+    const photos: string[] = [];
+    
+    // Check cache first
+    if (adventurePhotos[adventure.id]) {
+      photos.push(adventurePhotos[adventure.id]);
+    }
+    
+    // Check adventure_photos table
+    if (adventure.adventure_photos?.length > 0) {
+      for (const photo of adventure.adventure_photos) {
+        if (photo.photo_url && !photos.includes(photo.photo_url)) {
+          photos.push(photo.photo_url);
         }
       }
     }
     
-    // Fallback to local brand image (no external host or SVG)
-    return '/icon.png';
+    // Get photos from all steps
+    if (adventure.adventure_steps?.length > 0) {
+      for (const step of adventure.adventure_steps) {
+        const stepData = step as any;
+        const photoUrl = stepData.google_photo_url || stepData.google_places?.photo_url || stepData.photo_url;
+        if (photoUrl && !photos.includes(photoUrl)) {
+          photos.push(photoUrl);
+        }
+      }
+    }
+    
+    // If no photos found, return fallback
+    if (photos.length === 0) {
+      photos.push('https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400&h=300&fit=crop');
+    }
+    
+    return photos;
+  };
+
+  // Navigate photos for a specific adventure
+  const navigatePhoto = (adventureId: string, direction: 'prev' | 'next', adventure: SavedAdventure) => {
+    const allPhotos = getAllAdventurePhotos(adventure);
+    const currentIndex = currentPhotoIndex[adventureId] || 0;
+    
+    let newIndex: number;
+    if (direction === 'next') {
+      newIndex = (currentIndex + 1) % allPhotos.length;
+    } else {
+      newIndex = currentIndex === 0 ? allPhotos.length - 1 : currentIndex - 1;
+    }
+    
+    setCurrentPhotoIndex(prev => ({
+      ...prev,
+      [adventureId]: newIndex
+    }));
   };
 
   // Calendar event handler
@@ -440,21 +570,21 @@ function PlansContent() {
     setSelectedDate(date);
   };
 
-  // Render adventure card with 4-column design matching discover page
+  // Ultra-modern adventure card with premium design
   const renderAdventureCard = (adventure: SavedAdventure) => {
-    const photo = getAdventurePhoto(adventure);
+    const allPhotos = getAllAdventurePhotos(adventure);
+    const photoIndex = currentPhotoIndex[adventure.id] || 0;
+    const photo = allPhotos[photoIndex];
+    const hasMultiplePhotos = allPhotos.length > 1;
+    
     const completedSteps = adventure.adventure_steps.filter((step: any) => step.completed).length;
     const totalSteps = adventure.adventure_steps.length;
     const progress = totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0;
     
-    // Format budget with proper dollar signs
     const formatBudget = (cost: string | number | null | undefined) => {
       if (!cost) return '$';
-      // Convert to string if it's a number
       const costStr = String(cost);
-      // If it already has $, return as is, otherwise add $
       if (costStr.includes('$')) return costStr;
-      // If it's just a number, add $ and format nicely
       if (/^\d+$/.test(costStr)) return `$${costStr}`;
       return `$${costStr}`;
     };
@@ -463,176 +593,243 @@ function PlansContent() {
     const isHighlighted = highlightedAdventureId === adventure.id;
 
     return (
-      <Card 
+      <div 
         key={adventure.id}
-        className={`group hover:shadow-xl transition-all duration-300 overflow-hidden bg-gradient-to-br from-white to-gray-50 ${
+        className={`group relative overflow-hidden rounded-2xl transition-all duration-500 cursor-pointer border ${
           isHighlighted 
-            ? 'border-2 border-[#f2cc6c] shadow-lg shadow-[#f2cc6c]/20 transition-all duration-500 ease-in-out' 
-            : 'border-0 shadow-md'
+            ? 'ring-2 ring-[#f2cc6c] ring-offset-4 shadow-2xl shadow-[#f2cc6c]/30 scale-[1.02] border-[#f2cc6c]' 
+            : 'hover:scale-[1.02] hover:shadow-2xl border-gray-200/60'
         }`}
+        onClick={() => openAdventureModal(adventure)}
       >
-        <div className="relative">
-          {/* Adventure Image with overlay title */}
-          <div className="h-48 bg-gradient-to-br from-[#3c7660]/20 to-[#f2cc6c]/20 relative overflow-hidden">
+        {/* Main Card Container with Glassmorphism */}
+        <div className="relative bg-white/80 backdrop-blur-xl border-0 shadow-xl h-full">
+          
+          {/* Hero Image Section - Premium Quality */}
+          <div className="relative h-72 overflow-hidden">
             {photo ? (
               <div className="absolute inset-0">
                 <Image
                   src={photo}
                   alt={adventure.custom_title || 'Adventure'}
                   fill
-                  className="object-cover group-hover:scale-105 transition-transform duration-300"
-                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+                  className="object-cover transition-all duration-700 group-hover:scale-110"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  priority={photoIndex === 0}
+                  quality={95} // High quality images
+                  key={photo}
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                {/* Multi-layer gradient overlay for depth */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-br from-[#3c7660]/10 via-transparent to-[#f2cc6c]/10" />
               </div>
             ) : (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <IoCompass className="w-16 h-16 text-[#3c7660] opacity-40" />
+              <div className="absolute inset-0 bg-gradient-to-br from-[#3c7660]/5 via-white to-[#f2cc6c]/5 flex items-center justify-center">
+                <Compass className="w-20 h-20 text-[#3c7660]/20 animate-pulse" />
               </div>
             )}
 
-            {/* Title Overlay with blur background */}
-            <div className="absolute bottom-4 left-4 right-16">
-              <div className="bg-black/20 backdrop-blur-md rounded-lg px-3 py-2 shadow-lg border border-white/20">
-                <h3 className="font-bold text-white text-sm leading-tight line-clamp-2 drop-shadow-lg">
-                  {adventure.custom_title || 'Your Adventure'}
-                </h3>
+            {/* Premium Photo Navigation */}
+            {hasMultiplePhotos && (
+              <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-between px-3 z-20">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigatePhoto(adventure.id, 'prev', adventure);
+                  }}
+                  className="group/btn bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full p-2.5 transition-all duration-300 hover:scale-110 shadow-lg border border-white/20"
+                  aria-label="Previous photo"
+                >
+                  <ChevronLeft className="w-5 h-5 text-white drop-shadow-lg" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigatePhoto(adventure.id, 'next', adventure);
+                  }}
+                  className="group/btn bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full p-2.5 transition-all duration-300 hover:scale-110 shadow-lg border border-white/20"
+                  aria-label="Next photo"
+                >
+                  <ChevronRight className="w-5 h-5 text-white drop-shadow-lg" />
+                </button>
               </div>
-            </div>
-            
-            {/* Action Menu */}
-            <div className="absolute top-3 right-3">
+            )}
+
+            {/* Photo Counter Badge */}
+            {hasMultiplePhotos && (
+              <div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-md rounded-full px-3 py-1.5 shadow-lg border border-white/20">
+                <span className="text-white text-xs font-semibold flex items-center gap-1">
+                  <Sparkles className="w-3 h-3" />
+                  {photoIndex + 1} / {allPhotos.length}
+                </span>
+              </div>
+            )}
+
+            {/* Top Badges - Status & Actions */}
+            <div className="absolute top-4 left-4 right-4 flex items-start justify-between z-10">
+              <div className="flex flex-col gap-2">
+                {adventure.is_completed && (
+                  <Badge className="bg-emerald-500/90 backdrop-blur-sm text-white border-0 shadow-lg shadow-emerald-500/30 text-xs font-semibold">
+                    <Award className="mr-1 h-3.5 w-3.5" />
+                    Completed
+                  </Badge>
+                )}
+                {adventure.scheduled_for && !adventure.is_completed && (
+                  <Badge className="bg-[#3c7660]/90 backdrop-blur-sm border border-white/20 text-white text-xs font-semibold shadow-lg">
+                    <CalendarDays className="mr-1 h-3.5 w-3.5" />
+                    {new Date(adventure.scheduled_for).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </Badge>
+                )}
+              </div>
+
+              {/* Actions Menu */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="bg-black/20 backdrop-blur-md hover:bg-black/30 rounded-full p-2 shadow-lg border border-white/20 transition-all duration-200"
+                    className="bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full p-2 shadow-lg border border-white/20 transition-all duration-200 hover:scale-110"
+                    onClick={(e) => e.stopPropagation()}
                   >
-                    <IoEllipsisHorizontal className="h-4 w-4 text-white" />
+                    <MoreHorizontal className="h-4 w-4 text-white" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuContent align="end" className="w-48 bg-white/95 backdrop-blur-md">
                   <DropdownMenuItem 
-                    onClick={() => openAdventureModal(adventure)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openAdventureModal(adventure);
+                    }}
                     className="cursor-pointer"
                   >
-                    <IoEye className="mr-2 h-4 w-4" />
-                    View Details
+                    <Eye className="mr-2 h-4 w-4" />
+                    View Quest Details
                   </DropdownMenuItem>
                   <DropdownMenuItem 
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedAdventure(adventure);
-                      // Open schedule dialog
+                      setShowScheduleModal(true);
                     }}
                     className="cursor-pointer"
                   >
-                    <IoCalendarOutline className="mr-2 h-4 w-4" />
-                    Schedule
+                    <CalendarDays className="mr-2 h-4 w-4" />
+                    Schedule Adventure
                   </DropdownMenuItem>
                   <DropdownMenuItem 
                     onClick={(e) => {
                       e.stopPropagation();
-                      setSelectedAdventure(adventure);
-                      handleDelete();
+                      handleDelete(adventure);
                     }}
-                    className="cursor-pointer text-red-600 focus:text-red-600"
+                    className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
                   >
-                    <IoTrash className="mr-2 h-4 w-4" />
+                    <Trash2 className="mr-2 h-4 w-4" />
                     Delete
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
 
-            {/* Status Badge */}
-            {adventure.is_completed && (
-              <div className="absolute top-3 left-3">
-                <Badge className="bg-green-500/90 text-white border-0 text-xs">
-                  <IoCheckmarkCircle className="mr-1 h-3 w-3" />
-                  Completed
-                </Badge>
+            {/* Adventure Title Overlay */}
+            <div className="absolute bottom-0 left-0 right-0 p-5">
+              <div className="space-y-2">
+                <h3 className="font-bold text-white text-xl leading-tight line-clamp-2 drop-shadow-2xl">
+                  {adventure.custom_title || 'Your Adventure'}
+                </h3>
+                <div className="flex items-center gap-2 text-white/90 text-sm">
+                  <MapPin className="w-4 h-4 drop-shadow-lg" />
+                  <span className="truncate drop-shadow-lg font-medium">
+                    {adventure.location || 'Destination'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Card Content - Data Visualization */}
+          <div className="p-5 space-y-4">
+            
+            {/* Progress Visualization - Only for incomplete */}
+            {!adventure.is_completed && totalSteps > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-600 font-medium flex items-center gap-1">
+                    <TrendingUp className="w-3.5 h-3.5" />
+                    Quest Progress
+                  </span>
+                  <span className="text-[#3c7660] font-bold">
+                    {completedSteps}/{totalSteps} steps
+                  </span>
+                </div>
+                <div className="relative w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                  <div 
+                    className="absolute inset-y-0 left-0 bg-gradient-to-r from-[#3c7660] to-[#4d987b] rounded-full transition-all duration-700 shadow-sm"
+                    style={{ width: `${progress}%` }}
+                  />
+                  {/* Shimmer effect */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
+                </div>
               </div>
             )}
 
-            {adventure.scheduled_for && !adventure.is_completed && (
-              <div className="absolute top-3 left-3">
-                <Badge className="bg-black/20 backdrop-blur-md border border-white/20 text-white text-xs">
-                  <IoCalendarOutline className="mr-1 h-3 w-3" />
-                  Scheduled {new Date(adventure.scheduled_for).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}
-                </Badge>
+            {/* Key Metrics Grid */}
+            <div className="grid grid-cols-2 gap-3">
+              {/* Duration */}
+              <div className="bg-gradient-to-br from-[#3c7660]/5 to-transparent rounded-xl p-3 border border-[#3c7660]/10">
+                <div className="flex items-center gap-2 text-gray-600 text-xs font-medium mb-1">
+                  <Clock className="w-3.5 h-3.5" />
+                  Duration
+                </div>
+                <p className="text-lg font-bold text-[#3c7660]">
+                  {adventure.duration_hours}h
+                </p>
               </div>
+
+              {/* Budget */}
+              <div className="bg-gradient-to-br from-[#f2cc6c]/5 to-transparent rounded-xl p-3 border border-[#f2cc6c]/20">
+                <div className="flex items-center gap-2 text-gray-600 text-xs font-medium mb-1">
+                  <DollarSign className="w-3.5 h-3.5" />
+                  Budget
+                </div>
+                <p className="text-lg font-bold text-[#3c7660]">
+                  {budgetPerPerson}
+                </p>
+              </div>
+            </div>
+
+            {/* Action Button */}
+            <Button 
+              className="w-full bg-gradient-to-r from-[#3c7660] via-[#4d987b] to-[#3c7660] hover:shadow-lg hover:shadow-[#3c7660]/30 text-white font-semibold transition-all duration-300 hover:scale-[1.02] group/btn bg-[length:200%_100%] hover:bg-right"
+              onClick={(e) => {
+                e.stopPropagation();
+                openAdventureModal(adventure);
+              }}
+            >
+              <NavigationIcon className="mr-2 h-4 w-4 group-hover/btn:animate-pulse" />
+              Start Quest
+            </Button>
+
+            {/* Schedule CTA for unscheduled */}
+            {!adventure.scheduled_for && !adventure.is_completed && (
+              <Button 
+                variant="outline"
+                className="w-full border-[#3c7660]/30 text-[#3c7660] hover:bg-[#3c7660]/5 transition-all duration-300"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedAdventure(adventure);
+                  setShowScheduleModal(true);
+                }}
+              >
+                <CalendarDays className="mr-2 h-4 w-4" />
+                Schedule This Adventure
+              </Button>
             )}
           </div>
         </div>
 
-        <CardContent className="p-4">
-          <div className="space-y-3">
-            {/* Progress bar for incomplete adventures */}
-            {!adventure.is_completed && totalSteps > 0 && (
-              <div>
-                <div className="flex justify-between text-xs text-gray-600 mb-1">
-                  <span>Progress</span>
-                  <span>{completedSteps}/{totalSteps}</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-1.5">
-                  <div 
-                    className="bg-[#3c7660] h-1.5 rounded-full transition-all duration-300"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Location and key info */}
-            <div className="space-y-2">
-              <div className="flex items-center text-sm text-gray-600">
-                <IoLocationOutline className="w-4 h-4 mr-1 flex-shrink-0" />
-                <span className="truncate">{adventure.location || 'Location not specified'}</span>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="flex items-center text-gray-600">
-                  <IoTimeOutline className="w-4 h-4 mr-1 flex-shrink-0" />
-                  {adventure.duration_hours}h
-                </div>
-                <div className="flex items-center justify-end">
-                  <Badge className="bg-[#f2cc6c]/10 text-[#3c7660] text-xs border-[#f2cc6c]/30 font-semibold">
-                    {budgetPerPerson}
-                  </Badge>
-                </div>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex gap-2">
-              <Button 
-                size="sm"
-                className="flex-1 bg-gradient-to-r from-[#3c7660] to-[#2a5444] hover:from-[#2a5444] hover:to-[#1e3c30] text-white text-xs"
-                onClick={() => openAdventureModal(adventure)}
-              >
-                View Details
-              </Button>
-              
-              {!adventure.scheduled_for && !adventure.is_completed && (
-                <Button 
-                  size="sm"
-                  variant="outline"
-                  className="px-3 border-[#3c7660] text-[#3c7660] hover:bg-[#3c7660] hover:text-white"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedAdventure(adventure);
-                    setShowScheduleModal(true);
-                  }}
-                >
-                  <IoCalendarOutline className="w-4 h-4" />
-                </Button>
-              )}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        {/* Hover Glow Effect */}
+        <div className="absolute -inset-0.5 bg-gradient-to-r from-[#3c7660] via-[#f2cc6c] to-[#3c7660] rounded-2xl opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-500 -z-10" />
+      </div>
     );
   };
 
@@ -690,11 +887,11 @@ function PlansContent() {
                         <div className="flex-1">
                           <h4 className="font-medium text-gray-900">{event.title}</h4>
                           <div className="flex items-center text-sm text-gray-600 mt-1">
-                            <IoTimeOutline className="mr-1 h-3 w-3" />
+                            <Clock className="mr-1 h-3 w-3" />
                             <span>{event.startTime} - {event.endTime}</span>
                           </div>
                           <div className="flex items-center text-sm text-gray-600 mt-1">
-                            <IoLocationOutline className="mr-1 h-3 w-3" />
+                            <MapPin className="mr-1 h-3 w-3" />
                             <span>{event.location}</span>
                           </div>
                         </div>
@@ -770,61 +967,131 @@ function PlansContent() {
 
   const filteredAdventures = getFilteredAdventures();
 
+  // Calculate stats
+  const completedCount = savedAdventures.filter(a => a.is_completed).length;
+  const scheduledCount = scheduledAdventures.length;
+  const totalHours = savedAdventures.reduce((sum, a) => sum + (a.duration_hours || 0), 0);
+
   return (
-    <div className="min-h-screen bg-white relative">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-[#f8f2d5]/20 relative">
       <Navigation />
       
-      <div className="pt-20 px-4">
-        <div className="max-w-6xl mx-auto">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Your Adventures</h1>
-              <p className="text-gray-600">
-                {savedAdventures.length === 0 
-                  ? "Start creating your first adventure!"
-                  : `${savedAdventures.length} adventure${savedAdventures.length !== 1 ? 's' : ''} saved`
-                }
-              </p>
-            </div>
-            
-            <div className="flex items-center gap-3 mt-4 sm:mt-0">
-              {/* View Mode Toggle */}
-              <div className="flex items-center bg-white rounded-lg p-1 shadow-sm">
-                <Button
-                  variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('grid')}
-                  className={`${
-                    viewMode === 'grid' 
-                      ? 'bg-[#3c7660] text-white' 
-                      : 'text-gray-600 hover:text-[#3c7660] hover:bg-[#f8f2d5]'
-                  } h-8`}
-                >
-                  <IoGridOutline className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={viewMode === 'calendar' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('calendar')}
-                  className={`${
-                    viewMode === 'calendar' 
-                      ? 'bg-[#3c7660] text-white' 
-                      : 'text-gray-600 hover:text-[#3c7660] hover:bg-[#f8f2d5]'
-                  } h-8`}
-                >
-                  <IoCalendar className="h-4 w-4" />
-                </Button>
+      <div className="pt-20 px-4 pb-12">
+        <div className="max-w-7xl mx-auto">
+          {/* Premium Header with Stats */}
+          <div className="mb-10">
+            {/* Title Section */}
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-6">
+              <div>
+                <h1 className="text-4xl font-bold text-gray-900 mb-3 bg-gradient-to-r from-[#3c7660] to-[#4d987b] bg-clip-text text-transparent">
+                  Your Adventure Library
+                </h1>
+                <p className="text-gray-600 text-lg flex items-center gap-2">
+                  {savedAdventures.length === 0 ? (
+                    <>
+                      <Sparkles className="w-5 h-5 text-[#f2cc6c]" />
+                      Start creating your first adventure!
+                    </>
+                  ) : (
+                    <>
+                      <Compass className="w-5 h-5 text-[#3c7660]" />
+                      {savedAdventures.length} adventure{savedAdventures.length !== 1 ? 's' : ''} ready to explore
+                    </>
+                  )}
+                </p>
               </div>
               
-              {/* Create New Adventure */}
-              <Link href="/create">
-                <Button className="bg-[#3c7660] hover:bg-[#2d5a47] text-white shadow-sm">
-                  <IoAdd className="mr-2 h-4 w-4" />
-                  New Adventure
-                </Button>
-              </Link>
+              <div className="flex items-center gap-3">
+                {/* View Mode Toggle */}
+                <div className="flex items-center bg-white rounded-xl p-1.5 shadow-lg border border-gray-100">
+                  <Button
+                    variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('grid')}
+                    className={`${
+                      viewMode === 'grid' 
+                        ? 'bg-gradient-to-r from-[#3c7660] to-[#4d987b] text-white shadow-md' 
+                        : 'text-gray-600 hover:text-[#3c7660] hover:bg-[#f8f2d5]/50'
+                    } h-9 px-4 transition-all duration-300`}
+                  >
+                    <LayoutGrid className="h-4 w-4 mr-2" />
+                    Grid
+                  </Button>
+                  <Button
+                    variant={viewMode === 'calendar' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('calendar')}
+                    className={`${
+                      viewMode === 'calendar' 
+                        ? 'bg-gradient-to-r from-[#3c7660] to-[#4d987b] text-white shadow-md' 
+                        : 'text-gray-600 hover:text-[#3c7660] hover:bg-[#f8f2d5]/50'
+                    } h-9 px-4 transition-all duration-300`}
+                  >
+                    <CalendarIcon className="h-4 w-4 mr-2" />
+                    Calendar
+                  </Button>
+                </div>
+                
+                {/* Create New Adventure */}
+                <Link href="/create">
+                  <Button className="bg-gradient-to-r from-[#3c7660] via-[#4d987b] to-[#3c7660] hover:shadow-xl hover:shadow-[#3c7660]/30 text-white shadow-lg transition-all duration-300 hover:scale-105 h-9 px-6 bg-[length:200%_100%] hover:bg-right">
+                    <Plus className="mr-2 h-4 w-4" />
+                    New Adventure
+                  </Button>
+                </Link>
+              </div>
             </div>
+
+            {/* Stats Cards - Only show if user has adventures */}
+            {savedAdventures.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Total Adventures */}
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-100 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="p-3 bg-gradient-to-br from-[#3c7660]/10 to-[#4d987b]/10 rounded-xl">
+                      <Compass className="w-6 h-6 text-[#3c7660]" />
+                    </div>
+                    <TrendingUp className="w-5 h-5 text-green-500" />
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900">{savedAdventures.length}</p>
+                  <p className="text-sm text-gray-600 mt-1">Total Adventures</p>
+                </div>
+
+                {/* Completed */}
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-100 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="p-3 bg-gradient-to-br from-emerald-500/10 to-green-500/10 rounded-xl">
+                      <Award className="w-6 h-6 text-emerald-600" />
+                    </div>
+                    <Sparkles className="w-5 h-5 text-[#f2cc6c]" />
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900">{completedCount}</p>
+                  <p className="text-sm text-gray-600 mt-1">Completed</p>
+                </div>
+
+                {/* Scheduled */}
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-100 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="p-3 bg-gradient-to-br from-[#f2cc6c]/20 to-[#f2cc6c]/10 rounded-xl">
+                      <CalendarDays className="w-6 h-6 text-[#3c7660]" />
+                    </div>
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900">{scheduledCount}</p>
+                  <p className="text-sm text-gray-600 mt-1">Scheduled</p>
+                </div>
+
+                {/* Total Hours */}
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-100 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="p-3 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-xl">
+                      <Clock className="w-6 h-6 text-blue-600" />
+                    </div>
+                  </div>
+                  <p className="text-3xl font-bold text-gray-900">{totalHours}h</p>
+                  <p className="text-sm text-gray-600 mt-1">Total Duration</p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Content */}
@@ -858,8 +1125,8 @@ function PlansContent() {
                 <TabsContent value={activeTab} className="mt-6">
                   {filteredAdventures.length === 0 ? (
                     <div className="text-center py-20">
-                      <div className="mx-auto w-24 h-24 bg-[#3c7660]/10 rounded-full flex items-center justify-center mb-6">
-                        <IoCalendarOutline className="h-12 w-12 text-[#3c7660]" />
+                      <div className="mx-auto w-24 h-24 bg-gradient-to-br from-[#3c7660]/10 to-[#f2cc6c]/10 rounded-full flex items-center justify-center mb-6 animate-pulse">
+                        <CalendarDays className="h-12 w-12 text-[#3c7660]" />
                       </div>
                       <h3 className="text-xl font-semibold text-gray-900 mb-2">
                         {activeTab === 'scheduled' && 'No scheduled adventures'}
@@ -872,14 +1139,14 @@ function PlansContent() {
                         {activeTab === 'all' && 'Create your first adventure to start exploring like a local.'}
                       </p>
                       <Link href="/create">
-                        <Button className="bg-[#3c7660] hover:bg-[#2d5a47] text-white">
-                          <IoAdd className="mr-2 h-4 w-4" />
+                        <Button className="bg-gradient-to-r from-[#3c7660] to-[#4d987b] hover:shadow-lg hover:shadow-[#3c7660]/30 text-white">
+                          <Plus className="mr-2 h-4 w-4" />
                           Create Your First Adventure
                         </Button>
                       </Link>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                       {filteredAdventures.map(renderAdventureCard)}
                     </div>
                   )}

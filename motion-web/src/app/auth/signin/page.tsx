@@ -39,27 +39,27 @@ export default function SignInPage() {
 
   // Redirect if already authenticated
   useEffect(() => {
-    // Add timeout to prevent infinite loading
+    // Check if we just completed auth (within last 5 seconds)
+    const authComplete = localStorage.getItem('motion_auth_complete');
+    if (authComplete) {
+      const timestamp = parseInt(authComplete);
+      const now = Date.now();
+      // If auth completed within last 5 seconds, redirect immediately
+      if (now - timestamp < 5000) {
+        console.log('🔐 Auth just completed, redirecting to home...');
+        localStorage.removeItem('motion_auth_complete');
+        router.replace('/');
+        return;
+      }
+    }
+    
+    // Normal auth check with delay
     const redirectTimeout = setTimeout(() => {
       if (!loading && user) {
         console.log('🔐 User already authenticated, redirecting to home...');
-        const stored = sessionStorage.getItem('redirectAfterLogin');
-        let redirectTo = '/';
-        if (stored) {
-          try {
-            // Only allow same-origin redirects
-            const url = new URL(stored, window.location.origin);
-            if (url.origin === window.location.origin) {
-              redirectTo = url.pathname + url.search + url.hash;
-            }
-          } catch {
-            // ignore invalid URL
-          }
-        }
-        sessionStorage.removeItem('redirectAfterLogin');
-        router.push(redirectTo);
+        router.replace('/');
       }
-    }, 100); // Small delay to prevent race conditions
+    }, 300);
 
     return () => clearTimeout(redirectTimeout);
   }, [user, loading, router]);

@@ -71,9 +71,34 @@ class AdventureService {
       }
 
       if (userAdventures && userAdventures.length > 0) {
+        console.log('🔍 RAW ADVENTURE DATA FROM DATABASE:', JSON.stringify(userAdventures[0], null, 2));
+        
         for (const adventure of userAdventures) {
           const normalizedSteps: AdventureStep[] = Array.isArray((adventure as any).steps) ? (adventure as any).steps : [];
         
+          console.log('📸 Extracting photo for adventure:', adventure.title, {
+            stepsCount: normalizedSteps.length,
+            firstStep: normalizedSteps[0],
+            allStepsData: normalizedSteps.map((s: any) => ({
+              title: s.title,
+              hasGooglePhotoUrl: !!s.google_photo_url,
+              hasGooglePlaces: !!s.google_places,
+              hasPhotoUrl: !!s.photo_url,
+              googlePhotoUrl: s.google_photo_url,
+              googlePlacesPhotoUrl: s.google_places?.photo_url
+            }))
+          });
+
+          // Extract photo from first step with google_photo_url if available
+          const photoFromSteps = normalizedSteps.find((s: any) => 
+            s.google_photo_url || s.google_places?.photo_url || s.photo_url
+          );
+          const stepPhotoUrl = photoFromSteps 
+            ? (photoFromSteps as any).google_photo_url || (photoFromSteps as any).google_places?.photo_url || (photoFromSteps as any).photo_url
+            : null;
+
+          console.log('📸 Extracted photo URL:', stepPhotoUrl);
+
           allAdventures.push({
             id: adventure.id,
             custom_title: adventure.title || 'Your Adventure',
@@ -82,7 +107,7 @@ class AdventureService {
             duration_hours: Number(adventure.duration_hours) || 4,
             estimated_cost: adventure.estimated_cost || '$$',
             rating: 0, // Default rating for user adventures
-            adventure_photos: [], // fill after photo fetch
+            adventure_photos: stepPhotoUrl ? [{ photo_url: stepPhotoUrl, is_cover_photo: true }] : [],
             user_saved: false,
             saved_at: adventure.created_at,
             scheduled_for: adventure.scheduled_date,
@@ -128,6 +153,26 @@ class AdventureService {
           // Skip duplicates already in own adventures (by id)
           if (allAdventures.some(a => a.id === adventure.id)) continue;
 
+          console.log('📸 Extracting photo for saved adventure:', adventure.custom_title || adventure.title, {
+            stepsCount: normalizedSteps.length,
+            allStepsData: normalizedSteps.map((s: any) => ({
+              title: s.title,
+              hasGooglePhotoUrl: !!s.google_photo_url,
+              hasGooglePlaces: !!s.google_places,
+              hasPhotoUrl: !!s.photo_url
+            }))
+          });
+
+          // Extract photo from first step with google_photo_url if available
+          const photoFromSteps = normalizedSteps.find((s: any) => 
+            s.google_photo_url || s.google_places?.photo_url || s.photo_url
+          );
+          const stepPhotoUrl = photoFromSteps 
+            ? (photoFromSteps as any).google_photo_url || (photoFromSteps as any).google_places?.photo_url || (photoFromSteps as any).photo_url
+            : null;
+
+          console.log('📸 Extracted photo URL:', stepPhotoUrl);
+
           allAdventures.push({
             id: adventure.id,
             custom_title: adventure.custom_title || adventure.title || 'Saved Adventure',
@@ -136,7 +181,7 @@ class AdventureService {
             duration_hours: Number(adventure.duration_hours) || 4,
             estimated_cost: adventure.estimated_cost || '$$',
             rating: adventure.rating || 0,
-            adventure_photos: [], // fill after photo fetch
+            adventure_photos: stepPhotoUrl ? [{ photo_url: stepPhotoUrl, is_cover_photo: true }] : [],
             user_saved: true,
             saved_at: adventure.created_at,
             scheduled_for: adventure.scheduled_date,
@@ -147,7 +192,7 @@ class AdventureService {
         }
       }
 
-      // Fetch photos for all collected adventure IDs
+      // Fetch photos from adventure_photos table for all collected adventure IDs
       const allIds = allAdventures.map(a => a.id);
       if (allIds.length) {
         const { data: photoRows } = await this.supabase
@@ -166,7 +211,11 @@ class AdventureService {
             });
           }
           for (const adv of allAdventures) {
-            adv.adventure_photos = byAdv[adv.id] || adv.adventure_photos || [];
+            // Only override if adventure_photos from table exist
+            // Otherwise keep photos extracted from steps
+            if (byAdv[adv.id] && byAdv[adv.id].length > 0) {
+              adv.adventure_photos = byAdv[adv.id];
+            }
           }
         }
       }
@@ -288,29 +337,73 @@ class AdventureService {
 
   async scheduleAdventure(adventureId: string, date: Date): Promise<boolean> {
     try {
-      const { error } = await this.supabase
+      console.log('📅 Scheduling adventure in DB:', adventureId, date.toISOString());
+      
+      const { data, error } = await this.supabase
         .from('adventures')
         .update({ scheduled_for: date.toISOString() })
-        .eq('id', adventureId);
-      if (error) throw error;
+        .eq('id', adventureId)
+        .select();
+      
+      if (error) {
+        console.error('❌ Supabase error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        throw new Error(error.message || error.details || 'Database error occurred');
+      }
+
+      if (!data || data.length === 0) {
+        throw new Error('Adventure not found or update failed');
+      }
+      
+      console.log('✅ Adventure scheduled successfully:', data);
       return true;
-    } catch (e) {
-      console.error('Error scheduling adventure:', e);
-      return false;
+    } catch (e: any) {
+      console.error('❌ Error scheduling adventure:', {
+        message: e?.message,
+        name: e?.name,
+        stack: e?.stack
+      });
+      throw new Error(e?.message || 'Failed to schedule adventure');
     }
   }
 
   async markAdventureCompleted(adventureId: string): Promise<boolean> {
     try {
-      const { error } = await this.supabase
+      console.log('✅ Marking adventure completed in DB:', adventureId);
+      
+      const { data, error } = await this.supabase
         .from('adventures')
         .update({ is_completed: true })
-        .eq('id', adventureId);
-      if (error) throw error;
+        .eq('id', adventureId)
+        .select();
+        
+      if (error) {
+        console.error('❌ Supabase error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        throw new Error(error.message || error.details || 'Database error occurred');
+      }
+
+      if (!data || data.length === 0) {
+        throw new Error('Adventure not found or update failed');
+      }
+      
+      console.log('✅ Adventure marked complete:', data);
       return true;
-    } catch (e) {
-      console.error('Error marking adventure completed:', e);
-      return false;
+    } catch (e: any) {
+      console.error('❌ Error marking adventure completed:', {
+        message: e?.message,
+        name: e?.name,
+        stack: e?.stack
+      });
+      throw new Error(e?.message || 'Failed to mark adventure as completed');
     }
   }
 

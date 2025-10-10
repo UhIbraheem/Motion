@@ -41,10 +41,15 @@ function AuthCallbackContent() {
             throw error;
           }
 
-          console.log('🔐 Session exchange successful:', !!data.session);
+            console.log('🔐 Session exchange successful:', !!data.session);
 
-          if (data.session) {
-            // Check if user profile exists, create if not
+            if (data.session) {
+              // Store a flag indicating auth is complete
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('motion_auth_complete', Date.now().toString());
+              }
+
+              // Check if user profile exists, create if not
             const { data: profile, error: profileError } = await supabase
               .from('profiles')
               .select('*')
@@ -81,8 +86,16 @@ function AuthCallbackContent() {
             }
 
             console.log('🔐 Redirecting to home page...');
-            // Use Next.js router for better auth state handling
-            router.push('/');
+            
+            // Verify session is available before redirecting
+            const { data: verifySession } = await supabase.auth.getSession();
+            console.log('🔐 Session verified:', !!verifySession.session);
+            
+            // Longer delay to ensure cookies are fully propagated
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Redirect to home page
+            window.location.replace('/');
             return;
           }
         }

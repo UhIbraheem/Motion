@@ -9,6 +9,7 @@ interface GooglePlaceDetails {
   price_level?: number;
   types?: string[];
   photo_references?: string[];
+  photo_url?: string; // Full photo URL from Google Places API
   opening_hours?: any;
   website?: string;
   formatted_phone_number?: string;
@@ -42,6 +43,24 @@ class GooglePlacesService {
   }
 
   /**
+   * Convert Google Places API v1 price level string to integer
+   */
+  private convertPriceLevel(priceLevel: any): number {
+    if (typeof priceLevel === 'number') return priceLevel;
+    if (typeof priceLevel !== 'string') return 0;
+    
+    const priceLevelMap: Record<string, number> = {
+      'PRICE_LEVEL_FREE': 0,
+      'PRICE_LEVEL_INEXPENSIVE': 1,
+      'PRICE_LEVEL_MODERATE': 2,
+      'PRICE_LEVEL_EXPENSIVE': 3,
+      'PRICE_LEVEL_VERY_EXPENSIVE': 4
+    };
+    
+    return priceLevelMap[priceLevel] ?? 0;
+  }
+
+  /**
    * Search for a place by business name and location
    */
   async searchPlace(businessName: string, location?: string): Promise<GooglePlaceDetails | null> {
@@ -62,13 +81,14 @@ class GooglePlacesService {
       if (data.success && data.place) {
         return {
           place_id: data.place.place_id,
-          name: data.place.name,
+          name: typeof data.place.name === 'object' ? data.place.name?.text : data.place.name,
           formatted_address: data.place.address,
           rating: data.place.rating,
           user_ratings_total: data.place.user_rating_count,
-          price_level: data.place.price_level,
+          price_level: this.convertPriceLevel(data.place.price_level),
           types: data.place.types,
-          photo_references: data.place.photo_url ? [data.place.photo_url] : [],
+          photo_references: [], // Backend returns full URLs, not references
+          photo_url: data.place.photo_url, // Store full photo URL here
           opening_hours: data.place.opening_hours,
           website: data.place.website,
           formatted_phone_number: data.place.phone,
@@ -121,36 +141,12 @@ class GooglePlacesService {
   }
 
   /**
-   * Cache place data in Supabase
+   * Cache place data in Supabase (disabled due to RLS issues)
    */
   async cachePlaceData(placeDetails: GooglePlaceDetails): Promise<void> {
-    try {
-      const { error } = await supabase
-        .from('google_places_cache')
-        .upsert({
-          place_id: placeDetails.place_id,
-          name: placeDetails.name,
-          formatted_address: placeDetails.formatted_address,
-          rating: placeDetails.rating,
-          user_ratings_total: placeDetails.user_ratings_total,
-          price_level: placeDetails.price_level,
-          types: placeDetails.types,
-          photo_references: placeDetails.photo_references,
-          opening_hours: placeDetails.opening_hours,
-          website: placeDetails.website,
-          formatted_phone_number: placeDetails.formatted_phone_number,
-          business_status: placeDetails.business_status,
-          geometry: placeDetails.geometry,
-          reviews: placeDetails.reviews,
-          last_updated: new Date().toISOString()
-        });
-
-      if (error) {
-        console.error('Error caching place data:', error);
-      }
-    } catch (error) {
-      console.error('Error caching place data:', error);
-    }
+    // Caching disabled - RLS policy prevents writes from client
+    // TODO: Move caching to backend API
+    return;
   }
 
   /**
