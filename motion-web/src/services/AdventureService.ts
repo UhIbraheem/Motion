@@ -3,9 +3,11 @@ import { SavedAdventure, AdventureStep } from '@/types/adventureTypes';
 
 class AdventureService {
   supabase = supabase;
+  private backendBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://motion-backend-production.up.railway.app';
 
   private mapBackendToSaved(adventure: any): SavedAdventure {
     const steps = Array.isArray(adventure.steps) ? adventure.steps : [];
+    const scheduledFor = adventure.scheduledFor || adventure.scheduled_date;
     return {
       id: adventure.id || adventure.adventureId || crypto.randomUUID(),
       custom_title: adventure.title || adventure.plan_title || 'Your Adventure',
@@ -19,18 +21,52 @@ class AdventureService {
         : [],
       user_saved: false,
       saved_at: adventure.createdAt || new Date().toISOString(),
-      scheduled_for: adventure.scheduledFor || adventure.scheduled_date || undefined,
-      adventure_steps: steps.map((s: any, idx: number) => ({
-        id: s.id || `step-${idx}`,
-        step_number: s.step_number || idx + 1,
-        title: s.title || s.name || `Step ${idx + 1}`,
-        description: s.description || s.notes || '',
-        location: s.location,
-        estimated_duration_minutes: s.estimated_duration_minutes,
-      })),
+      scheduled_for: scheduledFor ? new Date(scheduledFor).toISOString() : undefined,
+      is_scheduled: adventure.is_scheduled === true || adventure.isScheduled === true,
+      adventure_steps: steps.map((s: any, idx: number) => this.normalizeStep(s, idx)),
       profiles: null,
       is_completed: !!adventure.isCompleted || adventure.is_completed === true,
     };
+  }
+
+  private normalizeStep(step: any, idx: number): AdventureStep {
+    if (!step) {
+      return {
+        id: `step-${idx}`,
+        step_number: idx + 1,
+        title: `Step ${idx + 1}`,
+        description: '',
+      };
+    }
+
+    const normalized: AdventureStep = {
+      id: step.id || step.step_id || `step-${idx}`,
+      step_number: step.step_number || step.stepNumber || idx + 1,
+      title: step.title || step.name || step.step_title || `Step ${idx + 1}`,
+      description: step.description ?? step.notes ?? step.details ?? '',
+      location: step.location ?? step.address ?? step.formatted_address,
+      estimated_duration_minutes: step.estimated_duration_minutes ?? step.duration_minutes ?? step.duration,
+      estimated_cost: step.estimated_cost ?? step.cost,
+      business_info: step.business_info,
+      completed: step.completed ?? false,
+      google_photo_url: step.google_photo_url || step.photo_url || step.primary_photo_url || step.image_url || step.google_places?.photo_url,
+      google_places: step.google_places || step.place || step.business_details,
+      photo_url: step.photo_url || step.google_photo_url || step.primary_photo_url || step.image_url || step.google_places?.photo_url,
+      business_name: step.business_name || step.name || step.place_name,
+      address: step.address || step.formatted_address || step.location,
+      coordinates: step.coordinates || step.location_coordinates || step.geo,
+      raw_data: step,
+    };
+
+    if (!normalized.photo_url && normalized.google_places?.photo_url) {
+      normalized.photo_url = normalized.google_places.photo_url;
+    }
+
+    if (!normalized.google_photo_url && normalized.photo_url) {
+      normalized.google_photo_url = normalized.photo_url;
+    }
+
+    return normalized;
   }
 
   async getUserSavedAdventures(userId: string): Promise<SavedAdventure[]> {
@@ -74,7 +110,8 @@ class AdventureService {
         console.log('🔍 RAW ADVENTURE DATA FROM DATABASE:', JSON.stringify(userAdventures[0], null, 2));
         
         for (const adventure of userAdventures) {
-          const normalizedSteps: AdventureStep[] = Array.isArray((adventure as any).steps) ? (adventure as any).steps : [];
+          const rawSteps: any[] = Array.isArray((adventure as any).steps) ? (adventure as any).steps : [];
+          const normalizedSteps: AdventureStep[] = rawSteps.map((s: any, idx: number) => this.normalizeStep(s, idx));
         
           console.log('📸 Extracting photo for adventure:', adventure.title, {
             stepsCount: normalizedSteps.length,
@@ -110,10 +147,11 @@ class AdventureService {
             adventure_photos: stepPhotoUrl ? [{ photo_url: stepPhotoUrl, is_cover_photo: true }] : [],
             user_saved: false,
             saved_at: adventure.created_at,
-            scheduled_for: adventure.scheduled_date,
+            scheduled_for: adventure.scheduled_date ?? undefined,
             adventure_steps: normalizedSteps,
             profiles: null,
             is_completed: (adventure as any).is_completed === true,
+            is_scheduled: (adventure as any).is_scheduled === true,
           });
         }
       }
@@ -143,12 +181,14 @@ class AdventureService {
               created_at,
               scheduled_date,
               steps,
-              filters_used
+              filters_used,
+              is_scheduled
             `)
           .in('id', savedIds);
 
         for (const adventure of (savedAdventuresData ?? [])) {
-    const normalizedSteps: AdventureStep[] = Array.isArray((adventure as any).steps) ? (adventure as any).steps : [];
+          const rawSteps: any[] = Array.isArray((adventure as any).steps) ? (adventure as any).steps : [];
+          const normalizedSteps: AdventureStep[] = rawSteps.map((s: any, idx: number) => this.normalizeStep(s, idx));
 
           // Skip duplicates already in own adventures (by id)
           if (allAdventures.some(a => a.id === adventure.id)) continue;
@@ -184,10 +224,11 @@ class AdventureService {
             adventure_photos: stepPhotoUrl ? [{ photo_url: stepPhotoUrl, is_cover_photo: true }] : [],
             user_saved: true,
             saved_at: adventure.created_at,
-            scheduled_for: adventure.scheduled_date,
+            scheduled_for: adventure.scheduled_date ?? undefined,
             adventure_steps: normalizedSteps,
             profiles: null,
             is_completed: (adventure as any).is_completed === true || (adventure as any).status === 'completed',
+            is_scheduled: (adventure as any).is_scheduled === true,
           });
         }
       }
@@ -223,7 +264,7 @@ class AdventureService {
       // If nothing from Supabase, fallback to backend API
       if (allAdventures.length === 0) {
         try {
-          const res = await fetch(`https://motion-backend-production.up.railway.app/api/adventures/user/${userId}`, {
+          const res = await fetch(`${this.backendBaseUrl}/api/adventures/user/${userId}`, {
             headers: { 'Authorization': `Bearer ${localStorage.getItem('token') || ''}` }
           });
           if (res.ok) {
@@ -316,7 +357,9 @@ class AdventureService {
         is_cover_photo: p.is_cover_photo || false 
       }));
       
-      const normalizedSteps: AdventureStep[] = Array.isArray(data.steps) ? data.steps : [];
+      const normalizedSteps: AdventureStep[] = Array.isArray(data.steps)
+        ? data.steps.map((step: any, idx: number) => this.normalizeStep(step, idx))
+        : [];
 
       return {
         data: {
@@ -337,30 +380,44 @@ class AdventureService {
 
   async scheduleAdventure(adventureId: string, date: Date): Promise<boolean> {
     try {
-      console.log('📅 Scheduling adventure in DB:', adventureId, date.toISOString());
-      
-      const { data, error } = await this.supabase
-        .from('adventures')
-        .update({ scheduled_for: date.toISOString() })
-        .eq('id', adventureId)
-        .select();
-      
-      if (error) {
-        console.error('❌ Supabase error details:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
-        throw new Error(error.message || error.details || 'Database error occurred');
+      console.log('📅 Scheduling adventure via backend:', adventureId, date.toISOString());
+
+      const { data: { user } } = await this.supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
       }
 
-      if (!data || data.length === 0) {
-        throw new Error('Adventure not found or update failed');
+      try {
+        const response = await fetch(`${this.backendBaseUrl}/api/adventures/${adventureId}/schedule`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            scheduledDate: date.toISOString(),
+            userId: user.id,
+          })
+        });
+
+        if (!response.ok) {
+          const errorBody = await response.json().catch(() => ({}));
+          console.error('❌ Backend scheduling error:', errorBody);
+          throw new Error(errorBody?.error || 'Failed to schedule adventure');
+        }
+
+        const payload = await response.json().catch(() => null);
+        console.log('✅ Adventure scheduled successfully via backend:', payload);
+        return true;
+      } catch (backendError: any) {
+        console.warn('⚠️ Backend scheduling failed, attempting Supabase fallback:', backendError?.message);
+        await this.scheduleAdventureDirectly({
+          adventureId,
+          userId: user.id,
+          scheduledDate: date.toISOString(),
+        });
+
+        return true;
       }
-      
-      console.log('✅ Adventure scheduled successfully:', data);
-      return true;
     } catch (e: any) {
       console.error('❌ Error scheduling adventure:', {
         message: e?.message,
@@ -369,6 +426,43 @@ class AdventureService {
       });
       throw new Error(e?.message || 'Failed to schedule adventure');
     }
+  }
+
+  private async scheduleAdventureDirectly({
+    adventureId,
+    userId,
+    scheduledDate,
+  }: {
+    adventureId: string;
+    userId: string;
+    scheduledDate: string;
+  }): Promise<boolean> {
+    console.log('📅 Scheduling adventure via Supabase fallback:', adventureId, scheduledDate);
+
+    // Only update columns that actually exist in the database schema
+    const { data, error } = await this.supabase
+      .from('adventures')
+      .update({
+        scheduled_date: scheduledDate,
+        is_scheduled: true,
+      })
+      .eq('id', adventureId)
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('❌ Supabase fallback scheduling error:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
+      throw new Error(error.message || 'Failed to schedule adventure via Supabase');
+    }
+
+    console.log('✅ Adventure scheduled via Supabase fallback:', data?.id);
+    return true;
   }
 
   async markAdventureCompleted(adventureId: string): Promise<boolean> {
@@ -493,29 +587,37 @@ class AdventureService {
 
   async updateStepCompletion(adventureId: string, stepId: string, completed: boolean): Promise<boolean> {
     try {
-      // Fetch current steps
-      const { data, error } = await this.supabase
-        .from('adventures')
-        .select('steps')
-        .eq('id', adventureId)
-        .single();
-      
-      if (error) throw error;
-      
-      const steps = Array.isArray(data?.steps) ? data!.steps : [];
-      const updatedSteps = steps.map((s: any) => s.id === stepId ? { ...s, completed } : s);
-      
-      const { error: updateError } = await this.supabase
-        .from('adventures')
-        .update({ steps: updatedSteps })
-        .eq('id', adventureId);
-        
-      if (updateError) throw updateError;
-      
+      const { data: { user } } = await this.supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      const response = await fetch(`${this.backendBaseUrl}/api/adventures/${adventureId}/steps/${encodeURIComponent(stepId)}/toggle`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ completed, userId: user.id })
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        console.error('❌ Backend step toggle error:', errorBody);
+        throw new Error(errorBody?.error || 'Failed to update step');
+      }
+
+      const payload = await response.json();
+      console.log('✅ Step completion updated via backend:', payload);
       return true;
-    } catch (e) {
-      console.error('Error updating step completion:', e);
-      return false;
+    } catch (e: any) {
+      console.error('❌ Error updating step completion:', {
+        message: e?.message,
+        name: e?.name,
+        stepId,
+        adventureId,
+        completed
+      });
+      throw e; // Re-throw to let caller handle
     }
   }
 

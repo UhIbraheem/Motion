@@ -1,4 +1,128 @@
-# Motion App - Setup & Running Guide
+# Motion 🌊
+
+**AI-powered local adventure discovery platform**
+
+Motion helps you discover personalized local experiences and adventures using AI. Input your mood, preferences, and constraints, and get curated step-by-step adventure plans tailored to your location.
+
+## What is Motion?
+
+Motion is a cross-platform application that makes exploring your local area feel like having a personal adventure guide. Whether you're a local looking for something new or traveling to a new city, Motion creates customized itineraries that match your vibe, budget, and time.
+
+**Core Features:**
+- 🤖 AI-powered adventure generation using GPT-4
+- 📍 Google Places integration for verified locations
+- 📅 Schedule and track your adventures
+- 🗺️ Step-by-step guided experiences
+- 🌐 Community discovery and sharing
+- 📱 Available on Web and Mobile (iOS/Android)
+
+## Project Structure
+
+```
+Motion/
+├── frontend/           # React Native mobile app (Expo)
+├── motion-web/        # Next.js 14 web application  
+├── motion-landing/    # Landing page (motionflow.app)
+├── backend/           # Node.js + Express API (Railway)
+└── shared/            # Shared services and utilities
+```
+
+## Tech Stack
+
+- **Mobile**: React Native + Expo + TypeScript + NativeWind
+- **Web**: Next.js 14 + TypeScript + Tailwind CSS + shadcn/ui
+- **Backend**: Node.js + Express + TypeScript
+- **Database**: Supabase (PostgreSQL)
+- **AI**: OpenAI GPT-4
+- **Maps**: Google Places API
+- **Auth**: Supabase Auth (Google OAuth)
+
+## Getting Started
+
+### Prerequisites
+- Node.js 18+
+- npm or yarn
+- Expo CLI (for mobile)
+- Supabase account
+- OpenAI API key
+- Google Places API key
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/UhIbraheem/Motion.git
+   cd Motion
+   ```
+
+2. **Install dependencies**
+   ```bash
+   # Backend
+   cd backend && npm install
+   
+   # Web app
+   cd ../motion-web && npm install
+   
+   # Mobile app
+   cd ../frontend && npm install
+   ```
+
+3. **Set up environment variables**
+   - Copy `.env.example` to `.env.local` in each directory
+   - Add your API keys (Supabase, OpenAI, Google Places)
+
+4. **Run the applications**
+   
+   **Backend:**
+   ```bash
+   cd backend
+   npm run dev
+   ```
+   
+   **Web:**
+   ```bash
+   cd motion-web
+   npm run dev
+   ```
+   
+   **Mobile:**
+   ```bash
+   cd frontend
+   npx expo start
+   ```
+
+## Quick Start Scripts
+
+Windows users can use the provided batch files:
+- `start-web.bat` - Start web app
+- `start-mobile.bat` - Start mobile app
+
+## Documentation
+
+- [Frontend README](./frontend/README.md) - Mobile app setup
+- [Motion Web README](./motion-web/README.md) - Web app setup
+- [Backend README](./backend/README.md) - API documentation
+- [Developer Guide](./.github/copilot-instructions.md) - Full development guide
+
+## Deployment
+
+- **Web App**: Vercel (app.motionflow.app)
+- **Landing**: Vercel (motionflow.app)
+- **Backend**: Railway (api.motionflow.app)
+- **Database**: Supabase
+
+## Contributing
+
+This is a private project. For development guidelines, see the [developer guide](./.github/copilot-instructions.md).
+
+## License
+
+Proprietary - All Rights Reserved
+
+---
+
+**Built with ❤️ for adventure seekers everywhere**
+ App - Setup & Running Guide
 
 AI-Powered Local Adventure Planning App
 

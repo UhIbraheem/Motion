@@ -330,19 +330,25 @@ function PlansContent() {
     try {
       console.log('📅 Scheduling adventure:', selectedAdventure.id, 'for', date);
       
-      // Sync with backend first
+      // Sync with backend first (updates both scheduled_date AND is_scheduled)
       await AdventureService.scheduleAdventure(selectedAdventure.id, date);
       
-      // Update locally
+      // Update locally with BOTH fields
       const updatedAdventure = { 
         ...selectedAdventure, 
-        scheduled_for: date.toISOString() 
+        scheduled_for: date.toISOString(),
+        is_scheduled: true  // Critical: set the boolean flag
       };
       setSelectedAdventure(updatedAdventure);
       
+      // Update in the main list too
+      setSavedAdventures(prev => prev.map(adv => 
+        adv.id === selectedAdventure.id ? updatedAdventure : adv
+      ));
+      
       toast.success(`Adventure scheduled for ${date.toLocaleDateString()}! 🎉`);
       
-      // Reload to sync
+      // Reload to ensure complete sync
       await loadAdventures();
       
     } catch (error: any) {
@@ -1210,6 +1216,7 @@ function PlansContent() {
           onDelete={() => handleDelete()}
           onShare={(rating, text) => handleShare(rating, text)}
           onDuplicate={() => handleDuplicate()}
+          onUpdate={() => loadAdventures()} // Refresh adventures when modal updates
         />
       )}
 

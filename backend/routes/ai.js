@@ -45,7 +45,7 @@ router.post("/google-places", async (req, res) => {
 
       const placeData = {
         place_id: place.id || '',
-        name: place.displayName || '',
+        name: place.displayName?.text || place.displayName || '',
         address: place.formattedAddress || '',
         rating: place.rating || 0,
         user_rating_count: place.userRatingCount || 0,
@@ -126,7 +126,7 @@ async function enhanceAdventureWithGooglePlaces(adventure, location) {
             google_photo_url: photoUrl,
             google_places: {
               place_id: place.id || '',
-              name: place.displayName || '',
+              name: place.displayName?.text || place.displayName || '',
               formatted_address: place.formattedAddress || '',
               rating: place.rating || 0,
               user_ratings_total: place.userRatingCount || 0,
@@ -230,7 +230,7 @@ const adventureSchema = {
                   description: "Alternative if booking fails" 
                 }
               },
-              required: ["method"]
+              required: ["method", "link", "fallback"]
             }
           },
           required: ["time", "title", "location"]

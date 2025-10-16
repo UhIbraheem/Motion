@@ -104,13 +104,15 @@ router.patch('/:adventureId/schedule', async (req, res) => {
       });
     }
 
-    // Update the adventure with scheduling information
+    console.log('📅 Backend: Scheduling adventure:', { adventureId, scheduledDate, userId });
+
+    // Update only columns that exist in the database schema
+    // The adventures table only has: scheduled_date and is_scheduled
     const { data, error } = await supabase
       .from('adventures')
       .update({
         scheduled_date: scheduledDate,
-        scheduled_start_time: startTime,
-        updated_at: new Date().toISOString()
+        is_scheduled: true,
       })
       .eq('id', adventureId)
       .eq('user_id', userId)
@@ -121,9 +123,11 @@ router.patch('/:adventureId/schedule', async (req, res) => {
       console.error('❌ Error scheduling adventure:', error);
       return res.status(500).json({ 
         success: false, 
-        error: 'Failed to schedule adventure' 
+        error: error.message || 'Failed to schedule adventure' 
       });
     }
+
+    console.log('✅ Backend: Adventure scheduled successfully:', data.id);
 
     res.json({
       success: true,

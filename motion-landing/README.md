@@ -1,4 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Motion Landing Page 🌊
+
+Marketing landing page for Motion - AI-powered local adventure discovery.
+
+## Overview
+
+The Motion landing page serves as the public-facing website for Motion, providing information about the product, features, and sign-up options. Optimized for conversions and SEO.
+
+## Tech Stack
+
+- **Framework**: Next.js 14
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **Deployment**: Vercel
+
+## Features
+
+- Hero section with call-to-action
+- Feature highlights
+- Pricing tiers
+- Testimonials
+- FAQ section
+- Newsletter signup
+- SEO optimized
+
+## Setup
+
+```bash
+# Install dependencies
+cd motion-landing
+npm install
+
+# Start development server
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) to view.
+
+## Deployment
+
+Deployed on Vercel at **https://motionflow.app**
+
+Auto-deploys on push to main branch.
+
+---
+
+For more information, see the [main README](../README.md)
+
 
 ## Getting Started
 

@@ -1,4 +1,142 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Motion Web App 🌐
+
+Next.js 14 web application for Motion - AI-powered local adventure discovery.
+
+## Overview
+
+The Motion web app provides a premium web experience for discovering, creating, and managing local adventures. Built with Next.js 14 and modern web technologies for optimal performance and user experience.
+
+## Tech Stack
+
+- **Framework**: Next.js 14 (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS + shadcn/ui components
+- **State Management**: React Context
+- **Auth**: Supabase Auth
+- **Database**: Supabase
+- **Payments**: Stripe (subscription management)
+
+## Project Structure
+
+```
+motion-web/
+├── src/
+│   ├── app/             # Next.js app router pages
+│   │   ├── page.tsx     # Home/Discover page
+│   │   ├── create/      # Adventure generation
+│   │   ├── plans/       # Saved adventures
+│   │   ├── profile/     # User profile
+│   │   └── api/         # API routes
+│   ├── components/      # React components
+│   ├── contexts/        # Context providers
+│   ├── lib/             # Utilities and helpers
+│   ├── services/        # API services
+│   └── types/           # TypeScript definitions
+└── public/              # Static assets
+```
+
+## Key Features
+
+- **Discover** (Home): Browse community adventures
+- **Create**: AI-powered adventure generation with detailed filters
+- **Plans**: Manage, schedule, and track adventures
+- **Profile**: Account settings and preferences
+- **Subscription**: Stripe-powered tier management
+
+## Setup
+
+### Prerequisites
+- Node.js 18+
+- npm or yarn
+
+### Installation
+
+```bash
+# Install dependencies
+cd motion-web
+npm install
+
+# Create environment file
+cp .env.example .env.local
+
+# Start development server
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+## Environment Variables
+
+Create `.env.local` file with:
+
+```env
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# Backend API
+NEXT_PUBLIC_BACKEND_URL=http://localhost:3001
+
+# Google OAuth
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+
+# Stripe
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=your_stripe_key
+STRIPE_SECRET_KEY=your_stripe_secret
+```
+
+## Development
+
+```bash
+# Run development server
+npm run dev
+
+# Build for production
+npm run build
+
+# Start production server
+npm start
+
+# Lint code
+npm run lint
+```
+
+## Page Structure
+
+- `/` - Discover (Home): Community adventures feed
+- `/create` - AI adventure generation
+- `/plans` - Saved adventures with calendar view
+- `/profile` - User settings and preferences
+- `/auth/*` - Authentication pages
+
+## Deployment
+
+The web app is deployed on Vercel:
+- **Production**: https://app.motionflow.app
+- **Preview**: Auto-deployed on pull requests
+
+### Deploy to Vercel
+
+```bash
+# Install Vercel CLI
+npm i -g vercel
+
+# Deploy
+vercel
+```
+
+## Development Notes
+
+- **Home = Discover**: The root page (`/`) serves as the Discover/community feed
+- **Server Components**: Using Next.js App Router with server and client components
+- **Responsive Design**: Mobile-first approach with Tailwind breakpoints
+- **Authentication**: Google OAuth primary, email/password supported
+
+---
+
+For more information, see the [main README](../README.md)
+
 
 ## Getting Started
 

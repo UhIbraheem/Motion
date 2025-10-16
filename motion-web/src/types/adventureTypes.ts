@@ -6,6 +6,7 @@ export interface AdventureStep {
   location?: string;
   estimated_duration_minutes?: number;
   estimated_cost?: string;
+  completed?: boolean;
   business_info?: {
     name: string;
     photos: string[];
@@ -14,6 +15,14 @@ export interface AdventureStep {
     avg_price: string;
     ai_description: string;
   };
+  google_photo_url?: string;
+  google_places?: any;
+  photo_url?: string;
+  business_name?: string;
+  address?: string;
+  coordinates?: any;
+  raw_data?: any;
+  [key: string]: any;
 }
 
 export interface SavedAdventure {
@@ -31,6 +40,7 @@ export interface SavedAdventure {
   user_saved: boolean;
   saved_at: string;
   scheduled_for?: string;
+  is_scheduled?: boolean;
   adventure_steps: AdventureStep[];
   profiles?: any;
   is_completed?: boolean;
