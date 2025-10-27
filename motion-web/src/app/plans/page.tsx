@@ -117,13 +117,14 @@ function PlansContent() {
   const [error, setError] = useState<string | null>(null);
   const [adventurePhotos, setAdventurePhotos] = useState<Record<string, string>>({}); // Cache for fetched photos
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState<Record<string, number>>({}); // Track photo index per adventure
-  
+
   // Modal state
   const [selectedAdventure, setSelectedAdventure] = useState<SavedAdventure | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [highlightedAdventureId, setHighlightedAdventureId] = useState<string | null>(null);
+  const [isScheduling, setIsScheduling] = useState(false); // Loading state for scheduling
 
   // Share to Discover with a quick review
   const handleShare = async (rating: number, text?: string) => {
@@ -323,37 +324,92 @@ function PlansContent() {
     }
   };
 
-  // Schedule adventure
+  // Schedule adventure with enhanced error handling and loading state
   const handleSchedule = async (date: Date) => {
-    if (!selectedAdventure) return;
+    if (!selectedAdventure) {
+      console.error('❌ No adventure selected for scheduling');
+      return;
+    }
+
+    // Validate date is in the future
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const scheduleDate = new Date(date);
+    scheduleDate.setHours(0, 0, 0, 0);
+
+    if (scheduleDate < now) {
+      toast.error('Please select a future date for your adventure.');
+      return;
+    }
+
+    setIsScheduling(true);
 
     try {
-      console.log('📅 Scheduling adventure:', selectedAdventure.id, 'for', date);
-      
-      // Sync with backend first (updates both scheduled_date AND is_scheduled)
-      await AdventureService.scheduleAdventure(selectedAdventure.id, date);
-      
-      // Update locally with BOTH fields
-      const updatedAdventure = { 
-        ...selectedAdventure, 
-        scheduled_for: date.toISOString(),
-        is_scheduled: true  // Critical: set the boolean flag
-      };
+      console.log('📅 Scheduling adventure:', {
+        id: selectedAdventure.id,
+        title: selectedAdventure.custom_title,
+        date: date.toISOString(),
+        alreadyScheduled: !!selectedAdventure.scheduled_for
+      });
+
+      // Handle rescheduling case
+      if (selectedAdventure.scheduled_for) {
+        const oldDate = new Date(selectedAdventure.scheduled_for).toLocaleDateString();
+        const newDate = date.toLocaleDateString();
+        console.log(`🔄 Rescheduling from ${oldDate} to ${newDate}`);
+      }
+
+      // Call service - now returns full updated adventure
+      const updatedAdventure = await AdventureService.scheduleAdventure(
+        selectedAdventure.id,
+        date
+      );
+
+      console.log('✅ Adventure scheduled successfully:', {
+        id: updatedAdventure.id,
+        scheduled_for: updatedAdventure.scheduled_for,
+        is_scheduled: updatedAdventure.is_scheduled
+      });
+
+      // Update selected adventure in modal
       setSelectedAdventure(updatedAdventure);
-      
-      // Update in the main list too
-      setSavedAdventures(prev => prev.map(adv => 
-        adv.id === selectedAdventure.id ? updatedAdventure : adv
-      ));
-      
-      toast.success(`Adventure scheduled for ${date.toLocaleDateString()}! 🎉`);
-      
-      // Reload to ensure complete sync
+
+      // Update in the main adventures list
+      setSavedAdventures(prev =>
+        prev.map(adv => (adv.id === updatedAdventure.id ? updatedAdventure : adv))
+      );
+
+      // Show success message
+      const formattedDate = date.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+
+      if (selectedAdventure.scheduled_for) {
+        toast.success(`Adventure rescheduled to ${formattedDate}! 📅`);
+      } else {
+        toast.success(`Adventure scheduled for ${formattedDate}! 🎉`);
+      }
+
+      // Force refresh from database to ensure sync
+      console.log('🔄 Reloading adventures from database...');
       await loadAdventures();
-      
+
     } catch (error: any) {
-      console.error('❌ Scheduling failed:', error);
-      toast.error(error?.message || 'Failed to schedule adventure. Please try again.');
+      console.error('❌ Scheduling failed:', {
+        error: error?.message,
+        stack: error?.stack,
+        adventureId: selectedAdventure.id,
+      });
+
+      // Show user-friendly error message
+      toast.error(error?.message || 'Failed to schedule adventure. Please try again.', {
+        duration: 5000,
+      });
+    } finally {
+      setIsScheduling(false);
     }
   };
 
@@ -462,8 +518,13 @@ function PlansContent() {
     switch (activeTab) {
       case 'scheduled':
         // Ordered by soonest to latest scheduled date
+        // IMPORTANT: Check BOTH scheduled_for AND is_scheduled flag
         return savedAdventures
-          .filter(adventure => adventure.scheduled_for && !adventure.is_completed)
+          .filter(adventure =>
+            adventure.scheduled_for &&
+            adventure.is_scheduled === true &&
+            !adventure.is_completed
+          )
           .sort((a, b) => {
             const dateA = new Date(a.scheduled_for!);
             const dateB = new Date(b.scheduled_for!);
@@ -472,7 +533,7 @@ function PlansContent() {
       case 'completed':
         // Most recently completed to oldest
         return savedAdventures
-          .filter(adventure => adventure.is_completed)
+          .filter(adventure => adventure.is_completed === true)
           .sort((a, b) => {
             const dateA = new Date(a.saved_at);
             const dateB = new Date(b.saved_at);
@@ -1244,21 +1305,29 @@ function PlansContent() {
                   setShowScheduleModal(false);
                   setSelectedDate(undefined);
                 }}
+                disabled={isScheduling}
               >
                 Cancel
               </Button>
               <Button
                 onClick={() => {
-                  if (selectedDate) {
+                  if (selectedDate && !isScheduling) {
                     handleSchedule(selectedDate);
                     setShowScheduleModal(false);
                     setSelectedDate(undefined);
                   }
                 }}
-                disabled={!selectedDate}
-                className="bg-[#3c7660] hover:bg-[#2a5444] text-white"
+                disabled={!selectedDate || isScheduling}
+                className="bg-[#3c7660] hover:bg-[#2a5444] text-white disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Schedule
+                {isScheduling ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                    Scheduling...
+                  </>
+                ) : (
+                  'Schedule'
+                )}
               </Button>
             </div>
           </div>
