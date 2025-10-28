@@ -550,32 +550,187 @@ function PlansContent() {
     }
   };
 
-  // Get real photo URL from Google Places data
-  const getAdventurePhoto = (adventure: SavedAdventure) => {
-    // Check cache first
+  /**
+   * Get photo URL with caching and multiple fallbacks
+   * Implements localStorage cache with 24hr TTL
+   */
+  const getAdventurePhoto = (adventure: SavedAdventure): string => {
+    const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+    const cacheKey = `motion_photo_${adventure.id}`;
+
+    // Check memory cache first (fastest)
     if (adventurePhotos[adventure.id]) {
       return adventurePhotos[adventure.id];
     }
 
-    // Priority 1: adventure_photos table
-    if (adventure.adventure_photos?.length > 0 && adventure.adventure_photos[0]?.photo_url) {
-      return adventure.adventure_photos[0].photo_url;
+    // Check localStorage cache
+    try {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const { url, cachedAt } = JSON.parse(cached);
+        if (Date.now() - cachedAt < CACHE_TTL) {
+          console.log(`📷 [Photo] Cache hit for ${adventure.id}`);
+          // Update memory cache
+          setAdventurePhotos(prev => ({ ...prev, [adventure.id]: url }));
+          return url;
+        } else {
+          // Expired, remove it
+          localStorage.removeItem(cacheKey);
+        }
+      }
+    } catch (e) {
+      console.warn('📷 [Photo] Cache read error:', e);
     }
-    
-    // Priority 2: Google Places data in steps
+
+    // Priority 1: adventure_photos array (database stored photos)
+    if (adventure.adventure_photos?.length > 0) {
+      for (const photo of adventure.adventure_photos) {
+        if (photo.photo_url) {
+          const url = photo.photo_url;
+          cachePhoto(adventure.id, url);
+          return url;
+        }
+      }
+    }
+
+    // Priority 2: First step's primary photo
+    if (adventure.adventure_steps?.length > 0) {
+      const firstStep = adventure.adventure_steps[0] as any;
+
+      // Check for photos array with primary flag
+      if (firstStep.photos?.length > 0) {
+        const primaryPhoto = firstStep.photos.find((p: any) => p.isPrimary);
+        if (primaryPhoto?.url) {
+          cachePhoto(adventure.id, primaryPhoto.url);
+          return primaryPhoto.url;
+        }
+        // Use first photo if no primary
+        if (firstStep.photos[0]?.url) {
+          cachePhoto(adventure.id, firstStep.photos[0].url);
+          return firstStep.photos[0].url;
+        }
+      }
+
+      // Check google_photo_url
+      if (firstStep.google_photo_url) {
+        cachePhoto(adventure.id, firstStep.google_photo_url);
+        return firstStep.google_photo_url;
+      }
+
+      // Check google_places.photo_url
+      if (firstStep.google_places?.photo_url) {
+        cachePhoto(adventure.id, firstStep.google_places.photo_url);
+        return firstStep.google_places.photo_url;
+      }
+
+      // Check generic photo_url
+      if (firstStep.photo_url) {
+        cachePhoto(adventure.id, firstStep.photo_url);
+        return firstStep.photo_url;
+      }
+    }
+
+    // Priority 3: Any step with a photo
     if (adventure.adventure_steps?.length > 0) {
       for (const step of adventure.adventure_steps) {
         const stepData = step as any;
-        
-        if (stepData.google_photo_url) return stepData.google_photo_url;
-        if (stepData.google_places?.photo_url) return stepData.google_places.photo_url;
-        if (stepData.photo_url) return stepData.photo_url;
+
+        if (stepData.photos?.length > 0 && stepData.photos[0]?.url) {
+          cachePhoto(adventure.id, stepData.photos[0].url);
+          return stepData.photos[0].url;
+        }
+
+        if (stepData.google_photo_url) {
+          cachePhoto(adventure.id, stepData.google_photo_url);
+          return stepData.google_photo_url;
+        }
+
+        if (stepData.google_places?.photo_url) {
+          cachePhoto(adventure.id, stepData.google_places.photo_url);
+          return stepData.google_places.photo_url;
+        }
+
+        if (stepData.photo_url) {
+          cachePhoto(adventure.id, stepData.photo_url);
+          return stepData.photo_url;
+        }
       }
     }
-    
-    // Fallback
-    return 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400&h=300&fit=crop';
+
+    // Priority 4: Unsplash generic category image based on adventure location
+    const location = adventure.location?.toLowerCase() || '';
+    let unsplashQuery = 'adventure';
+
+    if (location.includes('beach') || location.includes('miami') || location.includes('bahamas')) {
+      unsplashQuery = 'beach';
+    } else if (location.includes('mountain') || location.includes('denver') || location.includes('colorado')) {
+      unsplashQuery = 'mountain';
+    } else if (location.includes('city') || location.includes('new york') || location.includes('chicago')) {
+      unsplashQuery = 'city';
+    } else if (location.includes('food') || location.includes('restaurant')) {
+      unsplashQuery = 'food';
+    }
+
+    const unsplashUrl = `https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=400&q=80`;
+
+    // Priority 5: Final fallback placeholder
+    const fallbackUrl = '/images/adventure-placeholder.png';
+
+    // Try Unsplash first, then fallback
+    const finalUrl = unsplashUrl;
+    cachePhoto(adventure.id, finalUrl);
+    return finalUrl;
   };
+
+  /**
+   * Cache photo URL to localStorage and memory
+   */
+  const cachePhoto = (adventureId: string, url: string) => {
+    try {
+      const cacheKey = `motion_photo_${adventureId}`;
+      localStorage.setItem(cacheKey, JSON.stringify({
+        url,
+        cachedAt: Date.now()
+      }));
+      setAdventurePhotos(prev => ({ ...prev, [adventureId]: url }));
+    } catch (e) {
+      console.warn('📷 [Photo] Cache write error:', e);
+    }
+  };
+
+  /**
+   * Clear expired cache entries on mount
+   */
+  useEffect(() => {
+    const clearExpiredCache = () => {
+      const CACHE_TTL = 24 * 60 * 60 * 1000;
+      const keysToRemove: string[] = [];
+
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key?.startsWith('motion_photo_')) {
+            const cached = localStorage.getItem(key);
+            if (cached) {
+              const { cachedAt } = JSON.parse(cached);
+              if (Date.now() - cachedAt >= CACHE_TTL) {
+                keysToRemove.push(key);
+              }
+            }
+          }
+        }
+
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+        if (keysToRemove.length > 0) {
+          console.log(`📷 [Photo] Cleared ${keysToRemove.length} expired cache entries`);
+        }
+      } catch (e) {
+        console.warn('📷 [Photo] Cache cleanup error:', e);
+      }
+    };
+
+    clearExpiredCache();
+  }, []);
 
   // Get all available photos for an adventure
   const getAllAdventurePhotos = (adventure: SavedAdventure): string[] => {
