@@ -378,53 +378,119 @@ class AdventureService {
     }
   }
 
-  async scheduleAdventure(adventureId: string, date: Date): Promise<boolean> {
+  async scheduleAdventure(adventureId: string, date: Date): Promise<SavedAdventure> {
     try {
-      console.log('📅 Scheduling adventure via backend:', adventureId, date.toISOString());
+      console.log('📅 Scheduling adventure:', { adventureId, date: date.toISOString() });
 
       const { data: { user } } = await this.supabase.auth.getUser();
       if (!user) {
         throw new Error('User not authenticated');
       }
 
-      try {
-        const response = await fetch(`${this.backendBaseUrl}/api/adventures/${adventureId}/schedule`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            scheduledDate: date.toISOString(),
-            userId: user.id,
-          })
-        });
+      // Validate date is in the future
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      const scheduleDate = new Date(date);
+      scheduleDate.setHours(0, 0, 0, 0);
 
-        if (!response.ok) {
-          const errorBody = await response.json().catch(() => ({}));
-          console.error('❌ Backend scheduling error:', errorBody);
-          throw new Error(errorBody?.error || 'Failed to schedule adventure');
-        }
-
-        const payload = await response.json().catch(() => null);
-        console.log('✅ Adventure scheduled successfully via backend:', payload);
-        return true;
-      } catch (backendError: any) {
-        console.warn('⚠️ Backend scheduling failed, attempting Supabase fallback:', backendError?.message);
-        await this.scheduleAdventureDirectly({
-          adventureId,
-          userId: user.id,
-          scheduledDate: date.toISOString(),
-        });
-
-        return true;
+      if (scheduleDate < now) {
+        throw new Error('Cannot schedule for a past date. Please select a future date.');
       }
+
+      let lastError: Error | null = null;
+      const maxRetries = 3;
+
+      // Try backend first with timeout and retries
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          console.log(`🔄 Backend scheduling attempt ${attempt}/${maxRetries}`);
+
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+          const response = await fetch(`${this.backendBaseUrl}/api/adventures/${adventureId}/schedule`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              scheduledDate: date.toISOString(),
+              userId: user.id,
+            }),
+            signal: controller.signal
+          });
+
+          clearTimeout(timeoutId);
+
+          if (!response.ok) {
+            const errorBody = await response.json().catch(() => ({}));
+            console.error('❌ Backend scheduling error:', errorBody);
+
+            // Check for specific error types
+            if (response.status === 403 || response.status === 401) {
+              throw new Error('Permission denied. Please check your authentication.');
+            }
+
+            throw new Error(errorBody?.error || `Server error: ${response.status}`);
+          }
+
+          const payload = await response.json().catch(() => null);
+          console.log('✅ Adventure scheduled successfully via backend:', payload);
+
+          // Fetch and return the updated adventure
+          return await this.getUpdatedAdventure(adventureId, user.id);
+
+        } catch (backendError: any) {
+          lastError = backendError;
+
+          // Don't retry on abort errors or auth errors
+          if (backendError.name === 'AbortError') {
+            console.error('❌ Backend request timeout');
+            break;
+          }
+
+          if (backendError.message?.includes('Permission denied')) {
+            break; // Don't retry auth errors
+          }
+
+          console.warn(`⚠️ Backend attempt ${attempt} failed:`, backendError?.message);
+
+          // Wait before retry (exponential backoff)
+          if (attempt < maxRetries) {
+            const waitTime = Math.pow(2, attempt - 1) * 1000; // 1s, 2s
+            console.log(`⏳ Waiting ${waitTime}ms before retry...`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+          }
+        }
+      }
+
+      // If backend failed, try Supabase fallback with retries
+      console.warn('⚠️ Backend scheduling failed, attempting Supabase fallback');
+      return await this.scheduleAdventureDirectly({
+        adventureId,
+        userId: user.id,
+        scheduledDate: date.toISOString(),
+      });
+
     } catch (e: any) {
       console.error('❌ Error scheduling adventure:', {
         message: e?.message,
         name: e?.name,
         stack: e?.stack
       });
-      throw new Error(e?.message || 'Failed to schedule adventure');
+
+      // Provide user-friendly error messages
+      if (e.message?.includes('not authenticated')) {
+        throw new Error('Please sign in to schedule adventures.');
+      }
+      if (e.message?.includes('Permission denied')) {
+        throw new Error('You do not have permission to schedule this adventure.');
+      }
+      if (e.message?.includes('past date')) {
+        throw e; // Pass through our validation error
+      }
+
+      throw new Error(e?.message || 'Failed to schedule adventure. Please try again.');
     }
   }
 
@@ -436,33 +502,164 @@ class AdventureService {
     adventureId: string;
     userId: string;
     scheduledDate: string;
-  }): Promise<boolean> {
+  }): Promise<SavedAdventure> {
     console.log('📅 Scheduling adventure via Supabase fallback:', adventureId, scheduledDate);
 
-    // Only update columns that actually exist in the database schema
-    const { data, error } = await this.supabase
-      .from('adventures')
-      .update({
-        scheduled_date: scheduledDate,
-        is_scheduled: true,
-      })
-      .eq('id', adventureId)
-      .eq('user_id', userId)
-      .select()
-      .single();
+    const maxRetries = 3;
+    let lastError: any = null;
 
-    if (error) {
-      console.error('❌ Supabase fallback scheduling error:', {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code
-      });
-      throw new Error(error.message || 'Failed to schedule adventure via Supabase');
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`🔄 Supabase scheduling attempt ${attempt}/${maxRetries}`);
+
+        // Only update columns that actually exist in the database schema
+        const { data, error } = await this.supabase
+          .from('adventures')
+          .update({
+            scheduled_date: scheduledDate,
+            is_scheduled: true,
+          })
+          .eq('id', adventureId)
+          .eq('user_id', userId)
+          .select()
+          .single();
+
+        if (error) {
+          // Check for RLS (Row Level Security) permission errors
+          if (error.code === 'PGRST301' || error.code === '42501') {
+            console.error('❌ RLS Permission Error - User may not own this adventure');
+            throw new Error('You do not have permission to schedule this adventure.');
+          }
+
+          // Check for not found errors
+          if (error.code === 'PGRST116') {
+            console.error('❌ Adventure not found or already updated by another request');
+            throw new Error('Adventure not found. It may have been deleted.');
+          }
+
+          console.error('❌ Supabase scheduling error:', {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code,
+            attempt
+          });
+
+          lastError = error;
+
+          // Retry on network or temporary errors
+          if (attempt < maxRetries) {
+            const waitTime = Math.pow(2, attempt - 1) * 500; // 500ms, 1s, 2s
+            console.log(`⏳ Waiting ${waitTime}ms before retry...`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+            continue;
+          }
+
+          throw new Error(error.message || 'Database error occurred while scheduling');
+        }
+
+        if (!data) {
+          throw new Error('No data returned from update. Adventure may not exist.');
+        }
+
+        console.log('✅ Adventure scheduled via Supabase:', data.id);
+
+        // Fetch and return the complete adventure data
+        return await this.getUpdatedAdventure(adventureId, userId);
+
+      } catch (error: any) {
+        lastError = error;
+
+        // Don't retry on permission or not found errors
+        if (error.message?.includes('permission') || error.message?.includes('not found')) {
+          throw error;
+        }
+
+        if (attempt === maxRetries) {
+          throw error;
+        }
+
+        console.warn(`⚠️ Attempt ${attempt} failed, retrying...`);
+        const waitTime = Math.pow(2, attempt - 1) * 500;
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
     }
 
-    console.log('✅ Adventure scheduled via Supabase fallback:', data?.id);
-    return true;
+    throw new Error(lastError?.message || 'Failed to schedule adventure after multiple attempts');
+  }
+
+  /**
+   * Helper method to fetch updated adventure after scheduling
+   */
+  private async getUpdatedAdventure(adventureId: string, userId: string): Promise<SavedAdventure> {
+    console.log('🔍 Fetching updated adventure:', adventureId);
+
+    const { data, error } = await this.supabase
+      .from('adventures')
+      .select(`
+        id,
+        user_id,
+        title,
+        description,
+        location,
+        duration_hours,
+        estimated_cost,
+        created_at,
+        scheduled_date,
+        is_scheduled,
+        is_completed,
+        steps
+      `)
+      .eq('id', adventureId)
+      .eq('user_id', userId)
+      .single();
+
+    if (error || !data) {
+      console.error('❌ Failed to fetch updated adventure:', error);
+      throw new Error('Adventure scheduled but failed to fetch updated data. Please refresh the page.');
+    }
+
+    // Convert to SavedAdventure format
+    const rawSteps: any[] = Array.isArray(data.steps) ? data.steps : [];
+    const normalizedSteps: AdventureStep[] = rawSteps.map((s: any, idx: number) =>
+      this.normalizeStep(s, idx)
+    );
+
+    // Extract photo from first step
+    const photoFromSteps = normalizedSteps.find((s: any) =>
+      s.google_photo_url || s.google_places?.photo_url || s.photo_url
+    );
+    const stepPhotoUrl = photoFromSteps
+      ? (photoFromSteps as any).google_photo_url ||
+        (photoFromSteps as any).google_places?.photo_url ||
+        (photoFromSteps as any).photo_url
+      : null;
+
+    const adventure: SavedAdventure = {
+      id: data.id,
+      custom_title: data.title || 'Your Adventure',
+      custom_description: data.description,
+      location: data.location || '',
+      duration_hours: Number(data.duration_hours) || 4,
+      estimated_cost: data.estimated_cost || '$$',
+      rating: 0,
+      adventure_photos: stepPhotoUrl ? [{ photo_url: stepPhotoUrl, is_cover_photo: true }] : [],
+      user_saved: false,
+      saved_at: data.created_at,
+      scheduled_for: data.scheduled_date ?? undefined,
+      is_scheduled: data.is_scheduled === true,
+      adventure_steps: normalizedSteps,
+      profiles: null,
+      is_completed: data.is_completed === true,
+    };
+
+    console.log('✅ Fetched updated adventure:', {
+      id: adventure.id,
+      scheduled_for: adventure.scheduled_for,
+      is_scheduled: adventure.is_scheduled
+    });
+
+    return adventure;
   }
 
   async markAdventureCompleted(adventureId: string): Promise<boolean> {
