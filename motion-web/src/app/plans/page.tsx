@@ -393,9 +393,8 @@ function PlansContent() {
         toast.success(`Adventure scheduled for ${formattedDate}! 🎉`);
       }
 
-      // Force refresh from database to ensure sync
-      console.log('🔄 Reloading adventures from database...');
-      await loadAdventures();
+      // Close the schedule modal
+      setShowScheduleModal(false);
 
     } catch (error: any) {
       console.error('❌ Scheduling failed:', {

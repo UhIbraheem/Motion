@@ -1,12 +1,10 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+// Create singleton client instance
+const supabase = createClient();
 
 export interface User {
   id: string;
@@ -401,143 +399,35 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const signOut = async (): Promise<void> => {
-    setLoading(true);
-
     try {
-      console.log('🔐 [Sign Out] ═══════════════════════════════════');
-      console.log('🔐 [Sign Out] Starting sign out process...');
+      console.log('🔐 [Sign Out] Starting sign out...');
 
-      // Step 1: Call Supabase signOut
-      console.log('🔐 [Sign Out] Step 1: Calling supabase.auth.signOut()');
-      const { error: signOutError } = await supabase.auth.signOut();
+      // Sign out from Supabase (this clears cookies automatically with SSR client)
+      const { error } = await supabase.auth.signOut();
 
-      if (signOutError) {
-        console.error('🔐 [Sign Out] ❌ Sign out error:', signOutError);
-        // Continue with cleanup even if signOut fails
-      } else {
-        console.log('🔐 [Sign Out] ✅ Supabase signOut successful');
+      if (error) {
+        console.error('🔐 [Sign Out] Error:', error);
+        throw error;
       }
 
-      // Step 2: Aggressively clear ALL storage
-      console.log('🔐 [Sign Out] Step 2: Clearing all storage...');
-      if (typeof window !== 'undefined') {
-        try {
-          // Clear all localStorage items related to auth and supabase
-          const keysToRemove = [];
-          for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key) keysToRemove.push(key);
-          }
-
-          // Remove all keys (or selectively remove supabase/auth keys)
-          const authRelatedKeys = keysToRemove.filter(key =>
-            key.includes('supabase') ||
-            key.includes('auth') ||
-            key.includes('token') ||
-            key.includes('session') ||
-            key === 'motion_auth_complete'
-          );
-
-          authRelatedKeys.forEach(key => {
-            localStorage.removeItem(key);
-            console.log(`🔐 [Sign Out] Removed localStorage key: ${key}`);
-          });
-
-          // Clear all sessionStorage
-          sessionStorage.clear();
-          console.log('🔐 [Sign Out] ✅ Storage cleared');
-        } catch (storageError) {
-          console.error('🔐 [Sign Out] ⚠️ Storage clearing error:', storageError);
-        }
-      }
-
-      // Step 3: Verify session is null with retry logic
-      console.log('🔐 [Sign Out] Step 3: Verifying session cleared...');
-      let sessionCleared = false;
-      const maxAttempts = 3;
-
-      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        console.log(`🔐 [Sign Out] Verification attempt ${attempt}/${maxAttempts}`);
-
-        const { data: { session }, error } = await supabase.auth.getSession();
-
-        if (error) {
-          console.error(`🔐 [Sign Out] Session check error (attempt ${attempt}):`, error);
-        }
-
-        if (!session) {
-          console.log('🔐 [Sign Out] ✅ Session confirmed as cleared');
-          sessionCleared = true;
-          break;
-        }
-
-        console.warn(`🔐 [Sign Out] ⚠️ Session still present after attempt ${attempt}`);
-
-        // If session still exists, try signing out again
-        if (attempt < maxAttempts) {
-          console.log('🔐 [Sign Out] Retrying signOut...');
-          await supabase.auth.signOut();
-
-          // Wait before next verification
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-      }
-
-      if (!sessionCleared) {
-        console.error('🔐 [Sign Out] ❌ Session verification failed after all attempts');
-        console.warn('🔐 [Sign Out] Forcing client-side state reset anyway');
-      }
-
-      // Step 4: Clear user state
-      console.log('🔐 [Sign Out] Step 4: Clearing user state');
+      // Clear local state
       setUser(null);
 
-      console.log('🔐 [Sign Out] ✅ Sign out complete');
-      console.log('🔐 [Sign Out] ═══════════════════════════════════');
-
-      // Step 5: Force hard reload to clear any in-memory state
-      // Using window.location.href ensures a complete page reload
+      // Clear any cached flags
       if (typeof window !== 'undefined') {
-        console.log('🔐 [Sign Out] Redirecting to signin page...');
-        // Small delay to ensure console logs are visible
-        setTimeout(() => {
-          window.location.href = '/auth/signin';
-        }, 100);
+        localStorage.removeItem('motion_auth_complete');
       }
+
+      console.log('🔐 [Sign Out] ✅ Complete');
+
+      // Redirect to signin page using router (client-side, no page reload needed)
+      window.location.href = '/auth/signin';
 
     } catch (error) {
-      console.error('🔐 [Sign Out] ❌ Unexpected sign out error:', {
-        message: (error as Error)?.message,
-        name: (error as Error)?.name,
-        stack: (error as Error)?.stack
-      });
-
-      // Emergency cleanup - force everything
-      console.log('🔐 [Sign Out] Performing emergency cleanup...');
-
-      if (typeof window !== 'undefined') {
-        try {
-          // Nuclear option: clear everything
-          localStorage.clear();
-          sessionStorage.clear();
-          console.log('🔐 [Sign Out] ✅ Emergency cleanup complete');
-        } catch (e) {
-          console.error('🔐 [Sign Out] ❌ Emergency cleanup failed:', e);
-        }
-      }
-
+      console.error('🔐 [Sign Out] ❌ Failed:', error);
+      // Clear state anyway
       setUser(null);
-
-      // Still redirect even if there was an error
-      if (typeof window !== 'undefined') {
-        setTimeout(() => {
-          window.location.href = '/auth/signin';
-        }, 100);
-      }
-
-      throw error; // Re-throw so calling code knows there was an error
-    } finally {
-      setLoading(false);
+      window.location.href = '/auth/signin';
     }
   };
 
