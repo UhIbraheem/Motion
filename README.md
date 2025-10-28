@@ -2,19 +2,19 @@
 
 **AI-powered local adventure discovery platform**
 
-Motion helps you discover personalized local experiences and adventures using AI. Input your mood, preferences, and constraints, and get curated step-by-step adventure plans tailored to your location.
+Motion helps you discover personalized local experiences and adventures using AI. Input your mood, preferences, and constraints through custom filters, and get curated step-by-step adventure plans tailored to your location and preferences.
 
 ## What is Motion?
 
 Motion is a cross-platform application that makes exploring your local area feel like having a personal adventure guide. Whether you're a local looking for something new or traveling to a new city, Motion creates customized itineraries that match your vibe, budget, and time.
 
 **Core Features:**
-- 🤖 AI-powered adventure generation using GPT-4
-- 📍 Google Places integration for verified locations
-- 📅 Schedule and track your adventures
-- 🗺️ Step-by-step guided experiences
-- 🌐 Community discovery and sharing
-- 📱 Available on Web and Mobile (iOS/Android)
+-  AI-powered adventure generation using GPT-4
+-  Google Places integration for verified locations
+-  Schedule and track your adventures
+-  Step-by-step guided experiences
+-  Community discovery and sharing
+-  Available on Web and Mobile (iOS/Android)
 
 ## Project Structure
 
@@ -33,11 +33,11 @@ Motion/
 - **Web**: Next.js 14 + TypeScript + Tailwind CSS + shadcn/ui
 - **Backend**: Node.js + Express + TypeScript
 - **Database**: Supabase (PostgreSQL)
-- **AI**: OpenAI GPT-4
+- **AI**: OpenAI GPT-4.1
 - **Maps**: Google Places API
-- **Auth**: Supabase Auth (Google OAuth)
+- **Auth**: Supabase Auth + (Google OAuth) 
 
-## Getting Started
+## Getting Started (Dev)
 
 ### Prerequisites
 - Node.js 18+
@@ -111,10 +111,6 @@ Windows users can use the provided batch files:
 - **Backend**: Railway (api.motionflow.app)
 - **Database**: Supabase
 
-## Contributing
-
-This is a private project. For development guidelines, see the [developer guide](./.github/copilot-instructions.md).
-
 ## License
 
 Proprietary - All Rights Reserved
@@ -155,8 +151,7 @@ Create `frontend/.env` file:
 
 ```bash
 # Replace with YOUR actual values
-EXPO_PUBLIC_API_URL=http://192.168.4.30:5000
-EXPO_PUBLIC_SUPABASE_URL=https://zhroxsksewvoipaufpsk.supabase.co
+EXPO_PUBLIC_API_URL=http://192.111.4.33:5000
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key-here
 ```
 
@@ -311,7 +306,7 @@ Edit `motion-web/.env.local`:
 NEXT_PUBLIC_API_URL=http://localhost:3001
 
 # FOR PRODUCTION - Comment this line:
-# NEXT_PUBLIC_API_URL=https://motion-backend-production.up.railway.app
+# NEXT_PUBLIC_API_URL=
 ```
 
 **Benefits:**
@@ -362,7 +357,7 @@ Vercel automatically deploys web app from your repository.
 
 **Switch to Local Development:**
 
-1. Start backend: `cd backend && node index.js`
+1. Start backend: `npm run dev`
 2. Edit `motion-web/.env.local` → uncomment localhost URL
 3. Start frontend: `cd motion-web && npm run dev`
 
