@@ -401,13 +401,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const signOut = async (): Promise<void> => {
     try {
       console.log('🔐 [Sign Out] Starting sign out...');
+      setLoading(true);
 
       // Sign out from Supabase (this clears cookies automatically with SSR client)
       const { error } = await supabase.auth.signOut();
 
       if (error) {
         console.error('🔐 [Sign Out] Error:', error);
-        throw error;
       }
 
       // Clear local state
@@ -418,15 +418,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
         localStorage.removeItem('motion_auth_complete');
       }
 
-      console.log('🔐 [Sign Out] ✅ Complete');
+      console.log('🔐 [Sign Out] ✅ Complete, redirecting...');
 
-      // Redirect to signin page using router (client-side, no page reload needed)
+      // Small delay to ensure signOut completes
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Hard redirect to signin page
       window.location.href = '/auth/signin';
 
     } catch (error) {
       console.error('🔐 [Sign Out] ❌ Failed:', error);
       // Clear state anyway
       setUser(null);
+      setLoading(false);
+      // Still redirect
       window.location.href = '/auth/signin';
     }
   };

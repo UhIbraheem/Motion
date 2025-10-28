@@ -91,9 +91,10 @@ function AuthCallbackContent() {
 
         console.log('🔐 [Auth Callback] ✅ Auth complete, redirecting to home');
 
-        // Use router.replace for client-side navigation (doesn't trigger page reload)
-        // This is faster and more reliable than window.location
-        router.replace('/');
+        // Use window.location for hard redirect to ensure clean state
+        // Wait a bit for storage to sync
+        await new Promise(resolve => setTimeout(resolve, 100));
+        window.location.href = '/';
 
       } catch (error) {
         const err = error as { message?: string };
