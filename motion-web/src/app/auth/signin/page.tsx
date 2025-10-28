@@ -39,27 +39,30 @@ export default function SignInPage() {
 
   // Redirect if already authenticated
   useEffect(() => {
-    // Check if we just completed auth (within last 5 seconds)
+    // Check if we just completed auth (within last 10 seconds)
     const authComplete = localStorage.getItem('motion_auth_complete');
     if (authComplete) {
       const timestamp = parseInt(authComplete);
       const now = Date.now();
-      // If auth completed within last 5 seconds, redirect immediately
-      if (now - timestamp < 5000) {
+      // If auth completed within last 10 seconds, redirect immediately
+      if (now - timestamp < 10000) {
         console.log('🔐 Auth just completed, redirecting to home...');
         localStorage.removeItem('motion_auth_complete');
         router.replace('/');
         return;
+      } else {
+        // Clean up old flag
+        localStorage.removeItem('motion_auth_complete');
       }
     }
     
-    // Normal auth check with delay
+    // Normal auth check with delay - redirect authenticated users to home
     const redirectTimeout = setTimeout(() => {
       if (!loading && user) {
         console.log('🔐 User already authenticated, redirecting to home...');
         router.replace('/');
       }
-    }, 300);
+    }, 500);
 
     return () => clearTimeout(redirectTimeout);
   }, [user, loading, router]);

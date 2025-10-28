@@ -85,17 +85,13 @@ function AuthCallbackContent() {
               }
             }
 
-            console.log('🔐 Redirecting to home page...');
+            console.log('🔐 Auth successful, redirecting to home page...');
             
-            // Verify session is available before redirecting
-            const { data: verifySession } = await supabase.auth.getSession();
-            console.log('🔐 Session verified:', !!verifySession.session);
+            // Set localStorage flag to help signin page detect completed auth
+            localStorage.setItem('motion_auth_complete', Date.now().toString());
             
-            // Longer delay to ensure cookies are fully propagated
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            // Redirect to home page
-            window.location.replace('/');
+            // Use router.replace for proper Next.js navigation with cookie handling
+            router.replace('/');
             return;
           }
         }

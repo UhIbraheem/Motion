@@ -60,14 +60,22 @@ export async function middleware(req: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession()
 
+  console.log('🔐 Middleware check:', {
+    path: req.nextUrl.pathname,
+    hasSession: !!session,
+    email: session?.user?.email
+  });
+
   // Skip middleware for callback - let it complete auth flow
   if (req.nextUrl.pathname === '/auth/callback') {
+    console.log('🔐 Allowing callback page');
     return response
   }
 
   // Auth pages - redirect if already logged in
   if (req.nextUrl.pathname.startsWith('/auth/')) {
     if (session) {
+      console.log('🔐 User has session, redirecting from auth page to home');
       return NextResponse.redirect(new URL('/', req.url))
     }
     return response
