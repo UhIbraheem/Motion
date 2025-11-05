@@ -35,7 +35,49 @@ function AuthCallbackContent() {
           throw new Error(error_description || 'Authentication failed');
         }
 
-        // Handle case where user manually navigated here
+        // Check if we already have a session (from a previous exchange or page refresh)
+        const { data: { session: existingSession } } = await supabase.auth.getSession();
+
+        console.log('🔐 [Auth Callback] Existing session check:', {
+          hasSession: !!existingSession,
+          email: existingSession?.user?.email
+        });
+
+        if (existingSession) {
+          console.log('🔐 [Auth Callback] ✅ Session already exists, skipping code exchange');
+          setStatusMessage('Completing sign in...');
+
+          // Check/create profile if needed
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('id', existingSession.user.id)
+            .maybeSingle();
+
+          if (!profile) {
+            console.log('👤 [Auth Callback] Creating profile for existing session...');
+            await supabase.from('profiles').insert({
+              id: existingSession.user.id,
+              first_name: existingSession.user.user_metadata?.given_name || existingSession.user.user_metadata?.name?.split(' ')[0] || '',
+              last_name: existingSession.user.user_metadata?.family_name || existingSession.user.user_metadata?.name?.split(' ').slice(1).join(' ') || '',
+              display_name: existingSession.user.user_metadata?.name || existingSession.user.user_metadata?.full_name || '',
+              profile_picture_url: existingSession.user.user_metadata?.avatar_url || existingSession.user.user_metadata?.picture,
+              membership_tier: 'free',
+              monthly_generations: 0,
+              monthly_edits: 0,
+              generations_limit: 10,
+              edits_limit: 3,
+              subscription_status: 'active',
+              last_reset_date: new Date().toISOString(),
+            });
+          }
+
+          console.log('🔐 [Auth Callback] Redirecting to home...');
+          window.location.href = '/';
+          return;
+        }
+
+        // Handle case where user manually navigated here without a code
         if (!code) {
           console.log('🔐 [Auth Callback] No code found, redirecting to signin');
           window.location.href = '/auth/signin';
