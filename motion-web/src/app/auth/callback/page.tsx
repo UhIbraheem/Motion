@@ -23,6 +23,12 @@ function AuthCallbackContent() {
         const error_code = searchParams.get('error');
         const error_description = searchParams.get('error_description');
 
+        console.log('🔐 [Auth Callback] Query params:', {
+          hasCode: !!code,
+          error_code,
+          error_description
+        });
+
         // Handle OAuth errors
         if (error_code) {
           console.error('🔐 [Auth Callback] OAuth error:', error_code, error_description);
@@ -32,7 +38,7 @@ function AuthCallbackContent() {
         // Handle case where user manually navigated here
         if (!code) {
           console.log('🔐 [Auth Callback] No code found, redirecting to signin');
-          router.replace('/auth/signin');
+          window.location.href = '/auth/signin';
           return;
         }
 
@@ -41,6 +47,13 @@ function AuthCallbackContent() {
 
         // Exchange code for session - this sets the cookies automatically
         const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+
+        console.log('🔐 [Auth Callback] Exchange result:', {
+          hasData: !!data,
+          hasSession: !!data?.session,
+          hasUser: !!data?.user,
+          error: error?.message
+        });
 
         if (error) {
           console.error('🔐 [Auth Callback] Exchange error:', error);
@@ -62,11 +75,16 @@ function AuthCallbackContent() {
           .eq('id', data.session.user.id)
           .maybeSingle();
 
+        console.log('🔐 [Auth Callback] Profile check:', {
+          hasProfile: !!profile,
+          profileError: profileError?.message
+        });
+
         if (!profile) {
           console.log('👤 [Auth Callback] Creating profile...');
           const userData = data.session.user;
 
-          await supabase.from('profiles').insert({
+          const insertResult = await supabase.from('profiles').insert({
             id: userData.id,
             first_name: userData.user_metadata?.given_name || userData.user_metadata?.name?.split(' ')[0] || '',
             last_name: userData.user_metadata?.family_name || userData.user_metadata?.name?.split(' ').slice(1).join(' ') || '',
@@ -81,7 +99,14 @@ function AuthCallbackContent() {
             last_reset_date: new Date().toISOString(),
           });
 
-          console.log('👤 [Auth Callback] ✅ Profile created');
+          console.log('👤 [Auth Callback] Profile insert result:', {
+            error: insertResult.error?.message,
+            success: !insertResult.error
+          });
+
+          if (insertResult.error) {
+            console.error('👤 [Auth Callback] Profile creation error:', insertResult.error);
+          }
         }
 
         setStatusMessage('Redirecting...');
@@ -89,16 +114,22 @@ function AuthCallbackContent() {
         // Mark auth as complete for signin page
         localStorage.setItem('motion_auth_complete', Date.now().toString());
 
-        console.log('🔐 [Auth Callback] ✅ Auth complete, redirecting to home');
+        console.log('🔐 [Auth Callback] ✅ Auth complete, redirecting to home in 300ms');
 
         // Use window.location for hard redirect to ensure clean state
-        // Wait a bit for storage to sync
-        await new Promise(resolve => setTimeout(resolve, 100));
-        window.location.href = '/';
+        // Wait a bit for storage to sync and profile to be created
+        setTimeout(() => {
+          console.log('🔐 [Auth Callback] Executing redirect now...');
+          window.location.href = '/';
+        }, 300);
 
       } catch (error) {
-        const err = error as { message?: string };
-        console.error('🔐 [Auth Callback] ❌ Error:', err?.message);
+        const err = error as { message?: string; stack?: string };
+        console.error('🔐 [Auth Callback] ❌ Error:', {
+          message: err?.message,
+          stack: err?.stack,
+          fullError: error
+        });
 
         setError(err?.message || 'Authentication failed. Please try again.');
         setLoading(false);

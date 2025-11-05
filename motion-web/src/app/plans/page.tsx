@@ -154,11 +154,13 @@ function PlansContent() {
 
   // Load adventures
   useEffect(() => {
+    console.log('👤 [Plans] useEffect triggered, user:', { hasUser: !!user, userId: user?.id, email: user?.email });
     if (user) {
-      console.log('👤 User authenticated, loading adventures...', { userId: user.id, email: user.email });
+      console.log('👤 [Plans] User authenticated, calling loadAdventures...');
       loadAdventures();
     } else {
-      console.log('👤 No user found, skipping adventure load');
+      console.log('👤 [Plans] No user found, setting loading=false');
+      setLoading(false);
     }
   }, [user]);
 
