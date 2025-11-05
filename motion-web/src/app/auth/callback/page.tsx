@@ -15,7 +15,14 @@ function AuthCallbackContent() {
   const supabase = createClient();
 
   useEffect(() => {
+    let isMounted = true;
+
     const handleAuthCallback = async () => {
+      if (!isMounted) {
+        console.log('🔐 [Auth Callback] Component unmounted, aborting');
+        return;
+      }
+
       console.log('🔐 [Auth Callback] Starting...');
 
       try {
@@ -35,6 +42,8 @@ function AuthCallbackContent() {
           throw new Error(error_description || 'Authentication failed');
         }
 
+        console.log('🔐 [Auth Callback] Checking for existing session...');
+
         // Check if we already have a session (from a previous exchange or page refresh)
         const { data: { session: existingSession } } = await supabase.auth.getSession();
 
@@ -45,6 +54,9 @@ function AuthCallbackContent() {
 
         if (existingSession) {
           console.log('🔐 [Auth Callback] ✅ Session already exists, skipping code exchange');
+
+          if (!isMounted) return;
+
           setStatusMessage('Completing sign in...');
 
           // Check/create profile if needed
@@ -54,7 +66,7 @@ function AuthCallbackContent() {
             .eq('id', existingSession.user.id)
             .maybeSingle();
 
-          if (!profile) {
+          if (!profile && isMounted) {
             console.log('👤 [Auth Callback] Creating profile for existing session...');
             await supabase.from('profiles').insert({
               id: existingSession.user.id,
@@ -72,8 +84,15 @@ function AuthCallbackContent() {
             });
           }
 
-          console.log('🔐 [Auth Callback] Redirecting to home...');
-          window.location.href = '/';
+          console.log('🔐 [Auth Callback] Redirecting to home in 100ms...');
+
+          setTimeout(() => {
+            if (isMounted) {
+              console.log('🔐 [Auth Callback] Executing redirect NOW');
+              window.location.href = '/';
+            }
+          }, 100);
+
           return;
         }
 
@@ -83,6 +102,8 @@ function AuthCallbackContent() {
           window.location.href = '/auth/signin';
           return;
         }
+
+        if (!isMounted) return;
 
         setStatusMessage('Verifying your sign-in...');
         console.log('🔐 [Auth Callback] Exchanging code for session...');
@@ -179,6 +200,10 @@ function AuthCallbackContent() {
     };
 
     handleAuthCallback();
+
+    return () => {
+      isMounted = false;
+    };
   }, [router, searchParams, supabase]);
 
   if (error) {
