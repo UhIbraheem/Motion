@@ -831,6 +831,137 @@ class AdventureService {
       return false;
     }
   }
+
+  /**
+   * Update a specific step in an adventure
+   */
+  async updateStep(
+    adventureId: string,
+    stepId: string,
+    updates: Partial<AdventureStep>
+  ): Promise<SavedAdventure | null> {
+    try {
+      console.log('✏️ Updating step:', { adventureId, stepId, updates });
+
+      const { data: { user } } = await this.supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Get current adventure
+      const { data: adventure, error: fetchError } = await this.supabase
+        .from('adventures')
+        .select('steps, user_id')
+        .eq('id', adventureId)
+        .single();
+
+      if (fetchError || !adventure) {
+        throw new Error('Adventure not found');
+      }
+
+      // Verify ownership
+      if (adventure.user_id !== user.id) {
+        throw new Error('Unauthorized to edit this adventure');
+      }
+
+      // Update the specific step
+      const steps = Array.isArray(adventure.steps) ? adventure.steps : [];
+      const stepIndex = steps.findIndex((s: any) => s.id === stepId);
+
+      if (stepIndex === -1) {
+        throw new Error('Step not found');
+      }
+
+      // Merge updates with existing step data
+      steps[stepIndex] = {
+        ...steps[stepIndex],
+        ...updates
+      };
+
+      // Save updated steps array back to database
+      const { error: updateError } = await this.supabase
+        .from('adventures')
+        .update({ steps })
+        .eq('id', adventureId)
+        .eq('user_id', user.id);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      console.log('✅ Step updated successfully');
+
+      // Fetch and return updated adventure
+      return await this.getUpdatedAdventure(adventureId, user.id);
+    } catch (error: any) {
+      console.error('❌ Error updating step:', error);
+      throw new Error(error?.message || 'Failed to update step');
+    }
+  }
+
+  /**
+   * Delete a specific step from an adventure
+   */
+  async deleteStep(adventureId: string, stepId: string): Promise<SavedAdventure | null> {
+    try {
+      console.log('🗑️ Deleting step:', { adventureId, stepId });
+
+      const { data: { user } } = await this.supabase.auth.getUser();
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Get current adventure
+      const { data: adventure, error: fetchError } = await this.supabase
+        .from('adventures')
+        .select('steps, user_id')
+        .eq('id', adventureId)
+        .single();
+
+      if (fetchError || !adventure) {
+        throw new Error('Adventure not found');
+      }
+
+      // Verify ownership
+      if (adventure.user_id !== user.id) {
+        throw new Error('Unauthorized to edit this adventure');
+      }
+
+      // Remove the step
+      const steps = Array.isArray(adventure.steps) ? adventure.steps : [];
+      const filteredSteps = steps.filter((s: any) => s.id !== stepId);
+
+      if (filteredSteps.length === steps.length) {
+        throw new Error('Step not found');
+      }
+
+      // Renumber remaining steps
+      const renumberedSteps = filteredSteps.map((step: any, index: number) => ({
+        ...step,
+        step_number: index + 1,
+        step_order: index + 1
+      }));
+
+      // Save updated steps array back to database
+      const { error: updateError } = await this.supabase
+        .from('adventures')
+        .update({ steps: renumberedSteps })
+        .eq('id', adventureId)
+        .eq('user_id', user.id);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      console.log('✅ Step deleted successfully');
+
+      // Fetch and return updated adventure
+      return await this.getUpdatedAdventure(adventureId, user.id);
+    } catch (error: any) {
+      console.error('❌ Error deleting step:', error);
+      throw new Error(error?.message || 'Failed to delete step');
+    }
+  }
 }
 
 export default new AdventureService();
