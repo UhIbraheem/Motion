@@ -394,6 +394,18 @@ function PlansContent() {
         prev.map(adv => (adv.id === updatedAdventure.id ? updatedAdventure : adv))
       );
 
+      // Update scheduled adventures list for tab counter
+      if (updatedAdventure.scheduled_for) {
+        setScheduledAdventures(prev => {
+          const exists = prev.find(a => a.id === updatedAdventure.id);
+          if (exists) {
+            return prev.map(a => a.id === updatedAdventure.id ? updatedAdventure : a);
+          } else {
+            return [...prev, updatedAdventure];
+          }
+        });
+      }
+
       // Show success message
       const formattedDate = date.toLocaleDateString('en-US', {
         weekday: 'long',
@@ -810,7 +822,7 @@ function PlansContent() {
   };
 
   // Ultra-modern adventure card with premium design
-  const renderAdventureCard = (adventure: SavedAdventure) => {
+  const renderAdventureCard = (adventure: SavedAdventure, cardIndex: number) => {
     const allPhotos = getAllAdventurePhotos(adventure);
     const photoIndex = currentPhotoIndex[adventure.id] || 0;
     const photo = allPhotos[photoIndex];
@@ -854,8 +866,9 @@ function PlansContent() {
                   fill
                   className="object-cover transition-all duration-700 group-hover:scale-110"
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                  priority={photoIndex === 0}
-                  quality={95} // High quality images
+                  priority={cardIndex < 3} // Prioritize first 3 cards for faster loading
+                  loading={cardIndex < 3 ? 'eager' : 'lazy'}
+                  quality={90}
                   key={photo}
                 />
                 {/* Multi-layer gradient overlay for depth */}
@@ -914,7 +927,7 @@ function PlansContent() {
                   </Badge>
                 )}
                 {adventure.scheduled_for && !adventure.is_completed && (
-                  <Badge className="bg-[#3c7660]/90 backdrop-blur-sm border border-white/20 text-white text-xs font-semibold shadow-lg">
+                  <Badge className="bg-[#3c7660]/60 backdrop-blur-md border border-white/30 text-white text-xs font-semibold shadow-lg">
                     <CalendarDays className="mr-1 h-3.5 w-3.5" />
                     {new Date(adventure.scheduled_for).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                   </Badge>
@@ -1048,20 +1061,55 @@ function PlansContent() {
               Start Quest
             </Button>
 
-            {/* Schedule CTA for unscheduled */}
-            {!adventure.scheduled_for && !adventure.is_completed && (
-              <Button 
-                variant="outline"
-                className="w-full border-[#3c7660]/30 text-[#3c7660] hover:bg-[#3c7660]/5 transition-all duration-300"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedAdventure(adventure);
-                  setShowScheduleModal(true);
-                }}
-              >
-                <CalendarDays className="mr-2 h-4 w-4" />
-                Schedule This Adventure
-              </Button>
+            {/* Schedule CTA or Scheduled Date Display */}
+            {!adventure.is_completed && (
+              <>
+                {!adventure.scheduled_for ? (
+                  <Button
+                    variant="outline"
+                    className="w-full border-[#3c7660]/30 text-[#3c7660] hover:bg-[#3c7660]/5 transition-all duration-300"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedAdventure(adventure);
+                      setShowScheduleModal(true);
+                    }}
+                  >
+                    <CalendarDays className="mr-2 h-4 w-4" />
+                    Schedule This Adventure
+                  </Button>
+                ) : (
+                  <div className="w-full bg-gradient-to-br from-[#3c7660]/5 to-[#f2cc6c]/5 backdrop-blur-sm rounded-xl p-4 border border-[#3c7660]/20">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-[#3c7660]/10 rounded-lg">
+                          <CalendarDays className="w-4 h-4 text-[#3c7660]" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-600 font-medium">Scheduled for</p>
+                          <p className="text-sm font-bold text-[#3c7660]">
+                            {new Date(adventure.scheduled_for).toLocaleDateString('en-US', {
+                              weekday: 'short',
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric'
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedAdventure(adventure);
+                          setShowScheduleModal(true);
+                        }}
+                        className="text-xs text-[#3c7660] hover:text-[#2d5a47] font-semibold underline underline-offset-2 hover:underline-offset-4 transition-all"
+                      >
+                        Reschedule
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -1386,7 +1434,7 @@ function PlansContent() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {filteredAdventures.map(renderAdventureCard)}
+                      {filteredAdventures.map((adventure, index) => renderAdventureCard(adventure, index))}
                     </div>
                   )}
                 </TabsContent>
