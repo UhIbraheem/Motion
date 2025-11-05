@@ -154,11 +154,13 @@ function PlansContent() {
 
   // Load adventures
   useEffect(() => {
+    console.log('👤 [Plans] useEffect triggered, user:', { hasUser: !!user, userId: user?.id, email: user?.email });
     if (user) {
-      console.log('👤 User authenticated, loading adventures...', { userId: user.id, email: user.email });
+      console.log('👤 [Plans] User authenticated, calling loadAdventures...');
       loadAdventures();
     } else {
-      console.log('👤 No user found, skipping adventure load');
+      console.log('👤 [Plans] No user found, setting loading=false');
+      setLoading(false);
     }
   }, [user]);
 
@@ -326,8 +328,17 @@ function PlansContent() {
 
   // Schedule adventure with enhanced error handling and loading state
   const handleSchedule = async (date: Date) => {
+    console.log('📅 [Plans] handleSchedule called with date:', date);
+
     if (!selectedAdventure) {
-      console.error('❌ No adventure selected for scheduling');
+      console.error('❌ [Plans] No adventure selected for scheduling');
+      toast.error('No adventure selected');
+      return;
+    }
+
+    if (!user) {
+      console.error('❌ [Plans] No user found');
+      toast.error('Please sign in to schedule adventures');
       return;
     }
 
@@ -342,22 +353,26 @@ function PlansContent() {
       return;
     }
 
+    console.log('📅 [Plans] Setting isScheduling = true');
     setIsScheduling(true);
 
     try {
-      console.log('📅 Scheduling adventure:', {
+      console.log('📅 [Plans] Scheduling adventure:', {
         id: selectedAdventure.id,
         title: selectedAdventure.custom_title,
         date: date.toISOString(),
-        alreadyScheduled: !!selectedAdventure.scheduled_for
+        alreadyScheduled: !!selectedAdventure.scheduled_for,
+        userId: user.id
       });
 
       // Handle rescheduling case
       if (selectedAdventure.scheduled_for) {
         const oldDate = new Date(selectedAdventure.scheduled_for).toLocaleDateString();
         const newDate = date.toLocaleDateString();
-        console.log(`🔄 Rescheduling from ${oldDate} to ${newDate}`);
+        console.log(`🔄 [Plans] Rescheduling from ${oldDate} to ${newDate}`);
       }
+
+      console.log('📅 [Plans] Calling AdventureService.scheduleAdventure...');
 
       // Call service - now returns full updated adventure
       const updatedAdventure = await AdventureService.scheduleAdventure(
@@ -365,7 +380,7 @@ function PlansContent() {
         date
       );
 
-      console.log('✅ Adventure scheduled successfully:', {
+      console.log('✅ [Plans] Adventure scheduled successfully:', {
         id: updatedAdventure.id,
         scheduled_for: updatedAdventure.scheduled_for,
         is_scheduled: updatedAdventure.is_scheduled
@@ -395,12 +410,14 @@ function PlansContent() {
 
       // Close the schedule modal
       setShowScheduleModal(false);
+      console.log('📅 [Plans] Schedule modal closed');
 
     } catch (error: any) {
-      console.error('❌ Scheduling failed:', {
+      console.error('❌ [Plans] Scheduling failed:', {
         error: error?.message,
         stack: error?.stack,
         adventureId: selectedAdventure.id,
+        name: error?.name
       });
 
       // Show user-friendly error message
@@ -408,6 +425,7 @@ function PlansContent() {
         duration: 5000,
       });
     } finally {
+      console.log('📅 [Plans] Setting isScheduling = false');
       setIsScheduling(false);
     }
   };

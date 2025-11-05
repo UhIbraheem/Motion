@@ -23,16 +23,64 @@ function AuthCallbackContent() {
         const error_code = searchParams.get('error');
         const error_description = searchParams.get('error_description');
 
+        console.log('🔐 [Auth Callback] Query params:', {
+          hasCode: !!code,
+          error_code,
+          error_description
+        });
+
         // Handle OAuth errors
         if (error_code) {
           console.error('🔐 [Auth Callback] OAuth error:', error_code, error_description);
           throw new Error(error_description || 'Authentication failed');
         }
 
-        // Handle case where user manually navigated here
+        // Check if we already have a session (from a previous exchange or page refresh)
+        const { data: { session: existingSession } } = await supabase.auth.getSession();
+
+        console.log('🔐 [Auth Callback] Existing session check:', {
+          hasSession: !!existingSession,
+          email: existingSession?.user?.email
+        });
+
+        if (existingSession) {
+          console.log('🔐 [Auth Callback] ✅ Session already exists, skipping code exchange');
+          setStatusMessage('Completing sign in...');
+
+          // Check/create profile if needed
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('id', existingSession.user.id)
+            .maybeSingle();
+
+          if (!profile) {
+            console.log('👤 [Auth Callback] Creating profile for existing session...');
+            await supabase.from('profiles').insert({
+              id: existingSession.user.id,
+              first_name: existingSession.user.user_metadata?.given_name || existingSession.user.user_metadata?.name?.split(' ')[0] || '',
+              last_name: existingSession.user.user_metadata?.family_name || existingSession.user.user_metadata?.name?.split(' ').slice(1).join(' ') || '',
+              display_name: existingSession.user.user_metadata?.name || existingSession.user.user_metadata?.full_name || '',
+              profile_picture_url: existingSession.user.user_metadata?.avatar_url || existingSession.user.user_metadata?.picture,
+              membership_tier: 'free',
+              monthly_generations: 0,
+              monthly_edits: 0,
+              generations_limit: 10,
+              edits_limit: 3,
+              subscription_status: 'active',
+              last_reset_date: new Date().toISOString(),
+            });
+          }
+
+          console.log('🔐 [Auth Callback] Redirecting to home...');
+          window.location.href = '/';
+          return;
+        }
+
+        // Handle case where user manually navigated here without a code
         if (!code) {
           console.log('🔐 [Auth Callback] No code found, redirecting to signin');
-          router.replace('/auth/signin');
+          window.location.href = '/auth/signin';
           return;
         }
 
@@ -41,6 +89,13 @@ function AuthCallbackContent() {
 
         // Exchange code for session - this sets the cookies automatically
         const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+
+        console.log('🔐 [Auth Callback] Exchange result:', {
+          hasData: !!data,
+          hasSession: !!data?.session,
+          hasUser: !!data?.user,
+          error: error?.message
+        });
 
         if (error) {
           console.error('🔐 [Auth Callback] Exchange error:', error);
@@ -62,11 +117,16 @@ function AuthCallbackContent() {
           .eq('id', data.session.user.id)
           .maybeSingle();
 
+        console.log('🔐 [Auth Callback] Profile check:', {
+          hasProfile: !!profile,
+          profileError: profileError?.message
+        });
+
         if (!profile) {
           console.log('👤 [Auth Callback] Creating profile...');
           const userData = data.session.user;
 
-          await supabase.from('profiles').insert({
+          const insertResult = await supabase.from('profiles').insert({
             id: userData.id,
             first_name: userData.user_metadata?.given_name || userData.user_metadata?.name?.split(' ')[0] || '',
             last_name: userData.user_metadata?.family_name || userData.user_metadata?.name?.split(' ').slice(1).join(' ') || '',
@@ -81,7 +141,14 @@ function AuthCallbackContent() {
             last_reset_date: new Date().toISOString(),
           });
 
-          console.log('👤 [Auth Callback] ✅ Profile created');
+          console.log('👤 [Auth Callback] Profile insert result:', {
+            error: insertResult.error?.message,
+            success: !insertResult.error
+          });
+
+          if (insertResult.error) {
+            console.error('👤 [Auth Callback] Profile creation error:', insertResult.error);
+          }
         }
 
         setStatusMessage('Redirecting...');
@@ -89,15 +156,22 @@ function AuthCallbackContent() {
         // Mark auth as complete for signin page
         localStorage.setItem('motion_auth_complete', Date.now().toString());
 
-        console.log('🔐 [Auth Callback] ✅ Auth complete, redirecting to home');
+        console.log('🔐 [Auth Callback] ✅ Auth complete, redirecting to home in 300ms');
 
-        // Use router.replace for client-side navigation (doesn't trigger page reload)
-        // This is faster and more reliable than window.location
-        router.replace('/');
+        // Use window.location for hard redirect to ensure clean state
+        // Wait a bit for storage to sync and profile to be created
+        setTimeout(() => {
+          console.log('🔐 [Auth Callback] Executing redirect now...');
+          window.location.href = '/';
+        }, 300);
 
       } catch (error) {
-        const err = error as { message?: string };
-        console.error('🔐 [Auth Callback] ❌ Error:', err?.message);
+        const err = error as { message?: string; stack?: string };
+        console.error('🔐 [Auth Callback] ❌ Error:', {
+          message: err?.message,
+          stack: err?.stack,
+          fullError: error
+        });
 
         setError(err?.message || 'Authentication failed. Please try again.');
         setLoading(false);
