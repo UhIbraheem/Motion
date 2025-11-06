@@ -35,7 +35,12 @@ class PreferencesService {
         .single();
 
       if (error) {
-        console.error('❌ [Preferences] Error fetching:', error);
+        // If profile doesn't exist or preferences not set, use defaults (not an error)
+        if (error.code === 'PGRST116' || !data) {
+          console.log('ℹ️ [Preferences] No saved preferences found, using defaults');
+        } else {
+          console.warn('⚠️ [Preferences] Error fetching preferences, using defaults:', error.message || 'Unknown error');
+        }
         return this.getDefaultPreferences();
       }
 
