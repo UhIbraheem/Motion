@@ -5,14 +5,40 @@ export interface PhotoItem { url: string; width?: number; height?: number; sourc
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.motionflow.app';
 
 export async function fetchStepPhotos(steps: StepDescriptor[], photosPerStep = 1): Promise<PhotoItem[]> {
-  const res = await fetch(`${API_BASE}/api/places/photos`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ steps, photosPerStep })
-  });
-  if (!res.ok) return [];
-  const json = await res.json();
-  return json.photos || [];
+  try {
+    console.log('📸 [PlacesPhotoService] Fetching photos for steps:', {
+      stepCount: steps.length,
+      photosPerStep,
+      steps: steps.map(s => s.name)
+    });
+
+    const res = await fetch(`${API_BASE}/api/places/photos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ steps, photosPerStep })
+    });
+
+    if (!res.ok) {
+      console.error('📸 [PlacesPhotoService] API error:', {
+        status: res.status,
+        statusText: res.statusText
+      });
+      return [];
+    }
+
+    const json = await res.json();
+    const photos = json.photos || [];
+
+    console.log('📸 [PlacesPhotoService] Received photos:', {
+      photoCount: photos.length,
+      photos
+    });
+
+    return photos;
+  } catch (error) {
+    console.error('📸 [PlacesPhotoService] Fetch error:', error);
+    return [];
+  }
 }
 
 export async function fetchBusinessInfo(name: string, location?: string): Promise<any | null> {

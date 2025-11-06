@@ -77,6 +77,7 @@ function PlansContent() {
   const [savedAdventures, setSavedAdventures] = useState<SavedAdventure[]>([]);
   const [scheduledAdventures, setScheduledAdventures] = useState<SavedAdventure[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [adventurePhotos, setAdventurePhotos] = useState<Record<string, string>>({}); // Cache for fetched photos
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState<Record<string, number>>({}); // Track photo index per adventure
@@ -124,6 +125,7 @@ function PlansContent() {
     } else {
       console.log('👤 [Plans] No user found, setting loading=false');
       setLoading(false);
+      setInitialLoadComplete(true);
     }
   }, [user]);
 
@@ -234,13 +236,14 @@ function PlansContent() {
       // Filter scheduled adventures
       const scheduled = adventures.filter((adventure: SavedAdventure) => adventure.scheduled_for);
       setScheduledAdventures(scheduled);
-      
+
     } catch (error) {
       console.error('❌ Error loading adventures:', error);
       setError('Failed to load your adventures. Please try again.');
       toast.error('Failed to load adventures');
     } finally {
       setLoading(false);
+      setInitialLoadComplete(true);
     }
   };
 
@@ -765,8 +768,18 @@ function PlansContent() {
   const getStepPhotos = (adventure: SavedAdventure): string[] => {
     const photos: string[] = [];
 
-    // Get photos from steps (one per step, up to 3)
-    if (adventure.adventure_steps?.length > 0) {
+    // Priority 1: Check adventure_photos first (most reliable)
+    if (adventure.adventure_photos?.length > 0) {
+      for (const photo of adventure.adventure_photos) {
+        if (photos.length >= 3) break;
+        if (photo.photo_url && !photos.includes(photo.photo_url)) {
+          photos.push(photo.photo_url);
+        }
+      }
+    }
+
+    // Priority 2: Get photos from steps (one per step, up to 3)
+    if (photos.length < 3 && adventure.adventure_steps?.length > 0) {
       for (const step of adventure.adventure_steps) {
         if (photos.length >= 3) break; // Max 3 photos
 
@@ -777,6 +790,34 @@ function PlansContent() {
         }
       }
     }
+
+    // Priority 3: Use cached photo from memory
+    if (photos.length === 0 && adventurePhotos[adventure.id]) {
+      photos.push(adventurePhotos[adventure.id]);
+    }
+
+    // Priority 4: Fallback to a nice location-based image
+    if (photos.length === 0) {
+      const location = adventure.location?.toLowerCase() || '';
+      if (location.includes('beach') || location.includes('miami') || location.includes('ocean')) {
+        photos.push('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80'); // Beach
+      } else if (location.includes('mountain') || location.includes('hike') || location.includes('trail')) {
+        photos.push('https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80'); // Mountain
+      } else if (location.includes('city') || location.includes('urban') || location.includes('downtown')) {
+        photos.push('https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=800&q=80'); // City
+      } else if (location.includes('food') || location.includes('restaurant') || location.includes('cafe')) {
+        photos.push('https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800&q=80'); // Food
+      } else {
+        photos.push('https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=800&q=80'); // Default adventure
+      }
+    }
+
+    console.log('📸 [getStepPhotos]', {
+      adventureId: adventure.id,
+      title: adventure.custom_title,
+      photosFound: photos.length,
+      photos: photos
+    });
 
     return photos;
   };
@@ -834,11 +875,11 @@ function PlansContent() {
         }`}
         onClick={() => openAdventureModal(adventure)}
       >
-        {/* Main Card Container with Glassmorphism */}
-        <div className="relative bg-white/80 backdrop-blur-xl border-0 shadow-xl h-full">
+        {/* Main Card Container with Apple Glassmorphism */}
+        <div className="relative bg-white/90 backdrop-blur-2xl border border-white/30 shadow-xl h-full">
 
           {/* Hero Image Section - Multiple Photos Grid */}
-          <div className="relative h-72 overflow-hidden">
+          <div className="relative h-56 overflow-hidden">
             {hasPhotos ? (
               <div className="absolute inset-0">
                 {stepPhotos.length === 1 ? (
@@ -928,7 +969,7 @@ function PlansContent() {
 
             {/* Step Photos Badge */}
             {stepPhotos.length > 1 && (
-              <div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-md rounded-full px-3 py-1.5 shadow-lg border border-white/20">
+              <div className="absolute bottom-4 right-4 bg-black/50 backdrop-blur-xl rounded-full px-3 py-1.5 shadow-lg border border-white/30">
                 <span className="text-white text-xs font-semibold flex items-center gap-1">
                   <Sparkles className="w-3 h-3" />
                   {stepPhotos.length} stops
@@ -940,13 +981,13 @@ function PlansContent() {
             <div className="absolute top-4 left-4 right-4 flex items-start justify-between z-10">
               <div className="flex flex-col gap-2">
                 {adventure.is_completed && (
-                  <Badge className="bg-emerald-500/90 backdrop-blur-sm text-white border-0 shadow-lg shadow-emerald-500/30 text-xs font-semibold">
+                  <Badge className="bg-emerald-500/80 backdrop-blur-xl text-white border border-white/20 shadow-lg shadow-emerald-500/30 text-xs font-semibold">
                     <Award className="mr-1 h-3.5 w-3.5" />
                     Completed
                   </Badge>
                 )}
                 {adventure.scheduled_for && !adventure.is_completed && (
-                  <Badge className="bg-[#3c7660]/60 backdrop-blur-md border border-white/30 text-white text-xs font-semibold shadow-lg">
+                  <Badge className="bg-[#3c7660]/70 backdrop-blur-xl border border-white/40 text-white text-xs font-semibold shadow-lg">
                     <CalendarDays className="mr-1 h-3.5 w-3.5" />
                     {new Date(adventure.scheduled_for).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                   </Badge>
@@ -959,13 +1000,13 @@ function PlansContent() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full p-2 shadow-lg border border-white/20 transition-all duration-200 hover:scale-110"
+                    className="bg-white/20 hover:bg-white/30 backdrop-blur-xl rounded-full p-2 shadow-lg border border-white/40 transition-all duration-200 hover:scale-110"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <MoreHorizontal className="h-4 w-4 text-white" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48 bg-white/95 backdrop-blur-md">
+                <DropdownMenuContent align="end" className="w-48 bg-white/95 backdrop-blur-2xl border border-white/40">
                   <DropdownMenuItem 
                     onClick={(e) => {
                       e.stopPropagation();
@@ -1002,13 +1043,13 @@ function PlansContent() {
             </div>
 
             {/* Adventure Title Overlay */}
-            <div className="absolute bottom-0 left-0 right-0 p-5">
-              <div className="space-y-2">
-                <h3 className="font-bold text-white text-xl leading-tight line-clamp-2 drop-shadow-2xl">
+            <div className="absolute bottom-0 left-0 right-0 p-4">
+              <div className="space-y-1.5">
+                <h3 className="font-bold text-white text-lg leading-tight line-clamp-2 drop-shadow-2xl">
                   {adventure.custom_title || 'Your Adventure'}
                 </h3>
-                <div className="flex items-center gap-2 text-white/90 text-sm">
-                  <MapPin className="w-4 h-4 drop-shadow-lg" />
+                <div className="flex items-center gap-1.5 text-white/90 text-xs">
+                  <MapPin className="w-3.5 h-3.5 drop-shadow-lg" />
                   <span className="truncate drop-shadow-lg font-medium">
                     {adventure.location || 'Destination'}
                   </span>
@@ -1018,7 +1059,7 @@ function PlansContent() {
           </div>
 
           {/* Card Content - Data Visualization */}
-          <div className="p-5 space-y-4">
+          <div className="p-4 space-y-3">
             
             {/* Progress Visualization - Only for incomplete */}
             {!adventure.is_completed && totalSteps > 0 && (
@@ -1044,25 +1085,25 @@ function PlansContent() {
             )}
 
             {/* Key Metrics Grid */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               {/* Duration */}
-              <div className="bg-gradient-to-br from-[#3c7660]/5 to-transparent rounded-xl p-3 border border-[#3c7660]/10">
-                <div className="flex items-center gap-2 text-gray-600 text-xs font-medium mb-1">
-                  <Clock className="w-3.5 h-3.5" />
+              <div className="bg-gradient-to-br from-[#3c7660]/5 to-transparent rounded-lg p-2.5 border border-[#3c7660]/10">
+                <div className="flex items-center gap-1.5 text-gray-600 text-xs font-medium mb-0.5">
+                  <Clock className="w-3 h-3" />
                   Duration
                 </div>
-                <p className="text-lg font-bold text-[#3c7660]">
+                <p className="text-base font-bold text-[#3c7660]">
                   {adventure.duration_hours}h
                 </p>
               </div>
 
               {/* Budget */}
-              <div className="bg-gradient-to-br from-[#f2cc6c]/5 to-transparent rounded-xl p-3 border border-[#f2cc6c]/20">
-                <div className="flex items-center gap-2 text-gray-600 text-xs font-medium mb-1">
-                  <DollarSign className="w-3.5 h-3.5" />
+              <div className="bg-gradient-to-br from-[#f2cc6c]/5 to-transparent rounded-lg p-2.5 border border-[#f2cc6c]/20">
+                <div className="flex items-center gap-1.5 text-gray-600 text-xs font-medium mb-0.5">
+                  <DollarSign className="w-3 h-3" />
                   Budget
                 </div>
-                <p className="text-lg font-bold text-[#3c7660]">
+                <p className="text-base font-bold text-[#3c7660]">
                   {budgetPerPerson}
                 </p>
               </div>
@@ -1097,36 +1138,26 @@ function PlansContent() {
                     Schedule This Adventure
                   </Button>
                 ) : (
-                  <div className="w-full bg-gradient-to-br from-[#3c7660]/5 to-[#f2cc6c]/5 backdrop-blur-sm rounded-xl p-4 border border-[#3c7660]/20">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-[#3c7660]/10 rounded-lg">
-                          <CalendarDays className="w-4 h-4 text-[#3c7660]" />
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-600 font-medium">Scheduled for</p>
-                          <p className="text-sm font-bold text-[#3c7660]">
-                            {new Date(adventure.scheduled_for).toLocaleDateString('en-US', {
-                              weekday: 'short',
-                              month: 'short',
-                              day: 'numeric',
-                              year: 'numeric'
-                            })}
-                          </p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedAdventure(adventure);
-                          setShowScheduleModal(true);
-                        }}
-                        className="text-xs text-[#3c7660] hover:text-[#2d5a47] font-semibold underline underline-offset-2 hover:underline-offset-4 transition-all"
-                      >
-                        Reschedule
-                      </button>
+                  <Button
+                    variant="outline"
+                    className="w-full border-[#3c7660]/30 text-[#3c7660] hover:bg-[#3c7660]/5 transition-all duration-300 justify-between"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedAdventure(adventure);
+                      setShowScheduleModal(true);
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <CalendarDays className="h-4 w-4" />
+                      <span className="text-sm font-medium">
+                        {new Date(adventure.scheduled_for).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric'
+                        })}
+                      </span>
                     </div>
-                  </div>
+                    <span className="text-xs opacity-60">Reschedule</span>
+                  </Button>
                 )}
               </>
             )}
@@ -1155,7 +1186,7 @@ function PlansContent() {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Calendar */}
-        <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-md">
+        <Card className="bg-white/90 backdrop-blur-xl border border-white/40 shadow-md">
           <CardContent className="p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <CalendarDays className="w-5 h-5 text-[#3c7660]" />
@@ -1190,7 +1221,7 @@ function PlansContent() {
         </Card>
 
         {/* Selected Date Adventures */}
-        <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-md">
+        <Card className="bg-white/90 backdrop-blur-xl border border-white/40 shadow-md">
           <CardContent className="p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               {selectedDate ?
@@ -1290,9 +1321,10 @@ function PlansContent() {
     );
   };
 
-  if (loading) {
+  // Show loading only if initial load is not complete
+  if (loading && !initialLoadComplete) {
     return (
-      <div className="min-h-screen bg-white relative">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-[#f8f2d5]/20 relative">
         <Navigation />
         <div className="pt-20 px-4">
           <div className="max-w-6xl mx-auto">
@@ -1407,7 +1439,7 @@ function PlansContent() {
             {savedAdventures.length > 0 && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Total Adventures */}
-                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-100 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                <div className="bg-white/90 backdrop-blur-xl rounded-2xl p-5 border border-white/40 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                   <div className="flex items-center justify-between mb-3">
                     <div className="p-3 bg-gradient-to-br from-[#3c7660]/10 to-[#4d987b]/10 rounded-xl">
                       <Compass className="w-6 h-6 text-[#3c7660]" />
@@ -1419,7 +1451,7 @@ function PlansContent() {
                 </div>
 
                 {/* Completed */}
-                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-100 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                <div className="bg-white/90 backdrop-blur-xl rounded-2xl p-5 border border-white/40 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                   <div className="flex items-center justify-between mb-3">
                     <div className="p-3 bg-gradient-to-br from-emerald-500/10 to-green-500/10 rounded-xl">
                       <Award className="w-6 h-6 text-emerald-600" />
@@ -1431,7 +1463,7 @@ function PlansContent() {
                 </div>
 
                 {/* Scheduled */}
-                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-100 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                <div className="bg-white/90 backdrop-blur-xl rounded-2xl p-5 border border-white/40 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                   <div className="flex items-center justify-between mb-3">
                     <div className="p-3 bg-gradient-to-br from-[#f2cc6c]/20 to-[#f2cc6c]/10 rounded-xl">
                       <CalendarDays className="w-6 h-6 text-[#3c7660]" />
@@ -1442,7 +1474,7 @@ function PlansContent() {
                 </div>
 
                 {/* Total Hours */}
-                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-100 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                <div className="bg-white/90 backdrop-blur-xl rounded-2xl p-5 border border-white/40 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                   <div className="flex items-center justify-between mb-3">
                     <div className="p-3 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-xl">
                       <Clock className="w-6 h-6 text-blue-600" />
@@ -1462,7 +1494,7 @@ function PlansContent() {
             <>
               {/* Tabs */}
               <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-                <TabsList className="bg-white/70 backdrop-blur-sm border-0 shadow-sm">
+                <TabsList className="bg-white/80 backdrop-blur-xl border border-white/40 shadow-lg">
                   <TabsTrigger 
                     value="all" 
                     className="data-[state=active]:bg-[#3c7660] data-[state=active]:text-white"
