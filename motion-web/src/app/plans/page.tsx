@@ -505,6 +505,8 @@ function PlansContent() {
   // Open adventure modal
   const openAdventureModal = (adventure: SavedAdventure) => {
     setSelectedAdventure(adventure);
+    // Reset scheduling state for new adventure
+    setSelectedDate(adventure.scheduled_for ? new Date(adventure.scheduled_for) : undefined);
     setIsModalOpen(true);
   };
 
@@ -796,7 +798,30 @@ function PlansContent() {
       photos.push(adventurePhotos[adventure.id]);
     }
 
-    // Priority 4: Fallback to a nice location-based image
+    // Priority 4: Check ALL steps for ANY photo (exhaustive search)
+    if (photos.length === 0 && adventure.adventure_steps?.length > 0) {
+      for (const step of adventure.adventure_steps) {
+        const stepData = step as any;
+
+        // Check all possible photo fields
+        const possiblePhotos = [
+          stepData.google_photo_url,
+          stepData.google_places?.photo_url,
+          stepData.photo_url,
+          stepData.google_photo_reference
+        ].filter(Boolean);
+
+        for (const photo of possiblePhotos) {
+          if (!photos.includes(photo)) {
+            photos.push(photo);
+            if (photos.length >= 3) break;
+          }
+        }
+        if (photos.length >= 3) break;
+      }
+    }
+
+    // Priority 5: Fallback to a nice location-based image
     if (photos.length === 0) {
       const location = adventure.location?.toLowerCase() || '';
       if (location.includes('beach') || location.includes('miami') || location.includes('ocean')) {
@@ -987,7 +1012,7 @@ function PlansContent() {
                   </Badge>
                 )}
                 {adventure.scheduled_for && !adventure.is_completed && (
-                  <Badge className="bg-[#3c7660]/70 backdrop-blur-xl border border-white/40 text-white text-xs font-semibold shadow-lg">
+                  <Badge className="bg-[#3c7660]/50 backdrop-blur-2xl border border-white/60 text-white text-xs font-semibold shadow-lg">
                     <CalendarDays className="mr-1 h-3.5 w-3.5" />
                     {new Date(adventure.scheduled_for).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                   </Badge>
@@ -1559,6 +1584,7 @@ function PlansContent() {
             description: selectedAdventure.custom_description || '',
             duration: `${selectedAdventure.duration_hours} hours`,
             difficulty: 'Easy',
+            estimated_cost: selectedAdventure.estimated_cost,
             tags: [],
             steps: selectedAdventure.adventure_steps.map((s: any, idx: number) => ({
               id: s.id || `step-${idx}`,

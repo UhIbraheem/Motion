@@ -68,6 +68,7 @@ interface EnhancedPlansModalProps {
     description: string;
     duration: string;
     difficulty: string;
+    estimated_cost?: string;
     tags: string[];
     steps: AdventureStep[];
     photos: Array<{ url: string; source: string }>;
@@ -306,6 +307,18 @@ export default function EnhancedPlansModal({
     }
   }, [isOpen]);
 
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
   // Fetch Google Places data AND photos for steps
   useEffect(() => {
     const fetchPlacesData = async () => {
@@ -513,7 +526,17 @@ export default function EnhancedPlansModal({
               <DollarSign className="w-4 h-4 text-[#3c7660]" />
               <div>
                 <p className="text-[9px] text-gray-500 uppercase font-semibold tracking-wide">Budget</p>
-                <p className="text-sm font-bold text-gray-900">{adventure.difficulty}</p>
+                <p className="text-sm font-bold text-gray-900">
+                  {(() => {
+                    // Get the actual estimated_cost from the source adventure data
+                    const cost = (adventure as any).estimated_cost || adventure.difficulty;
+                    if (!cost || cost === 'Easy') return '$';
+                    const costStr = String(cost);
+                    if (costStr.includes('$')) return costStr;
+                    if (/^\d+$/.test(costStr)) return `$${costStr}`;
+                    return costStr;
+                  })()}
+                </p>
               </div>
             </div>
           </div>
@@ -581,7 +604,8 @@ export default function EnhancedPlansModal({
                         alt={currentStep.title}
                         fill
                         className="object-cover"
-                        sizes="(max-width: 768px) 100vw, 40vw"
+                        sizes="(max-width: 768px) 100vw, 720px"
+                        quality={95}
                         priority
                       />
                     ) : (
@@ -678,10 +702,15 @@ export default function EnhancedPlansModal({
 
                   {/* Rating & Verified Badge */}
                   <div className="flex items-center gap-2 mb-3">
-                    {currentStep.rating && (
+                    {(currentStep.rating || currentStep.google_places?.rating || stepPlacesData[currentStep.id]?.rating) && (
                       <Badge variant="outline" className="bg-amber-50 border-amber-300 text-amber-700 text-xs">
                         <Star className="w-3 h-3 mr-1 fill-current" />
-                        {currentStep.rating}
+                        {currentStep.rating || currentStep.google_places?.rating || stepPlacesData[currentStep.id]?.rating}
+                        {(currentStep.google_places?.user_rating_count || stepPlacesData[currentStep.id]?.user_rating_count) && (
+                          <span className="ml-1 opacity-70">
+                            ({(currentStep.google_places?.user_rating_count || stepPlacesData[currentStep.id]?.user_rating_count).toLocaleString()})
+                          </span>
+                        )}
                       </Badge>
                     )}
                     {currentStep.validated && (
@@ -696,22 +725,34 @@ export default function EnhancedPlansModal({
                   <p className="text-gray-600 text-sm leading-relaxed mb-3">{currentStep.description}</p>
 
                   {/* Business Details */}
-                  {(currentStep.business_hours || currentStep.business_phone || currentStep.business_website) && (
+                  {(currentStep.business_hours || currentStep.business_phone || currentStep.business_website ||
+                    currentStep.google_places?.opening_hours || currentStep.google_places?.national_phone_number ||
+                    currentStep.google_places?.website_uri || currentStep.google_places?.price_level ||
+                    stepPlacesData[currentStep.id]) && (
                     <div className="p-3 bg-gradient-to-r from-[#f8f2d5] to-[#f2cc6c]/20 rounded-xl border border-[#f2cc6c]/30 mb-3">
                       <div className="flex items-center gap-2 mb-2">
                         <MapPin className="w-4 h-4 text-[#3c7660]" />
                         <span className="font-semibold text-gray-900 text-sm">Business Details</span>
                       </div>
                       <div className="space-y-1 text-xs text-gray-700">
-                        {currentStep.business_hours && (
-                          <div className="font-medium">Hours: {currentStep.business_hours}</div>
+                        {(currentStep.business_hours || currentStep.google_places?.opening_hours?.weekday_text?.[0]) && (
+                          <div className="font-medium">
+                            Hours: {currentStep.business_hours || currentStep.google_places?.opening_hours?.weekday_text?.[0] || 'Call for hours'}
+                          </div>
                         )}
-                        {currentStep.business_phone && (
-                          <div>Phone: {currentStep.business_phone}</div>
+                        {(currentStep.business_phone || currentStep.google_places?.national_phone_number || stepPlacesData[currentStep.id]?.national_phone_number) && (
+                          <div>
+                            Phone: {currentStep.business_phone || currentStep.google_places?.national_phone_number || stepPlacesData[currentStep.id]?.national_phone_number}
+                          </div>
                         )}
-                        {currentStep.business_website && (
+                        {(currentStep.google_places?.price_level || stepPlacesData[currentStep.id]?.price_level) && (
+                          <div>
+                            Price Level: {'$'.repeat(currentStep.google_places?.price_level || stepPlacesData[currentStep.id]?.price_level)}
+                          </div>
+                        )}
+                        {(currentStep.business_website || currentStep.google_places?.website_uri || stepPlacesData[currentStep.id]?.website_uri) && (
                           <a
-                            href={currentStep.business_website}
+                            href={currentStep.business_website || currentStep.google_places?.website_uri || stepPlacesData[currentStep.id]?.website_uri}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-[#3c7660] hover:underline flex items-center gap-1"

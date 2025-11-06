@@ -789,22 +789,21 @@ class AdventureService {
         throw new Error('User not authenticated');
       }
 
-      const response = await fetch(`${this.backendBaseUrl}/api/adventures/${adventureId}/steps/${encodeURIComponent(stepId)}/toggle`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ completed, userId: user.id })
-      });
+      console.log('🔄 Updating step completion:', { adventureId, stepId, completed });
 
-      if (!response.ok) {
-        const errorBody = await response.json().catch(() => ({}));
-        console.error('❌ Backend step toggle error:', errorBody);
-        throw new Error(errorBody?.error || 'Failed to update step');
+      // Update the step in Supabase
+      const { error } = await this.supabase
+        .from('adventure_steps')
+        .update({ completed })
+        .eq('id', stepId)
+        .eq('adventure_id', adventureId);
+
+      if (error) {
+        console.error('❌ Supabase step update error:', error);
+        throw new Error(error.message || 'Failed to update step');
       }
 
-      const payload = await response.json();
-      console.log('✅ Step completion updated via backend:', payload);
+      console.log('✅ Step completion updated in Supabase');
       return true;
     } catch (e: any) {
       console.error('❌ Error updating step completion:', {
