@@ -727,12 +727,12 @@ function PlansContent() {
   // Get all available photos for an adventure
   const getAllAdventurePhotos = (adventure: SavedAdventure): string[] => {
     const photos: string[] = [];
-    
+
     // Check cache first
     if (adventurePhotos[adventure.id]) {
       photos.push(adventurePhotos[adventure.id]);
     }
-    
+
     // Check adventure_photos table
     if (adventure.adventure_photos?.length > 0) {
       for (const photo of adventure.adventure_photos) {
@@ -741,7 +741,7 @@ function PlansContent() {
         }
       }
     }
-    
+
     // Get photos from all steps
     if (adventure.adventure_steps?.length > 0) {
       for (const step of adventure.adventure_steps) {
@@ -752,12 +752,32 @@ function PlansContent() {
         }
       }
     }
-    
+
     // If no photos found, return fallback
     if (photos.length === 0) {
       photos.push('https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400&h=300&fit=crop');
     }
-    
+
+    return photos;
+  };
+
+  // Get up to 3 step photos for card display (one per step)
+  const getStepPhotos = (adventure: SavedAdventure): string[] => {
+    const photos: string[] = [];
+
+    // Get photos from steps (one per step, up to 3)
+    if (adventure.adventure_steps?.length > 0) {
+      for (const step of adventure.adventure_steps) {
+        if (photos.length >= 3) break; // Max 3 photos
+
+        const stepData = step as any;
+        const photoUrl = stepData.google_photo_url || stepData.google_places?.photo_url || stepData.photo_url;
+        if (photoUrl && !photos.includes(photoUrl)) {
+          photos.push(photoUrl);
+        }
+      }
+    }
+
     return photos;
   };
 
@@ -786,15 +806,13 @@ function PlansContent() {
 
   // Ultra-modern adventure card with premium design
   const renderAdventureCard = (adventure: SavedAdventure, cardIndex: number) => {
-    const allPhotos = getAllAdventurePhotos(adventure);
-    const photoIndex = currentPhotoIndex[adventure.id] || 0;
-    const photo = allPhotos[photoIndex];
-    const hasMultiplePhotos = allPhotos.length > 1;
-    
+    const stepPhotos = getStepPhotos(adventure); // Get up to 3 step photos
+    const hasPhotos = stepPhotos.length > 0;
+
     const completedSteps = adventure.adventure_steps.filter((step: any) => step.completed).length;
     const totalSteps = adventure.adventure_steps.length;
     const progress = totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0;
-    
+
     const formatBudget = (cost: string | number | null | undefined) => {
       if (!cost) return '$';
       const costStr = String(cost);
@@ -802,41 +820,105 @@ function PlansContent() {
       if (/^\d+$/.test(costStr)) return `$${costStr}`;
       return `$${costStr}`;
     };
-    
+
     const budgetPerPerson = formatBudget(adventure.estimated_cost || '$');
     const isHighlighted = highlightedAdventureId === adventure.id;
 
     return (
-      <div 
+      <div
         key={adventure.id}
         className={`group relative overflow-hidden rounded-2xl transition-all duration-500 cursor-pointer border ${
-          isHighlighted 
-            ? 'ring-2 ring-[#f2cc6c] ring-offset-4 shadow-2xl shadow-[#f2cc6c]/30 scale-[1.02] border-[#f2cc6c]' 
+          isHighlighted
+            ? 'ring-2 ring-[#f2cc6c] ring-offset-4 shadow-2xl shadow-[#f2cc6c]/30 scale-[1.02] border-[#f2cc6c]'
             : 'hover:scale-[1.02] hover:shadow-2xl border-gray-200/60'
         }`}
         onClick={() => openAdventureModal(adventure)}
       >
         {/* Main Card Container with Glassmorphism */}
         <div className="relative bg-white/80 backdrop-blur-xl border-0 shadow-xl h-full">
-          
-          {/* Hero Image Section - Premium Quality */}
+
+          {/* Hero Image Section - Multiple Photos Grid */}
           <div className="relative h-72 overflow-hidden">
-            {photo ? (
+            {hasPhotos ? (
               <div className="absolute inset-0">
-                <Image
-                  src={photo}
-                  alt={adventure.custom_title || 'Adventure'}
-                  fill
-                  className="object-cover transition-all duration-700 group-hover:scale-110"
-                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                  priority={cardIndex < 3} // Prioritize first 3 cards for faster loading
-                  loading={cardIndex < 3 ? 'eager' : 'lazy'}
-                  quality={90}
-                  key={photo}
-                />
+                {stepPhotos.length === 1 ? (
+                  // Single photo - full width
+                  <div className="relative w-full h-full">
+                    <Image
+                      src={stepPhotos[0]}
+                      alt={adventure.custom_title || 'Adventure'}
+                      fill
+                      className="object-cover transition-all duration-700 group-hover:scale-110"
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                      priority={cardIndex < 3}
+                      loading={cardIndex < 3 ? 'eager' : 'lazy'}
+                      quality={90}
+                    />
+                  </div>
+                ) : stepPhotos.length === 2 ? (
+                  // Two photos - side by side
+                  <div className="flex gap-1 h-full">
+                    {stepPhotos.map((photo, idx) => (
+                      <div key={idx} className="relative flex-1">
+                        <Image
+                          src={photo}
+                          alt={`${adventure.custom_title} - Stop ${idx + 1}`}
+                          fill
+                          className="object-cover transition-all duration-700 group-hover:scale-110"
+                          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 16vw"
+                          priority={cardIndex < 3 && idx === 0}
+                          loading={cardIndex < 3 && idx === 0 ? 'eager' : 'lazy'}
+                          quality={85}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  // Three photos - grid layout (1 large + 2 small)
+                  <div className="flex gap-1 h-full">
+                    {/* First photo - takes 60% width */}
+                    <div className="relative w-[60%]">
+                      <Image
+                        src={stepPhotos[0]}
+                        alt={`${adventure.custom_title} - Stop 1`}
+                        fill
+                        className="object-cover transition-all duration-700 group-hover:scale-110"
+                        sizes="(max-width: 768px) 60vw, (max-width: 1200px) 30vw, 20vw"
+                        priority={cardIndex < 3}
+                        loading={cardIndex < 3 ? 'eager' : 'lazy'}
+                        quality={85}
+                      />
+                    </div>
+                    {/* Second and third photos - stacked, 40% width */}
+                    <div className="flex flex-col gap-1 w-[40%]">
+                      <div className="relative flex-1">
+                        <Image
+                          src={stepPhotos[1]}
+                          alt={`${adventure.custom_title} - Stop 2`}
+                          fill
+                          className="object-cover transition-all duration-700 group-hover:scale-110"
+                          sizes="(max-width: 768px) 40vw, (max-width: 1200px) 20vw, 13vw"
+                          loading="lazy"
+                          quality={80}
+                        />
+                      </div>
+                      <div className="relative flex-1">
+                        <Image
+                          src={stepPhotos[2]}
+                          alt={`${adventure.custom_title} - Stop 3`}
+                          fill
+                          className="object-cover transition-all duration-700 group-hover:scale-110"
+                          sizes="(max-width: 768px) 40vw, (max-width: 1200px) 20vw, 13vw"
+                          loading="lazy"
+                          quality={80}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {/* Multi-layer gradient overlay for depth */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                <div className="absolute inset-0 bg-gradient-to-br from-[#3c7660]/10 via-transparent to-[#f2cc6c]/10" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-br from-[#3c7660]/10 via-transparent to-[#f2cc6c]/10 pointer-events-none" />
               </div>
             ) : (
               <div className="absolute inset-0 bg-gradient-to-br from-[#3c7660]/5 via-white to-[#f2cc6c]/5 flex items-center justify-center">
@@ -844,38 +926,12 @@ function PlansContent() {
               </div>
             )}
 
-            {/* Premium Photo Navigation */}
-            {hasMultiplePhotos && (
-              <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-between px-3 z-20">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigatePhoto(adventure.id, 'prev', adventure);
-                  }}
-                  className="group/btn bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full p-2.5 transition-all duration-300 hover:scale-110 shadow-lg border border-white/20"
-                  aria-label="Previous photo"
-                >
-                  <ChevronLeft className="w-5 h-5 text-white drop-shadow-lg" />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    navigatePhoto(adventure.id, 'next', adventure);
-                  }}
-                  className="group/btn bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full p-2.5 transition-all duration-300 hover:scale-110 shadow-lg border border-white/20"
-                  aria-label="Next photo"
-                >
-                  <ChevronRight className="w-5 h-5 text-white drop-shadow-lg" />
-                </button>
-              </div>
-            )}
-
-            {/* Photo Counter Badge */}
-            {hasMultiplePhotos && (
+            {/* Step Photos Badge */}
+            {stepPhotos.length > 1 && (
               <div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-md rounded-full px-3 py-1.5 shadow-lg border border-white/20">
                 <span className="text-white text-xs font-semibold flex items-center gap-1">
                   <Sparkles className="w-3 h-3" />
-                  {photoIndex + 1} / {allPhotos.length}
+                  {stepPhotos.length} stops
                 </span>
               </div>
             )}
