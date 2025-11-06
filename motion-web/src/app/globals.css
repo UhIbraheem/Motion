@@ -183,8 +183,24 @@
   * {
     @apply border-border outline-ring/50;
   }
-  body {
+
+  /* Hide scrollbars globally */
+  body,
+  html {
     @apply bg-background text-foreground;
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+  }
+
+  body::-webkit-scrollbar,
+  html::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+  }
+
+  /* Hide scrollbars on all scrollable elements */
+  *::-webkit-scrollbar {
+    width: 0px;
+    height: 0px;
   }
 }
 
