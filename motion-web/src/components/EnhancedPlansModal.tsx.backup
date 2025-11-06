@@ -123,9 +123,6 @@ export default function EnhancedPlansModal({
   const [isSavingStep, setIsSavingStep] = useState(false);
   const [deletingStepId, setDeletingStepId] = useState<string | null>(null);
 
-  // Step navigation state for horizontal progress line
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
-
   if (!isOpen) return null;
 
   const completedSteps = adventure.steps.filter(step => step.completed).length;
@@ -281,30 +278,6 @@ export default function EnhancedPlansModal({
     }
     setExpandedSteps(newExpanded);
   };
-
-  // Step navigation handlers
-  const goToNextStep = () => {
-    if (currentStepIndex < adventure.steps.length - 1) {
-      setCurrentStepIndex(currentStepIndex + 1);
-    }
-  };
-
-  const goToPreviousStep = () => {
-    if (currentStepIndex > 0) {
-      setCurrentStepIndex(currentStepIndex - 1);
-    }
-  };
-
-  const goToStep = (index: number) => {
-    setCurrentStepIndex(index);
-  };
-
-  // Reset to first step when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      setCurrentStepIndex(0);
-    }
-  }, [isOpen]);
 
   // Fetch Google Places data AND photos for steps
   useEffect(() => {
