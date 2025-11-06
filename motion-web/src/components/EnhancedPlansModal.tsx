@@ -1,14 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { X, MapPin, Clock, Calendar as CalendarIcon, Star, CheckCircle2, Circle, Phone, Globe, ChevronDown, ChevronUp, ExternalLink, RefreshCw, TrendingUp, DollarSign, Navigation, Sparkles, Award, Users, ImageIcon } from 'lucide-react';
+import { X, MapPin, Clock, Calendar as CalendarIcon, Star, CheckCircle2, Circle, Phone, Globe, ChevronDown, ChevronUp, ExternalLink, RefreshCw, TrendingUp, DollarSign, Navigation, Sparkles, Award, Users, ImageIcon, MoreVertical, Edit2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import Image from 'next/image';
 import GooglePlacesService from '@/services/GooglePlacesService';
+import AdventureService from '@/services/AdventureService';
 
 interface AdventureStep {
   id: string;
@@ -98,7 +115,14 @@ export default function EnhancedPlansModal({
   const [tempSelectedDate, setTempSelectedDate] = useState<Date | undefined>(
     adventure.scheduled_for ? new Date(adventure.scheduled_for) : undefined
   );
-  
+
+  // Step editing state
+  const [editingStep, setEditingStep] = useState<AdventureStep | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editedStepData, setEditedStepData] = useState<Partial<AdventureStep>>({});
+  const [isSavingStep, setIsSavingStep] = useState(false);
+  const [deletingStepId, setDeletingStepId] = useState<string | null>(null);
+
   if (!isOpen) return null;
 
   const completedSteps = adventure.steps.filter(step => step.completed).length;
@@ -179,6 +203,70 @@ export default function EnhancedPlansModal({
   const handleTitleCancel = () => {
     setEditedTitle(adventure.title);
     setIsEditingTitle(false);
+  };
+
+  const handleEditStep = (step: AdventureStep) => {
+    setEditingStep(step);
+    setEditedStepData({
+      title: step.title,
+      description: step.description,
+      duration: step.duration,
+      location: step.location
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleSaveStep = async () => {
+    if (!editingStep || !adventure.id) return;
+
+    setIsSavingStep(true);
+    try {
+      const updatedAdventure = await AdventureService.updateStep(
+        adventure.id,
+        editingStep.id,
+        editedStepData
+      );
+
+      if (updatedAdventure && onUpdate) {
+        onUpdate(); // Trigger parent refresh
+        toast.success('Step updated successfully!');
+        setEditDialogOpen(false);
+        setEditingStep(null);
+        setEditedStepData({});
+      } else {
+        toast.error('Failed to update step');
+      }
+    } catch (error: any) {
+      console.error('Error saving step:', error);
+      toast.error(error?.message || 'Failed to update step');
+    } finally {
+      setIsSavingStep(false);
+    }
+  };
+
+  const handleDeleteStep = async (stepId: string) => {
+    if (!adventure.id) return;
+
+    if (!confirm('Are you sure you want to delete this step? This action cannot be undone.')) {
+      return;
+    }
+
+    setDeletingStepId(stepId);
+    try {
+      const updatedAdventure = await AdventureService.deleteStep(adventure.id, stepId);
+
+      if (updatedAdventure && onUpdate) {
+        onUpdate(); // Trigger parent refresh
+        toast.success('Step deleted successfully!');
+      } else {
+        toast.error('Failed to delete step');
+      }
+    } catch (error: any) {
+      console.error('Error deleting step:', error);
+      toast.error(error?.message || 'Failed to delete step');
+    } finally {
+      setDeletingStepId(null);
+    }
   };
 
   const toggleStepExpansion = (stepId: string) => {
@@ -786,13 +874,48 @@ export default function EnhancedPlansModal({
                             {/* Title & Location */}
                             <div className="mb-4">
                               <div className="flex items-start justify-between gap-4 mb-2">
-                                <h4 className={`text-2xl font-bold text-gray-900 ${
+                                <h4 className={`text-2xl font-bold text-gray-900 flex-1 ${
                                   step.completed ? 'line-through opacity-70' : ''
                                 }`}>
                                   {step.title}
                                 </h4>
                                 {/* Rating & Budget Row */}
                                 <div className="flex items-center gap-2 shrink-0">
+                                  {/* Edit/Delete Dropdown */}
+                                  {!adventure.is_completed && (
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-8 w-8 p-0 hover:bg-gray-100"
+                                          disabled={deletingStepId === step.id}
+                                        >
+                                          {deletingStepId === step.id ? (
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600" />
+                                          ) : (
+                                            <MoreVertical className="h-4 w-4" />
+                                          )}
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        <DropdownMenuItem
+                                          onClick={() => handleEditStep(step)}
+                                          className="cursor-pointer"
+                                        >
+                                          <Edit2 className="mr-2 h-4 w-4" />
+                                          Edit Step
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          onClick={() => handleDeleteStep(step.id)}
+                                          className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+                                        >
+                                          <Trash2 className="mr-2 h-4 w-4" />
+                                          Delete Step
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  )}
                                   {/* Rating Badge - Glassmorphism */}
                                   {(placeInfo?.rating || step.rating) && (
                                     <div className="flex items-center gap-1.5 bg-white/40 backdrop-blur-md border border-amber-500/30 px-3 py-1.5 rounded-lg shadow-sm">
@@ -1002,6 +1125,83 @@ export default function EnhancedPlansModal({
 
         </div>
       </div>
+
+      {/* Step Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Step</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-title">Title</Label>
+              <Input
+                id="edit-title"
+                value={editedStepData.title || ''}
+                onChange={(e) => setEditedStepData(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="Step title"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea
+                id="edit-description"
+                value={editedStepData.description || ''}
+                onChange={(e) => setEditedStepData(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Step description"
+                rows={4}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-location">Location</Label>
+                <Input
+                  id="edit-location"
+                  value={editedStepData.location || ''}
+                  onChange={(e) => setEditedStepData(prev => ({ ...prev, location: e.target.value }))}
+                  placeholder="Location"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-duration">Duration</Label>
+                <Input
+                  id="edit-duration"
+                  value={editedStepData.duration || ''}
+                  onChange={(e) => setEditedStepData(prev => ({ ...prev, duration: e.target.value }))}
+                  placeholder="e.g., 30 min"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditDialogOpen(false);
+                setEditingStep(null);
+                setEditedStepData({});
+              }}
+              disabled={isSavingStep}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveStep}
+              disabled={isSavingStep}
+              className="bg-[#3c7660] hover:bg-[#2d5a47] text-white"
+            >
+              {isSavingStep ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                  Saving...
+                </>
+              ) : (
+                'Save Changes'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

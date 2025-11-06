@@ -33,6 +33,12 @@ const GeneratedAdventureView: React.FC<GeneratedAdventureViewProps> = ({
   const [editRequest, setEditRequest] = useState('');
   const [isRegeneratingStep, setIsRegeneratingStep] = useState(false);
 
+  // Inline step editing states
+  const [editingStepTitleIndex, setEditingStepTitleIndex] = useState<number | null>(null);
+  const [editingStepTimeIndex, setEditingStepTimeIndex] = useState<number | null>(null);
+  const [editedStepTitle, setEditedStepTitle] = useState('');
+  const [editedStepTime, setEditedStepTime] = useState('');
+
   // Adventure title editing states
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState(adventure.title);
@@ -50,6 +56,90 @@ const GeneratedAdventureView: React.FC<GeneratedAdventureViewProps> = ({
     setIsEditingTitle(false);
   };
 
+  // Inline step title editing
+  const handleStepTitleEdit = (stepIndex: number) => {
+    setEditingStepTitleIndex(stepIndex);
+    setEditedStepTitle(adventure.steps[stepIndex].title);
+  };
+
+  const handleStepTitleSave = (stepIndex: number) => {
+    const finalTitle = editedStepTitle.trim() || adventure.steps[stepIndex].title;
+    const updatedSteps = [...adventure.steps];
+    updatedSteps[stepIndex] = { ...updatedSteps[stepIndex], title: finalTitle };
+
+    const updatedAdventure = { ...adventure, steps: updatedSteps };
+    onAdventureUpdate(updatedAdventure);
+    setEditingStepTitleIndex(null);
+  };
+
+  const handleStepTitleCancel = () => {
+    setEditingStepTitleIndex(null);
+  };
+
+  // Inline step time editing with cascading time adjustments
+  const handleStepTimeEdit = (stepIndex: number) => {
+    setEditingStepTimeIndex(stepIndex);
+    setEditedStepTime(adventure.steps[stepIndex].time);
+  };
+
+  const parseTime = (timeStr: string): number => {
+    // Parse times like "10:00 AM" or "10:00" to minutes since midnight
+    const cleanTime = timeStr.trim().toUpperCase();
+    const match = cleanTime.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/);
+
+    if (!match) return 0;
+
+    let hours = parseInt(match[1]);
+    const minutes = parseInt(match[2]);
+    const meridiem = match[3];
+
+    if (meridiem === 'PM' && hours !== 12) hours += 12;
+    if (meridiem === 'AM' && hours === 12) hours = 0;
+
+    return hours * 60 + minutes;
+  };
+
+  const formatTime = (minutes: number): string => {
+    // Convert minutes since midnight back to "HH:MM AM/PM" format
+    const hours24 = Math.floor(minutes / 60) % 24;
+    const mins = minutes % 60;
+    const hours12 = hours24 === 0 ? 12 : hours24 > 12 ? hours24 - 12 : hours24;
+    const meridiem = hours24 < 12 ? 'AM' : 'PM';
+
+    return `${hours12}:${mins.toString().padStart(2, '0')} ${meridiem}`;
+  };
+
+  const handleStepTimeSave = (stepIndex: number) => {
+    const newTime = editedStepTime.trim();
+    if (!newTime) {
+      setEditingStepTimeIndex(null);
+      return;
+    }
+
+    const updatedSteps = [...adventure.steps];
+    const oldTimeMinutes = parseTime(updatedSteps[stepIndex].time);
+    const newTimeMinutes = parseTime(newTime);
+    const timeDifference = newTimeMinutes - oldTimeMinutes;
+
+    // Update the current step's time
+    updatedSteps[stepIndex] = { ...updatedSteps[stepIndex], time: newTime };
+
+    // Adjust all subsequent steps by the time difference
+    for (let i = stepIndex + 1; i < updatedSteps.length; i++) {
+      const currentStepMinutes = parseTime(updatedSteps[i].time);
+      const adjustedMinutes = currentStepMinutes + timeDifference;
+      updatedSteps[i] = { ...updatedSteps[i], time: formatTime(adjustedMinutes) };
+    }
+
+    const updatedAdventure = { ...adventure, steps: updatedSteps };
+    onAdventureUpdate(updatedAdventure);
+    setEditingStepTimeIndex(null);
+  };
+
+  const handleStepTimeCancel = () => {
+    setEditingStepTimeIndex(null);
+  };
+
   const openStepEditor = (stepIndex: number) => {
     setEditingStepIndex(stepIndex);
     setEditRequest('');
@@ -65,7 +155,7 @@ const GeneratedAdventureView: React.FC<GeneratedAdventureViewProps> = ({
 
     try {
       const currentStep = adventure.steps[editingStepIndex];
-      
+
       const { data, error } = await aiService.regenerateStep(
         editingStepIndex,
         currentStep,
@@ -83,7 +173,7 @@ const GeneratedAdventureView: React.FC<GeneratedAdventureViewProps> = ({
         // Replace the step in the adventure
         const updatedSteps = [...adventure.steps];
         updatedSteps[editingStepIndex] = data;
-        
+
         const updatedAdventure = {
           ...adventure,
           steps: updatedSteps
@@ -92,8 +182,48 @@ const GeneratedAdventureView: React.FC<GeneratedAdventureViewProps> = ({
         onAdventureUpdate(updatedAdventure);
         setEditingStepIndex(null);
         setEditRequest('');
-        
+
         Alert.alert('Success! 🎉', `Step ${editingStepIndex + 1} has been updated!`);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to regenerate step. Please try again.');
+    } finally {
+      setIsRegeneratingStep(false);
+    }
+  };
+
+  // Quick step replacement with pregenerated prompts
+  const regenerateStepWithPrompt = async (stepIndex: number, prompt: string) => {
+    setIsRegeneratingStep(true);
+
+    try {
+      const currentStep = adventure.steps[stepIndex];
+
+      const { data, error } = await aiService.regenerateStep(
+        stepIndex,
+        currentStep,
+        adventure.steps,
+        prompt,
+        filters
+      );
+
+      if (error) {
+        Alert.alert('Regeneration Failed', error);
+        return;
+      }
+
+      if (data) {
+        // Replace the step in the adventure
+        const updatedSteps = [...adventure.steps];
+        updatedSteps[stepIndex] = data;
+
+        const updatedAdventure = {
+          ...adventure,
+          steps: updatedSteps
+        };
+
+        onAdventureUpdate(updatedAdventure);
+        Alert.alert('Success! 🎉', `Step ${stepIndex + 1} has been updated!`);
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to regenerate step. Please try again.');
@@ -239,8 +369,8 @@ const GeneratedAdventureView: React.FC<GeneratedAdventureViewProps> = ({
           
           {/* Steps */}
           {adventure.steps.map((step, index) => (
-            <View 
-              key={index} 
+            <View
+              key={index}
               className="mb-4 p-4 bg-white border border-gray-200 rounded-xl"
               style={{
                 shadowColor: '#000',
@@ -252,25 +382,110 @@ const GeneratedAdventureView: React.FC<GeneratedAdventureViewProps> = ({
             >
               <View className="flex-row items-start justify-between mb-2">
                 <View className="flex-1">
+                  {/* Step number and editable time */}
                   <View className="flex-row items-center mb-2">
                     <View className="w-6 h-6 bg-green-600 rounded-full items-center justify-center mr-3">
                       <Text className="text-white text-xs font-bold">{index + 1}</Text>
                     </View>
-                    <Text className="text-green-600 text-sm font-medium">{step.time}</Text>
+                    {editingStepTimeIndex === index ? (
+                      <View className="flex-row items-center">
+                        <TextInput
+                          value={editedStepTime}
+                          onChangeText={setEditedStepTime}
+                          placeholder={step.time}
+                          className="text-green-600 text-sm font-medium bg-green-50 px-2 py-1 rounded border border-green-300"
+                          autoFocus={true}
+                          onSubmitEditing={() => handleStepTimeSave(index)}
+                        />
+                        <TouchableOpacity onPress={() => handleStepTimeSave(index)} className="ml-2">
+                          <Text className="text-green-700 text-xs">✓</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={handleStepTimeCancel} className="ml-1">
+                          <Text className="text-gray-500 text-xs">✕</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <TouchableOpacity onPress={() => handleStepTimeEdit(index)}>
+                        <Text className="text-green-600 text-sm font-medium">{step.time}</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
-                  <Text className="font-semibold text-gray-900 text-base mb-1">
-                    {step.title}
-                  </Text>
+
+                  {/* Editable step title */}
+                  {editingStepTitleIndex === index ? (
+                    <View className="mb-2">
+                      <TextInput
+                        value={editedStepTitle}
+                        onChangeText={setEditedStepTitle}
+                        placeholder={step.title}
+                        className="font-semibold text-gray-900 text-base bg-gray-50 px-2 py-1 rounded border border-gray-300"
+                        multiline={false}
+                        autoFocus={true}
+                        onSubmitEditing={() => handleStepTitleSave(index)}
+                      />
+                      <View className="flex-row justify-end mt-1">
+                        <TouchableOpacity
+                          onPress={handleStepTitleCancel}
+                          className="px-2 py-1 rounded bg-gray-200 mr-1"
+                        >
+                          <Text className="text-gray-600 text-xs">Cancel</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => handleStepTitleSave(index)}
+                          className="px-2 py-1 rounded bg-green-600"
+                        >
+                          <Text className="text-white text-xs">Save</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ) : (
+                    <TouchableOpacity onPress={() => handleStepTitleEdit(index)} className="mb-1">
+                      <Text className="font-semibold text-gray-900 text-base">
+                        {step.title}
+                      </Text>
+                      <Text className="text-gray-400 text-xs">Tap to edit name</Text>
+                    </TouchableOpacity>
+                  )}
+
                   <Text className="text-gray-600 text-sm mb-1">{step.location}</Text>
                   <Text className="text-gray-600 text-sm leading-relaxed">{step.notes}</Text>
                 </View>
               </View>
-              
+
+              {/* Quick action buttons - Pregenerated prompts */}
+              <View className="mt-3 mb-2">
+                <Text className="text-gray-500 text-xs mb-2">Quick actions:</Text>
+                <View className="flex-row flex-wrap gap-2">
+                  <TouchableOpacity
+                    onPress={() => regenerateStepWithPrompt(index, "Try a different food category or type of experience")}
+                    className="bg-blue-100 border border-blue-200 rounded-lg px-3 py-2"
+                    disabled={isRegeneratingStep}
+                  >
+                    <Text className="text-blue-700 text-xs font-medium">🔄 Different Category</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => regenerateStepWithPrompt(index, "I've been to this place before. Find me something new and different.")}
+                    className="bg-purple-100 border border-purple-200 rounded-lg px-3 py-2"
+                    disabled={isRegeneratingStep}
+                  >
+                    <Text className="text-purple-700 text-xs font-medium">🏠 Been Here Before</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => regenerateStepWithPrompt(index, "I don't like this pick. Find me a completely different option.")}
+                    className="bg-orange-100 border border-orange-200 rounded-lg px-3 py-2"
+                    disabled={isRegeneratingStep}
+                  >
+                    <Text className="text-orange-700 text-xs font-medium">👎 Don't Like This</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {/* Custom edit button */}
               <TouchableOpacity
                 onPress={() => openStepEditor(index)}
-                className="mt-3 bg-gray-100 rounded-lg px-3 py-2 self-start"
+                className="mt-2 bg-gray-100 rounded-lg px-3 py-2 self-start"
               >
-                <Text className="text-gray-700 text-sm font-medium">✏️ Edit Step</Text>
+                <Text className="text-gray-700 text-sm font-medium">✏️ Custom Edit</Text>
               </TouchableOpacity>
             </View>
           ))}
