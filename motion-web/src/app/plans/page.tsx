@@ -52,43 +52,6 @@ import GooglePlacesService from '@/services/GooglePlacesService';
 import { SavedAdventure } from '@/types/adventureTypes';
 import EnhancedPlansModal from '@/components/EnhancedPlansModal';
 
-// Mock calendar events data - this will be replaced with real data from backend
-const mockCalendarEvents = [
-  {
-    id: "cal-1",
-    title: "Wine Country Day Trip",
-    date: new Date(2025, 7, 25), // August 25, 2025
-    startTime: "9:00 AM",
-    endTime: "6:00 PM",
-    location: "Napa Valley, CA",
-    type: 'adventure' as const,
-    status: 'planned' as const,
-    color: '#3c7660'
-  },
-  {
-    id: "cal-2",
-    title: "Mission District Food Tour",
-    date: new Date(2025, 7, 28), // August 28, 2025
-    startTime: "11:00 AM",
-    endTime: "3:00 PM",
-    location: "Mission District, SF",
-    type: 'scheduled' as const,
-    status: 'planned' as const,
-    color: '#3c7660'
-  },
-  {
-    id: "cal-3",
-    title: "Golden Gate Sunrise Hike",
-    date: new Date(2025, 7, 15), // August 15, 2025
-    startTime: "6:00 AM",
-    endTime: "9:00 AM",
-    location: "Golden Gate Park",
-    type: 'adventure' as const,
-    status: 'completed' as const,
-    color: '#3c7660'
-  }
-];
-
 export default function PlansPage() {
   return (
     <Suspense fallback={
@@ -1122,12 +1085,26 @@ function PlansContent() {
 
   // Render calendar view
   const renderCalendarView = () => {
+    // Get adventures for selected date
+    const getAdventuresForDate = (date: Date): SavedAdventure[] => {
+      return scheduledAdventures.filter(adventure => {
+        if (!adventure.scheduled_for) return false;
+        const adventureDate = new Date(adventure.scheduled_for);
+        return adventureDate.toDateString() === date.toDateString();
+      });
+    };
+
+    const selectedDateAdventures = selectedDate ? getAdventuresForDate(selectedDate) : [];
+
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Calendar */}
         <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-md">
           <CardContent className="p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Schedule</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <CalendarDays className="w-5 h-5 text-[#3c7660]" />
+              Your Adventure Schedule
+            </h3>
             <Calendar
               mode="single"
               selected={selectedDate}
@@ -1139,13 +1116,20 @@ function PlansContent() {
                   .map(a => new Date(a.scheduled_for as string))
               }}
               modifiersStyles={{
-                scheduled: { 
-                  backgroundColor: '#3c7660', 
+                scheduled: {
+                  backgroundColor: '#3c7660',
                   color: 'white',
                   fontWeight: 'bold'
                 }
               }}
             />
+            {scheduledAdventures.length === 0 && (
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg text-center">
+                <p className="text-sm text-gray-600">
+                  No adventures scheduled yet. Schedule an adventure to see it on the calendar!
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -1153,62 +1137,96 @@ function PlansContent() {
         <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-md">
           <CardContent className="p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              {selectedDate ? 
-                `Adventures for ${selectedDate.toLocaleDateString()}` : 
+              {selectedDate ?
+                `${selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}` :
                 'Select a date to view adventures'
               }
             </h3>
-            
+
             {selectedDate ? (
               <div className="space-y-3">
-                {mockCalendarEvents
-                  .filter(event => 
-                    event.date.toDateString() === selectedDate.toDateString()
-                  )
-                  .map(event => (
-                    <div 
-                      key={event.id}
-                      className="p-3 bg-[#f8f2d5] rounded-lg border border-[#3c7660]/20"
+                {selectedDateAdventures.length > 0 ? (
+                  selectedDateAdventures.map(adventure => (
+                    <div
+                      key={adventure.id}
+                      className="p-4 bg-gradient-to-br from-[#f8f2d5] to-white rounded-xl border border-[#3c7660]/20 hover:border-[#3c7660]/40 transition-all cursor-pointer hover:shadow-md"
+                      onClick={() => openAdventureModal(adventure)}
                     >
-                      <div className="flex items-start justify-between">
+                      <div className="flex items-start justify-between gap-3">
                         <div className="flex-1">
-                          <h4 className="font-medium text-gray-900">{event.title}</h4>
-                          <div className="flex items-center text-sm text-gray-600 mt-1">
-                            <Clock className="mr-1 h-3 w-3" />
-                            <span>{event.startTime} - {event.endTime}</span>
+                          <h4 className="font-bold text-gray-900 mb-1 flex items-center gap-2">
+                            {adventure.custom_title}
+                            {adventure.is_completed && (
+                              <Badge className="bg-emerald-500 text-white text-xs">
+                                <CheckCircle2 className="w-3 h-3 mr-1" />
+                                Completed
+                              </Badge>
+                            )}
+                          </h4>
+                          <div className="flex items-center text-sm text-gray-600 mb-2">
+                            <MapPin className="w-4 h-4 mr-1 text-[#3c7660]" />
+                            <span>{adventure.location}</span>
                           </div>
-                          <div className="flex items-center text-sm text-gray-600 mt-1">
-                            <MapPin className="mr-1 h-3 w-3" />
-                            <span>{event.location}</span>
+                          <div className="flex items-center gap-3 text-xs text-gray-500">
+                            <div className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              <span>{adventure.duration_hours}h</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <DollarSign className="w-3 h-3" />
+                              <span>{adventure.estimated_cost}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <TrendingUp className="w-3 h-3" />
+                              <span>{adventure.adventure_steps.filter((s: any) => s.completed).length}/{adventure.adventure_steps.length} steps</span>
+                            </div>
                           </div>
                         </div>
-                        <Badge 
-                          className={`${
-                            event.status === 'completed' 
-                              ? 'bg-green-500' 
-                              : 'bg-[#3c7660]'
-                          } text-white border-0`}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openAdventureModal(adventure);
+                          }}
+                          className="shrink-0 hover:bg-[#3c7660]/10"
                         >
-                          {event.status === 'completed' ? 'Completed' : 'Planned'}
-                        </Badge>
+                          <Eye className="w-4 h-4 text-[#3c7660]" />
+                        </Button>
                       </div>
                     </div>
                   ))
-                }
-                
-                {mockCalendarEvents
-                  .filter(event => 
-                    event.date.toDateString() === selectedDate.toDateString()
-                  ).length === 0 && (
-                  <p className="text-gray-500 text-center py-4">
-                    No adventures scheduled for this date
-                  </p>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+                      <CalendarDays className="h-8 w-8 text-gray-400" />
+                    </div>
+                    <p className="text-gray-500 text-sm">
+                      No adventures scheduled for this date
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-3 border-[#3c7660] text-[#3c7660] hover:bg-[#3c7660]/10"
+                      onClick={() => setViewMode('grid')}
+                    >
+                      View All Adventures
+                    </Button>
+                  </div>
                 )}
               </div>
             ) : (
-              <p className="text-gray-500 text-center py-8">
-                Click on a date in the calendar to see scheduled adventures
-              </p>
+              <div className="text-center py-12">
+                <div className="mx-auto w-20 h-20 bg-gradient-to-br from-[#3c7660]/10 to-[#f2cc6c]/10 rounded-full flex items-center justify-center mb-4">
+                  <CalendarIcon className="h-10 w-10 text-[#3c7660]" />
+                </div>
+                <p className="text-gray-600 mb-2 font-medium">
+                  Click on a date in the calendar
+                </p>
+                <p className="text-sm text-gray-500">
+                  Dates with scheduled adventures appear in green
+                </p>
+              </div>
             )}
           </CardContent>
         </Card>
