@@ -428,11 +428,11 @@ export default function EnhancedPlansModal({
   const currentStepPhoto = stepPhotos[0];
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl max-w-5xl w-full max-h-[92vh] overflow-hidden shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-300">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-xl flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+      <div className="bg-white/95 backdrop-blur-2xl rounded-3xl max-w-5xl w-full max-h-[92vh] overflow-hidden shadow-2xl border border-white/20 animate-in zoom-in-95 duration-300">
 
         {/* Compact Header */}
-        <div className="sticky top-0 bg-gradient-to-br from-white via-white to-[#f8f2d5]/30 border-b border-gray-100 px-6 py-4 z-10 backdrop-blur-sm">
+        <div className="sticky top-0 bg-white/80 backdrop-blur-2xl border-b border-white/30 px-6 py-4 z-10 shadow-sm">
           <div className="flex items-center justify-between mb-3">
             {/* Editable Title */}
             <div className="flex-1 mr-4">
@@ -480,7 +480,7 @@ export default function EnhancedPlansModal({
           {/* Compact 2x2 Info Grid */}
           <div className="grid grid-cols-2 gap-2 mb-3">
             {/* Progress */}
-            <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-gray-100">
+            <div className="flex items-center gap-2 bg-white/70 backdrop-blur-xl rounded-xl px-3 py-1.5 border border-white/40 shadow-sm">
               <CheckCircle2 className="w-4 h-4 text-[#3c7660]" />
               <div>
                 <p className="text-[9px] text-gray-500 uppercase font-semibold tracking-wide">Progress</p>
@@ -489,7 +489,7 @@ export default function EnhancedPlansModal({
             </div>
 
             {/* Status */}
-            <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-gray-100">
+            <div className="flex items-center gap-2 bg-white/70 backdrop-blur-xl rounded-xl px-3 py-1.5 border border-white/40 shadow-sm">
               <CalendarIcon className="w-4 h-4 text-[#f2cc6c]" />
               <div>
                 <p className="text-[9px] text-gray-500 uppercase font-semibold tracking-wide">Status</p>
@@ -500,7 +500,7 @@ export default function EnhancedPlansModal({
             </div>
 
             {/* Duration */}
-            <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-gray-100">
+            <div className="flex items-center gap-2 bg-white/70 backdrop-blur-xl rounded-xl px-3 py-1.5 border border-white/40 shadow-sm">
               <Clock className="w-4 h-4 text-[#3c7660]" />
               <div>
                 <p className="text-[9px] text-gray-500 uppercase font-semibold tracking-wide">Duration</p>
@@ -509,7 +509,7 @@ export default function EnhancedPlansModal({
             </div>
 
             {/* Budget */}
-            <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-gray-100">
+            <div className="flex items-center gap-2 bg-white/70 backdrop-blur-xl rounded-xl px-3 py-1.5 border border-white/40 shadow-sm">
               <DollarSign className="w-4 h-4 text-[#3c7660]" />
               <div>
                 <p className="text-[9px] text-gray-500 uppercase font-semibold tracking-wide">Budget</p>
@@ -569,8 +569,8 @@ export default function EnhancedPlansModal({
 
         {/* Current Step Content - No Scrolling */}
         {currentStep && (
-          <div className="px-6 py-5 max-h-[calc(92vh-300px)] overflow-y-auto bg-gradient-to-br from-gray-50/50 via-white to-[#f8f2d5]/20">
-            <div className="bg-white rounded-2xl border-2 border-gray-200 overflow-hidden shadow-lg">
+          <div className="px-6 py-5 max-h-[calc(92vh-300px)] overflow-y-auto bg-gradient-to-br from-gray-50/50 via-white/80 to-[#f8f2d5]/20">
+            <div className="bg-white/90 backdrop-blur-xl rounded-2xl border border-white/40 overflow-hidden shadow-lg">
               <div className="flex flex-col md:flex-row">
                 {/* Step Photo */}
                 <div className="md:w-2/5 relative">
