@@ -1,4 +1,4 @@
-// src/components/modals/StepsOverviewModal.tsx - Refactored and split modal
+// src/components/modals/StepsOverviewModal.tsx - Redesigned with horizontal progress line
 import React, { useRef, useEffect, useState } from 'react';
 import {
   Modal,
@@ -10,6 +10,7 @@ import {
   Animated,
   SafeAreaView,
   Alert,
+  TextInput,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,6 +20,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { Adventure, AdventureStep } from './types';
 import { BookingSection } from './StepBookingUtils';
 import { StepEditor, EditingControls } from './StepEditor';
+import { formatScheduledDate } from '../../utils/formatters';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -42,13 +44,19 @@ const StepsOverviewModal: React.FC<StepsOverviewModalProps> = ({
   const { isDark } = useTheme();
   const themeColors = getCurrentTheme(isDark);
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  
+
+  // State for step navigation
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+
   // State for editing
   const [isEditing, setIsEditing] = useState(false);
   const [editingSteps, setEditingSteps] = useState<AdventureStep[]>([]);
-  const [editingStepIndex, setEditingStepIndex] = useState<number | null>(null);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [tempTime, setTempTime] = useState(new Date());
+
+  // State for editable adventure name
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState('');
 
   // Animation effects
   useEffect(() => {
@@ -58,6 +66,8 @@ const StepsOverviewModal: React.FC<StepsOverviewModalProps> = ({
         duration: 200,
         useNativeDriver: true,
       }).start();
+      // Reset to first step when opening
+      setCurrentStepIndex(0);
     } else {
       fadeAnim.setValue(0);
     }
@@ -67,22 +77,23 @@ const StepsOverviewModal: React.FC<StepsOverviewModalProps> = ({
   useEffect(() => {
     if (adventure) {
       setEditingSteps([...adventure.steps]);
+      setEditedName(adventure.title);
     }
   }, [adventure]);
 
   // Handle time change
   const handleTimeChange = (event: any, selectedTime?: Date) => {
     setShowTimePicker(false);
-    if (selectedTime && editingStepIndex !== null) {
-      const timeString = selectedTime.toLocaleTimeString('en-US', { 
-        hour: 'numeric', 
+    if (selectedTime) {
+      const timeString = selectedTime.toLocaleTimeString('en-US', {
+        hour: 'numeric',
         minute: '2-digit',
-        hour12: true 
+        hour12: true
       });
-      
+
       const updatedSteps = [...editingSteps];
-      updatedSteps[editingStepIndex] = {
-        ...updatedSteps[editingStepIndex],
+      updatedSteps[currentStepIndex] = {
+        ...updatedSteps[currentStepIndex],
         time: timeString
       };
       setEditingSteps(updatedSteps);
@@ -100,28 +111,26 @@ const StepsOverviewModal: React.FC<StepsOverviewModalProps> = ({
   };
 
   // Handle time edit
-  const handleTimeEdit = (index: number) => {
-    setEditingStepIndex(index);
-    // Parse current time or use default
-    const currentTime = editingSteps[index].time;
+  const handleTimeEdit = () => {
+    const currentTime = editingSteps[currentStepIndex].time;
     const timeRegex = /(\d{1,2}):(\d{2})\s*(AM|PM)/i;
     const match = currentTime.match(timeRegex);
-    
+
     if (match) {
       let hours = parseInt(match[1]);
       const minutes = parseInt(match[2]);
       const isPM = match[3].toUpperCase() === 'PM';
-      
+
       if (isPM && hours !== 12) hours += 12;
       if (!isPM && hours === 12) hours = 0;
-      
+
       const date = new Date();
       date.setHours(hours, minutes, 0, 0);
       setTempTime(date);
     } else {
       setTempTime(new Date());
     }
-    
+
     setShowTimePicker(true);
   };
 
@@ -153,174 +162,28 @@ const StepsOverviewModal: React.FC<StepsOverviewModalProps> = ({
     setIsEditing(false);
   };
 
-  // Render individual step
-  const renderStep = (step: AdventureStep, index: number) => {
-    if (isEditing) {
-      return (
-        <StepEditor
-          key={`edit-${index}`}
-          step={step}
-          index={index}
-          themeColors={themeColors}
-          onUpdateStep={handleStepUpdate}
-          onTimeEdit={handleTimeEdit}
-        />
-      );
+  // Navigate to next step
+  const goToNextStep = () => {
+    if (currentStepIndex < (steps.length - 1)) {
+      setCurrentStepIndex(currentStepIndex + 1);
     }
+  };
 
-    return (
-      <View
-        key={index}
-        style={{
-          backgroundColor: themeColors.background.card,
-          borderRadius: borderRadius.md,
-          padding: spacing.lg,
-          marginBottom: spacing.md,
-          borderWidth: 1,
-          borderColor: themeColors.text.tertiary + '20',
-        }}
-      >
-        {/* Step Header */}
-        <View style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          marginBottom: spacing.md,
-        }}>
-          <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
-              <View style={{
-                backgroundColor: themeColors.brand.sage,
-                width: 24,
-                height: 24,
-                borderRadius: 12,
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginRight: spacing.sm,
-              }}>
-                <Text style={{
-                  ...typography.small,
-                  color: 'white',
-                  fontWeight: 'bold',
-                  fontSize: 12,
-                }}>
-                  {index + 1}
-                </Text>
-              </View>
-              <Text style={{
-                ...typography.caption,
-                color: themeColors.brand.sage,
-                fontWeight: '600',
-              }}>
-                {step.time}
-              </Text>
-            </View>
-            
-            <Text style={{
-              ...typography.subheading,
-              color: themeColors.text.primary,
-              marginBottom: spacing.xs,
-            }}>
-              {step.title}
-            </Text>
-            
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Ionicons 
-                name="location-outline" 
-                size={16} 
-                color={themeColors.text.secondary} 
-                style={{ marginRight: spacing.xs }}
-              />
-              <Text style={{
-                ...typography.body,
-                color: themeColors.text.secondary,
-                flex: 1,
-              }}>
-                {step.location}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Address */}
-        {step.address && (
-          <View style={{
-            flexDirection: 'row',
-            alignItems: 'flex-start',
-            marginBottom: spacing.sm,
-            paddingLeft: spacing.xl,
-          }}>
-            <Ionicons 
-              name="map-outline" 
-              size={14} 
-              color={themeColors.text.tertiary} 
-              style={{ marginRight: spacing.xs, marginTop: 2 }}
-            />
-            <Text style={{
-              ...typography.caption,
-              color: themeColors.text.tertiary,
-              flex: 1,
-              lineHeight: 18,
-            }}>
-              {step.address}
-            </Text>
-          </View>
-        )}
-
-        {/* Hours */}
-        {step.hours && (
-          <View style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            marginBottom: spacing.sm,
-            paddingLeft: spacing.xl,
-          }}>
-            <Ionicons 
-              name="time-outline" 
-              size={14} 
-              color={themeColors.text.tertiary} 
-              style={{ marginRight: spacing.xs }}
-            />
-            <Text style={{
-              ...typography.caption,
-              color: themeColors.text.tertiary,
-            }}>
-              {step.hours}
-            </Text>
-          </View>
-        )}
-
-        {/* Notes */}
-        {step.notes && (
-          <View style={{
-            marginTop: spacing.sm,
-            paddingTop: spacing.sm,
-            borderTopWidth: 1,
-            borderTopColor: themeColors.text.tertiary + '20',
-          }}>
-            <Text style={{
-              ...typography.body,
-              color: themeColors.text.secondary,
-              fontStyle: 'italic',
-              lineHeight: 20,
-            }}>
-              {step.notes}
-            </Text>
-          </View>
-        )}
-
-        {/* Booking Section */}
-        <BookingSection
-          step={step}
-          themeColors={themeColors}
-        />
-      </View>
-    );
+  // Navigate to previous step
+  const goToPreviousStep = () => {
+    if (currentStepIndex > 0) {
+      setCurrentStepIndex(currentStepIndex - 1);
+    }
   };
 
   if (!adventure || !visible) return null;
 
   const steps = isEditing ? editingSteps : adventure.steps;
+  const currentStep = steps[currentStepIndex];
+
+  // Calculate progress percentage
+  const completedSteps = steps.filter(step => step.completed).length;
+  const progressPercentage = steps.length > 0 ? (completedSteps / steps.length) * 100 : 0;
 
   return (
     <Modal
@@ -352,7 +215,7 @@ const StepsOverviewModal: React.FC<StepsOverviewModalProps> = ({
             activeOpacity={1}
             onPress={onClose}
           />
-          
+
           {/* Modal content */}
           <View style={{
             backgroundColor: themeColors.background.primary,
@@ -367,149 +230,577 @@ const StepsOverviewModal: React.FC<StepsOverviewModalProps> = ({
             elevation: 12,
           }}>
             <SafeAreaView style={{ flex: 1 }}>
-              {/* Header */}
+              {/* Compact Header */}
               <View style={{
                 paddingHorizontal: spacing.lg,
-                paddingTop: spacing.lg,
-                paddingBottom: spacing.md,
+                paddingTop: spacing.md,
+                paddingBottom: spacing.sm,
                 borderBottomWidth: 1,
-                borderBottomColor: themeColors.text.tertiary + '20',
+                borderBottomColor: themeColors.text.tertiary + '10',
               }}>
-                <View style={{ 
-                  flexDirection: 'row', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'flex-start',
-                  marginBottom: spacing.md,
-                }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{
-                      ...typography.title,
-                      color: themeColors.text.primary,
-                      marginBottom: spacing.xs,
-                    }}>
-                      {isEditing ? 'Edit Steps' : 'Adventure Steps'}
-                    </Text>
-                    <Text style={{
-                      ...typography.body,
-                      color: themeColors.text.secondary,
-                    }}>
-                      {adventure.title}
-                    </Text>
-                  </View>
-                  
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    {!isEditing && onUpdateSteps && (
-                      <TouchableOpacity
-                        onPress={() => setIsEditing(true)}
-                        style={{
-                          padding: spacing.sm,
-                          marginRight: spacing.xs,
-                        }}
-                      >
-                        <Ionicons 
-                          name="pencil" 
-                          size={20} 
-                          color={themeColors.brand.sage} 
-                        />
-                      </TouchableOpacity>
-                    )}
-                    
-                    <TouchableOpacity
-                      onPress={onClose}
-                      style={{
-                        padding: spacing.sm,
-                      }}
-                    >
-                      <Ionicons 
-                        name="close" 
-                        size={24} 
-                        color={themeColors.text.secondary} 
-                      />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                {/* Adventure Info */}
+                {/* Title Row with Edit and Close */}
                 <View style={{
                   flexDirection: 'row',
                   justifyContent: 'space-between',
-                  paddingVertical: spacing.sm,
-                  paddingHorizontal: spacing.md,
-                  backgroundColor: themeColors.background.secondary,
-                  borderRadius: borderRadius.sm,
+                  alignItems: 'center',
+                  marginBottom: spacing.sm,
                 }}>
-                  <View style={{ alignItems: 'center' }}>
-                    <Text style={{
-                      ...typography.caption,
-                      color: themeColors.text.tertiary,
-                      marginBottom: 2,
-                    }}>
-                      Duration
-                    </Text>
-                    <Text style={{
-                      ...typography.body,
-                      color: themeColors.text.primary,
-                      fontWeight: '600',
-                    }}>
-                      {formatDuration(adventure.duration_hours)}
-                    </Text>
+                  {isEditingName ? (
+                    <TextInput
+                      value={editedName}
+                      onChangeText={setEditedName}
+                      onBlur={() => setIsEditingName(false)}
+                      autoFocus
+                      style={{
+                        flex: 1,
+                        ...typography.heading,
+                        fontSize: 20,
+                        fontWeight: '700',
+                        color: themeColors.text.primary,
+                        backgroundColor: themeColors.background.secondary,
+                        paddingHorizontal: spacing.sm,
+                        paddingVertical: spacing.xs,
+                        borderRadius: borderRadius.sm,
+                        marginRight: spacing.sm,
+                      }}
+                    />
+                  ) : (
+                    <TouchableOpacity
+                      onPress={() => setIsEditingName(true)}
+                      style={{ flex: 1, marginRight: spacing.sm }}
+                    >
+                      <Text style={{
+                        ...typography.heading,
+                        fontSize: 20,
+                        fontWeight: '700',
+                        color: themeColors.text.primary,
+                      }}>
+                        {adventure.title}
+                      </Text>
+                      <Text style={{
+                        ...typography.caption,
+                        fontSize: 10,
+                        color: themeColors.text.tertiary,
+                        marginTop: 2,
+                      }}>
+                        Tap to edit
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+
+                  <TouchableOpacity
+                    onPress={onClose}
+                    style={{
+                      padding: spacing.xs,
+                      backgroundColor: themeColors.background.secondary,
+                      borderRadius: borderRadius.round,
+                    }}
+                  >
+                    <Ionicons
+                      name="close"
+                      size={20}
+                      color={themeColors.text.primary}
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Compact Info Grid - 2x2 */}
+                <View style={{
+                  flexDirection: 'row',
+                  flexWrap: 'wrap',
+                  marginBottom: spacing.sm,
+                  gap: spacing.xs,
+                }}>
+                  {/* Progress */}
+                  <View style={{
+                    flex: 1,
+                    minWidth: '48%',
+                    backgroundColor: themeColors.background.secondary,
+                    borderRadius: borderRadius.md,
+                    padding: spacing.sm,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                  }}>
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={16}
+                      color={themeColors.brand.sage}
+                      style={{ marginRight: spacing.xs }}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{
+                        ...typography.caption,
+                        fontSize: 10,
+                        color: themeColors.text.tertiary,
+                      }}>
+                        Progress
+                      </Text>
+                      <Text style={{
+                        ...typography.body,
+                        fontSize: 14,
+                        fontWeight: '600',
+                        color: themeColors.text.primary,
+                      }}>
+                        {completedSteps}/{steps.length} steps
+                      </Text>
+                    </View>
                   </View>
-                  
-                  <View style={{ alignItems: 'center' }}>
-                    <Text style={{
-                      ...typography.caption,
-                      color: themeColors.text.tertiary,
-                      marginBottom: 2,
-                    }}>
-                      Budget
-                    </Text>
-                    <Text style={{
-                      ...typography.body,
-                      color: themeColors.text.primary,
-                      fontWeight: '600',
-                    }}>
-                      {formatCost(adventure.estimated_cost)}
-                    </Text>
+
+                  {/* Status */}
+                  <View style={{
+                    flex: 1,
+                    minWidth: '48%',
+                    backgroundColor: themeColors.background.secondary,
+                    borderRadius: borderRadius.md,
+                    padding: spacing.sm,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                  }}>
+                    <Ionicons
+                      name={adventure.is_completed ? "flag" : adventure.scheduled_for ? "calendar" : "time-outline"}
+                      size={16}
+                      color={adventure.is_completed ? themeColors.brand.gold : themeColors.brand.sage}
+                      style={{ marginRight: spacing.xs }}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{
+                        ...typography.caption,
+                        fontSize: 10,
+                        color: themeColors.text.tertiary,
+                      }}>
+                        Status
+                      </Text>
+                      <Text style={{
+                        ...typography.body,
+                        fontSize: 14,
+                        fontWeight: '600',
+                        color: themeColors.text.primary,
+                      }}>
+                        {adventure.is_completed ? 'Completed' : adventure.scheduled_for ? formatScheduledDate(adventure.scheduled_for).split(',')[0] : 'Unscheduled'}
+                      </Text>
+                    </View>
                   </View>
-                  
-                  <View style={{ alignItems: 'center' }}>
-                    <Text style={{
-                      ...typography.caption,
-                      color: themeColors.text.tertiary,
-                      marginBottom: 2,
-                    }}>
-                      Steps
-                    </Text>
-                    <Text style={{
-                      ...typography.body,
-                      color: themeColors.text.primary,
-                      fontWeight: '600',
-                    }}>
-                      {steps.length}
-                    </Text>
+
+                  {/* Duration */}
+                  <View style={{
+                    flex: 1,
+                    minWidth: '48%',
+                    backgroundColor: themeColors.background.secondary,
+                    borderRadius: borderRadius.md,
+                    padding: spacing.sm,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                  }}>
+                    <Ionicons
+                      name="time-outline"
+                      size={16}
+                      color={themeColors.brand.sage}
+                      style={{ marginRight: spacing.xs }}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{
+                        ...typography.caption,
+                        fontSize: 10,
+                        color: themeColors.text.tertiary,
+                      }}>
+                        Duration
+                      </Text>
+                      <Text style={{
+                        ...typography.body,
+                        fontSize: 14,
+                        fontWeight: '600',
+                        color: themeColors.text.primary,
+                      }}>
+                        {formatDuration(adventure.duration_hours)}
+                      </Text>
+                    </View>
                   </View>
+
+                  {/* Budget */}
+                  <View style={{
+                    flex: 1,
+                    minWidth: '48%',
+                    backgroundColor: themeColors.background.secondary,
+                    borderRadius: borderRadius.md,
+                    padding: spacing.sm,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                  }}>
+                    <Ionicons
+                      name="card-outline"
+                      size={16}
+                      color={themeColors.brand.sage}
+                      style={{ marginRight: spacing.xs }}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{
+                        ...typography.caption,
+                        fontSize: 10,
+                        color: themeColors.text.tertiary,
+                      }}>
+                        Budget
+                      </Text>
+                      <Text style={{
+                        ...typography.body,
+                        fontSize: 14,
+                        fontWeight: '600',
+                        color: themeColors.text.primary,
+                      }}>
+                        {formatCost(adventure.estimated_cost)}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Horizontal Progress Line */}
+                <View style={{ marginTop: spacing.sm }}>
+                  <Text style={{
+                    ...typography.caption,
+                    fontSize: 11,
+                    color: themeColors.text.secondary,
+                    fontWeight: '600',
+                    marginBottom: spacing.sm,
+                  }}>
+                    STEPS ({currentStepIndex + 1}/{steps.length})
+                  </Text>
+
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={{
+                      paddingVertical: spacing.xs,
+                    }}
+                  >
+                    <View style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      minWidth: '100%',
+                      justifyContent: 'space-between',
+                    }}>
+                      {steps.map((step, index) => {
+                        const isCompleted = step.completed;
+                        const isCurrent = index === currentStepIndex;
+                        const isLast = index === steps.length - 1;
+
+                        return (
+                          <View key={index} style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                            {/* Step Circle */}
+                            <TouchableOpacity
+                              onPress={() => setCurrentStepIndex(index)}
+                              style={{
+                                width: 32,
+                                height: 32,
+                                borderRadius: 16,
+                                backgroundColor: isCompleted
+                                  ? themeColors.brand.sage
+                                  : isCurrent
+                                    ? themeColors.brand.gold
+                                    : 'transparent',
+                                borderWidth: 2,
+                                borderColor: isCompleted
+                                  ? themeColors.brand.sage
+                                  : isCurrent
+                                    ? themeColors.brand.gold
+                                    : themeColors.text.tertiary + '40',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                shadowColor: isCurrent ? themeColors.brand.gold : 'transparent',
+                                shadowOffset: { width: 0, height: 2 },
+                                shadowOpacity: 0.3,
+                                shadowRadius: 4,
+                                elevation: isCurrent ? 4 : 0,
+                              }}
+                            >
+                              {isCompleted ? (
+                                <Ionicons name="checkmark" size={18} color="white" />
+                              ) : (
+                                <Text style={{
+                                  ...typography.small,
+                                  fontSize: 12,
+                                  fontWeight: '700',
+                                  color: isCurrent ? 'white' : themeColors.text.tertiary,
+                                }}>
+                                  {index + 1}
+                                </Text>
+                              )}
+                            </TouchableOpacity>
+
+                            {/* Connecting Line */}
+                            {!isLast && (
+                              <View style={{
+                                flex: 1,
+                                height: 2,
+                                backgroundColor: isCompleted && steps[index + 1]?.completed
+                                  ? themeColors.brand.sage
+                                  : themeColors.text.tertiary + '20',
+                                marginHorizontal: spacing.xs,
+                              }} />
+                            )}
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </ScrollView>
                 </View>
               </View>
 
-              {/* Steps Content */}
-              <ScrollView
-                style={{ flex: 1 }}
-                contentContainerStyle={{
-                  padding: spacing.lg,
-                }}
-                showsVerticalScrollIndicator={false}
-              >
-                {steps.map((step, index) => renderStep(step, index))}
+              {/* Current Step Content - No Scrolling Needed */}
+              <View style={{ flex: 1, paddingHorizontal: spacing.lg, paddingVertical: spacing.md }}>
+                {isEditing ? (
+                  <StepEditor
+                    step={currentStep}
+                    index={currentStepIndex}
+                    themeColors={themeColors}
+                    onUpdateStep={handleStepUpdate}
+                    onTimeEdit={handleTimeEdit}
+                  />
+                ) : (
+                  <View>
+                    {/* Step Header */}
+                    <View style={{ marginBottom: spacing.md }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
+                        <View style={{
+                          backgroundColor: themeColors.brand.sage,
+                          width: 28,
+                          height: 28,
+                          borderRadius: 14,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          marginRight: spacing.sm,
+                        }}>
+                          <Text style={{
+                            ...typography.small,
+                            color: 'white',
+                            fontWeight: 'bold',
+                            fontSize: 14,
+                          }}>
+                            {currentStepIndex + 1}
+                          </Text>
+                        </View>
+                        <Text style={{
+                          ...typography.body,
+                          fontSize: 16,
+                          color: themeColors.brand.sage,
+                          fontWeight: '600',
+                        }}>
+                          {currentStep.time}
+                        </Text>
+                      </View>
+
+                      <Text style={{
+                        ...typography.title,
+                        fontSize: 22,
+                        fontWeight: '700',
+                        color: themeColors.text.primary,
+                        marginBottom: spacing.xs,
+                      }}>
+                        {currentStep.title}
+                      </Text>
+
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Ionicons
+                          name="location"
+                          size={18}
+                          color={themeColors.text.secondary}
+                          style={{ marginRight: spacing.xs }}
+                        />
+                        <Text style={{
+                          ...typography.body,
+                          fontSize: 15,
+                          color: themeColors.text.secondary,
+                        }}>
+                          {currentStep.location}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Address */}
+                    {currentStep.address && (
+                      <View style={{
+                        backgroundColor: themeColors.background.secondary,
+                        borderRadius: borderRadius.md,
+                        padding: spacing.md,
+                        marginBottom: spacing.md,
+                        flexDirection: 'row',
+                        alignItems: 'flex-start',
+                      }}>
+                        <Ionicons
+                          name="map-outline"
+                          size={16}
+                          color={themeColors.text.secondary}
+                          style={{ marginRight: spacing.sm, marginTop: 2 }}
+                        />
+                        <Text style={{
+                          ...typography.body,
+                          fontSize: 14,
+                          color: themeColors.text.secondary,
+                          flex: 1,
+                          lineHeight: 20,
+                        }}>
+                          {currentStep.address}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Hours */}
+                    {currentStep.hours && (
+                      <View style={{
+                        backgroundColor: themeColors.background.secondary,
+                        borderRadius: borderRadius.md,
+                        padding: spacing.md,
+                        marginBottom: spacing.md,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                      }}>
+                        <Ionicons
+                          name="time-outline"
+                          size={16}
+                          color={themeColors.text.secondary}
+                          style={{ marginRight: spacing.sm }}
+                        />
+                        <Text style={{
+                          ...typography.body,
+                          fontSize: 14,
+                          color: themeColors.text.secondary,
+                        }}>
+                          {currentStep.hours}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Notes */}
+                    {currentStep.notes && (
+                      <View style={{
+                        backgroundColor: themeColors.background.secondary,
+                        borderRadius: borderRadius.md,
+                        padding: spacing.md,
+                        marginBottom: spacing.md,
+                      }}>
+                        <Text style={{
+                          ...typography.body,
+                          fontSize: 14,
+                          color: themeColors.text.secondary,
+                          lineHeight: 22,
+                          fontStyle: 'italic',
+                        }}>
+                          {currentStep.notes}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Booking Section */}
+                    <BookingSection
+                      step={currentStep}
+                      themeColors={themeColors}
+                    />
+                  </View>
+                )}
 
                 {/* Editing Controls */}
                 {isEditing && (
-                  <EditingControls
-                    themeColors={themeColors}
-                    onSave={handleSaveChanges}
-                    onCancel={handleDiscardChanges}
-                  />
+                  <View style={{ marginTop: spacing.md }}>
+                    <EditingControls
+                      themeColors={themeColors}
+                      onSave={handleSaveChanges}
+                      onCancel={handleDiscardChanges}
+                    />
+                  </View>
                 )}
-              </ScrollView>
+              </View>
+
+              {/* Fixed Navigation Footer */}
+              <View style={{
+                paddingHorizontal: spacing.lg,
+                paddingVertical: spacing.md,
+                borderTopWidth: 1,
+                borderTopColor: themeColors.text.tertiary + '10',
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}>
+                {/* Previous Button */}
+                <TouchableOpacity
+                  onPress={goToPreviousStep}
+                  disabled={currentStepIndex === 0}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: currentStepIndex === 0
+                      ? themeColors.background.secondary
+                      : themeColors.brand.sage,
+                    paddingHorizontal: spacing.md,
+                    paddingVertical: spacing.sm,
+                    borderRadius: borderRadius.lg,
+                    opacity: currentStepIndex === 0 ? 0.5 : 1,
+                  }}
+                >
+                  <Ionicons
+                    name="chevron-back"
+                    size={20}
+                    color={currentStepIndex === 0 ? themeColors.text.tertiary : 'white'}
+                  />
+                  <Text style={{
+                    ...typography.body,
+                    fontSize: 14,
+                    fontWeight: '600',
+                    color: currentStepIndex === 0 ? themeColors.text.tertiary : 'white',
+                    marginLeft: spacing.xs,
+                  }}>
+                    Previous
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Edit Button */}
+                {!isEditing && onUpdateSteps && (
+                  <TouchableOpacity
+                    onPress={() => setIsEditing(true)}
+                    style={{
+                      backgroundColor: themeColors.background.secondary,
+                      paddingHorizontal: spacing.md,
+                      paddingVertical: spacing.sm,
+                      borderRadius: borderRadius.lg,
+                    }}
+                  >
+                    <Ionicons
+                      name="pencil"
+                      size={20}
+                      color={themeColors.brand.sage}
+                    />
+                  </TouchableOpacity>
+                )}
+
+                {/* Next Button */}
+                <TouchableOpacity
+                  onPress={goToNextStep}
+                  disabled={currentStepIndex === steps.length - 1}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: currentStepIndex === steps.length - 1
+                      ? themeColors.background.secondary
+                      : themeColors.brand.sage,
+                    paddingHorizontal: spacing.md,
+                    paddingVertical: spacing.sm,
+                    borderRadius: borderRadius.lg,
+                    opacity: currentStepIndex === steps.length - 1 ? 0.5 : 1,
+                  }}
+                >
+                  <Text style={{
+                    ...typography.body,
+                    fontSize: 14,
+                    fontWeight: '600',
+                    color: currentStepIndex === steps.length - 1 ? themeColors.text.tertiary : 'white',
+                    marginRight: spacing.xs,
+                  }}>
+                    Next
+                  </Text>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={20}
+                    color={currentStepIndex === steps.length - 1 ? themeColors.text.tertiary : 'white'}
+                  />
+                </TouchableOpacity>
+              </View>
             </SafeAreaView>
           </View>
         </BlurView>

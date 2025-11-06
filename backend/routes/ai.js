@@ -270,6 +270,15 @@ RULES:
 - Be diverse with locations and always explore new combinations
 - URLs must NOT have semicolons after them - use proper JSON format
 
+DURATION CONSTRAINTS - CRITICAL:
+${app_filter?.duration ? `
+User selected "${app_filter.duration}" duration. Follow these EXACT step limits and time ranges:
+- "quick" (Quick): 2-3 steps maximum, 2-3 hours total (e.g., 10:00 AM - 1:00 PM)
+- "half-day" (Half Day): 3-5 steps maximum, 4-5 hours total (e.g., 10:00 AM - 3:00 PM)
+- "full-day" (Full Day): 5-8 steps maximum, 8-10 hours total (e.g., 9:00 AM - 7:00 PM)
+DO NOT exceed these step counts or time ranges. Half-day adventures should NOT run past mid-afternoon.
+` : '- Default to 4-5 steps for moderate duration'}
+
 BUDGET GUIDELINES - CRITICAL:
 ${app_filter?.budget ? `
 User selected ${app_filter.budget} budget tier. Follow these EXACT cost ranges:

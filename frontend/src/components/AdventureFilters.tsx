@@ -126,24 +126,33 @@ const AdventureFilters: React.FC<AdventureFiltersProps> = ({
             Choose up to {maxExperienceSelection} types that match your adventure style
           </Text>
           <View className="flex-row flex-wrap justify-center">
-            {experienceTypes.map((type) => (
-              <Button
-                key={type.id}
-                title={type.name}
-                leftIcon={<Ionicons name={type.icon as keyof typeof Ionicons.glyphMap} size={14} color="#2F4F4F" />}
-                onPress={() => toggleArraySelection(
-                  filters.experienceTypes || [],
-                  type.name, // Use type.name for compatibility
-                  (newTypes) => setFilters(prev => ({ ...prev, experienceTypes: newTypes })),
-                  maxExperienceSelection
-                )}
-                variant="filter"
-                size="sm"
-                isSelected={filters.experienceTypes?.includes(type.name)}
-                disabled={!filters.experienceTypes?.includes(type.name) && 
-                          (filters.experienceTypes?.length || 0) >= maxExperienceSelection}
-              />
-            ))}
+            {experienceTypes.map((type) => {
+              const isSelected = filters.experienceTypes?.includes(type.name);
+              return (
+                <Button
+                  key={type.id}
+                  title={type.name}
+                  leftIcon={
+                    <Ionicons
+                      name={type.icon as keyof typeof Ionicons.glyphMap}
+                      size={14}
+                      color={isSelected ? "#FFFFFF" : "#2F4F4F"}
+                    />
+                  }
+                  onPress={() => toggleArraySelection(
+                    filters.experienceTypes || [],
+                    type.name, // Use type.name for compatibility
+                    (newTypes) => setFilters(prev => ({ ...prev, experienceTypes: newTypes })),
+                    maxExperienceSelection
+                  )}
+                  variant="filter"
+                  size="sm"
+                  isSelected={isSelected}
+                  disabled={!isSelected &&
+                            (filters.experienceTypes?.length || 0) >= maxExperienceSelection}
+                />
+              );
+            })}
           </View>
         </View>
 
