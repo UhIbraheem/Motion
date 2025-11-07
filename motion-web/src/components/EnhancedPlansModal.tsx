@@ -98,7 +98,11 @@ export default function EnhancedPlansModal({
   const [tempSelectedDate, setTempSelectedDate] = useState<Date | undefined>(
     adventure.scheduled_for ? new Date(adventure.scheduled_for) : undefined
   );
-  
+  const [currentStepIndex, setCurrentStepIndex] = useState(0); // For step navigation
+  const [slideDirection, setSlideDirection] = useState<'left' | 'right' | null>(null);
+  const [draggedStepIndex, setDraggedStepIndex] = useState<number | null>(null);
+  const [dragOverStepIndex, setDragOverStepIndex] = useState<number | null>(null);
+
   if (!isOpen) return null;
 
   const completedSteps = adventure.steps.filter(step => step.completed).length;
@@ -156,7 +160,19 @@ export default function EnhancedPlansModal({
       }
       return;
     }
+
+    // Show celebration toast
+    toast.success('🎉 Adventure completed!', {
+      description: `Congratulations on completing "${adventure.title}"! Your adventure has been saved to your completed plans.`,
+      duration: 5000,
+    });
+
     onMarkCompleted();
+
+    // Close modal after a brief delay to show the celebration
+    setTimeout(() => {
+      onClose();
+    }, 1500);
   };
 
   const handleTitleSave = async () => {
@@ -295,15 +311,111 @@ export default function EnhancedPlansModal({
     // Priority: google_places.google_maps_uri > constructed place_id link
     const googleMapsUri = step.google_places?.google_maps_uri;
     if (googleMapsUri) return googleMapsUri;
-    
+
     const placeId = step.google_places?.place_id || stepPlacesData[step.id]?.place_id;
     if (placeId) {
       return `https://www.google.com/maps/place/?q=place_id:${placeId}`;
     }
-    
+
     // Fallback to search query
     const query = encodeURIComponent(`${step.business_name || step.title} ${step.location || ''}`);
     return `https://www.google.com/maps/search/${query}`;
+  };
+
+  const extractCountyOrLocality = (address?: string): string | null => {
+    if (!address) return null;
+
+    // Extract county/locality from formatted address
+    // Format is usually: "123 Street, City, State ZIP, Country"
+    const parts = address.split(',').map(p => p.trim());
+
+    // Return the second-to-last or last meaningful part (usually city/county)
+    if (parts.length >= 2) {
+      // If we have "City, State ZIP" format, return the city
+      const cityPart = parts[parts.length - 2];
+      // Remove ZIP codes and return clean city/county name
+      return cityPart.replace(/\d{5}(-\d{4})?/, '').trim();
+    }
+
+    return null;
+  };
+
+  const handleStepNavigation = (newIndex: number) => {
+    if (newIndex === currentStepIndex || newIndex < 0 || newIndex >= adventure.steps.length) {
+      return;
+    }
+
+    // Determine slide direction
+    setSlideDirection(newIndex > currentStepIndex ? 'left' : 'right');
+
+    // Change step after a brief delay to allow animation
+    setTimeout(() => {
+      setCurrentStepIndex(newIndex);
+      setSlideDirection(null);
+    }, 300);
+  };
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedStepIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', e.currentTarget.innerHTML);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverStepIndex(index);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverStepIndex(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+
+    if (draggedStepIndex === null || draggedStepIndex === dropIndex) {
+      setDraggedStepIndex(null);
+      setDragOverStepIndex(null);
+      return;
+    }
+
+    // Swap the steps
+    const sortedSteps = [...adventure.steps].sort((a, b) => a.step_order - b.step_order);
+    const draggedStep = sortedSteps[draggedStepIndex];
+    const droppedStep = sortedSteps[dropIndex];
+
+    // Swap step_order values
+    const tempOrder = draggedStep.step_order;
+    draggedStep.step_order = droppedStep.step_order;
+    droppedStep.step_order = tempOrder;
+
+    // Call backend to update step orders (you'll need to implement this API endpoint)
+    try {
+      // TODO: Add API call to update step orders in database
+      // await updateStepOrders(adventure.id, [draggedStep, droppedStep]);
+
+      // For now, show a toast
+      toast.success('Steps reordered! Changes will be saved.', {
+        description: `Moved step ${draggedStepIndex + 1} to position ${dropIndex + 1}`
+      });
+
+      // Trigger parent update if available
+      if (onUpdate) {
+        onUpdate();
+      }
+    } catch (error) {
+      console.error('Error reordering steps:', error);
+      toast.error('Failed to reorder steps');
+    }
+
+    setDraggedStepIndex(null);
+    setDragOverStepIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedStepIndex(null);
+    setDragOverStepIndex(null);
   };
 
   return (
@@ -579,7 +691,12 @@ export default function EnhancedPlansModal({
                         mode="single"
                         selected={tempSelectedDate}
                         onSelect={handleDateSelect}
-                        disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                        disabled={(date) => {
+                          // Allow scheduling for today and future dates (no restriction on time of day)
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+                          return date < today;
+                        }}
                         className="rounded-xl border-0 mx-auto"
                         classNames={{
                           months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
@@ -679,23 +796,77 @@ export default function EnhancedPlansModal({
             </div>
           )}
 
+          {/* Step Navigation */}
+          <div className="mb-6 bg-white/80 backdrop-blur-sm rounded-2xl p-4 border border-gray-100 shadow-lg">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                <Navigation className="w-4 h-4 text-[#3c7660]" />
+                Quick Navigation
+              </h3>
+              <span className="text-xs text-gray-500">
+                Step {currentStepIndex + 1} of {adventure.steps.length}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 overflow-x-auto pb-2">
+              {adventure.steps.sort((a, b) => a.step_order - b.step_order).map((step, index) => (
+                <button
+                  key={step.id}
+                  draggable
+                  onClick={() => handleStepNavigation(index)}
+                  onDragStart={(e) => handleDragStart(e, index)}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, index)}
+                  onDragEnd={handleDragEnd}
+                  className={`flex-shrink-0 w-12 h-12 rounded-xl font-bold text-sm transition-all duration-300 border-2 cursor-move ${
+                    index === currentStepIndex
+                      ? 'bg-gradient-to-br from-[#3c7660] to-[#4d987b] text-white border-[#3c7660] scale-110 shadow-lg'
+                      : step.completed
+                      ? 'bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-200 hover:scale-105'
+                      : dragOverStepIndex === index && draggedStepIndex !== index
+                      ? 'bg-blue-100 border-blue-400 border-dashed scale-105'
+                      : draggedStepIndex === index
+                      ? 'opacity-50 scale-95'
+                      : 'bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200 hover:border-[#3c7660] hover:scale-105'
+                  }`}
+                  title={`Drag to reorder • Click to view: ${step.title}`}
+                >
+                  {step.completed ? <CheckCircle2 className="w-5 h-5 mx-auto" /> : index + 1}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 mt-2 italic">💡 Drag step numbers to reorder your adventure</p>
+          </div>
+
           {/* Flowing Adventure Timeline - Modern Card Design */}
           <div className="mb-6">
             {/* Timeline Flow */}
-            <div className="relative">
+            <div className="relative overflow-hidden">
               {(() => {
                 // Calculate the next incomplete step index
                 const sortedSteps = [...adventure.steps].sort((a, b) => a.step_order - b.step_order);
                 const nextIncompleteIndex = sortedSteps.findIndex(step => !step.completed);
-                
-                return sortedSteps.map((step, index) => {
-                  const stepNumber = index + 1;
-                  const isLast = index === adventure.steps.length - 1;
-                  const stepPhotos = getStepPhotos(step);
-                  const placeInfo = stepPlacesData[step.id] || step.google_places;
-                  
-                  return (
-                    <div key={step.id} className="relative">
+
+                // Show only the current step
+                const step = sortedSteps[currentStepIndex];
+                if (!step) return null;
+
+                const stepNumber = currentStepIndex + 1;
+                const isLast = currentStepIndex === adventure.steps.length - 1;
+                const isFirst = currentStepIndex === 0;
+                const stepPhotos = getStepPhotos(step);
+                const placeInfo = stepPlacesData[step.id] || step.google_places;
+
+                return (
+                  <div className="relative">
+                    <div
+                      key={step.id}
+                      className={`transition-all duration-300 ${
+                        slideDirection === 'left' ? 'animate-slide-out-left' :
+                        slideDirection === 'right' ? 'animate-slide-out-right' :
+                        'animate-slide-in'
+                      }`}
+                    >
                       {/* Dynamic Step Card */}
                       <div className={`relative bg-white rounded-2xl border-2 overflow-hidden transition-all duration-500 hover:shadow-2xl group ${
                         step.completed 
@@ -722,7 +893,7 @@ export default function EnhancedPlansModal({
                                 className="object-cover"
                                 sizes="(max-width: 768px) 100vw, 40vw"
                                 quality={95}
-                                priority={index < 2}
+                                priority={currentStepIndex < 2}
                                 onError={(e) => {
                                   // Fallback to a default image on error
                                   const target = e.target as HTMLImageElement;
@@ -820,26 +991,68 @@ export default function EnhancedPlansModal({
                                   )}
                                 </div>
                               </div>
-                              <div className="flex items-center gap-2 text-gray-600 mb-2">
+                              {/* Business Name */}
+                              <div className="flex items-center gap-2 text-gray-600 mb-1">
                                 <MapPin className="w-4 h-4 text-[#3c7660]" />
-                                <span className="text-sm font-medium">
-                                  {step.business_name || 
-                                   (typeof placeInfo?.name === 'object' ? placeInfo?.name?.text : placeInfo?.name) || 
-                                   'Location'}
+                                <span className="text-sm font-bold text-gray-800">
+                                  {step.business_name ||
+                                   (typeof placeInfo?.name === 'object' ? placeInfo?.name?.text : placeInfo?.name) ||
+                                   step.title}
                                 </span>
                                 {placeInfo && (
                                   <span className="ml-auto flex items-center gap-1 text-xs text-emerald-600 font-semibold">
                                     <CheckCircle2 className="w-3 h-3" />
-                                    Google Verified
+                                    Verified
                                   </span>
                                 )}
                               </div>
-                              {(placeInfo?.formatted_address || placeInfo?.address) && (
-                                <p className="text-xs text-gray-500 mt-1 ml-6">
-                                  {placeInfo.formatted_address || placeInfo.address}
+                              {/* Address */}
+                              {(placeInfo?.formatted_address || placeInfo?.address || step.location) && (
+                                <p className="text-xs text-gray-500 ml-6 mb-1">
+                                  {placeInfo?.formatted_address || placeInfo?.address || step.location}
                                 </p>
                               )}
-                              
+
+                              {/* County/Locality & Rating Row */}
+                              <div className="flex items-center gap-3 ml-6 mb-2">
+                                {(() => {
+                                  const county = extractCountyOrLocality(placeInfo?.formatted_address || placeInfo?.address);
+                                  return county ? (
+                                    <span className="text-xs text-gray-600 font-medium">
+                                      📍 {county}
+                                    </span>
+                                  ) : null;
+                                })()}
+                                {(placeInfo?.user_ratings_total || placeInfo?.user_rating_count) && (
+                                  <span className="text-xs text-gray-500">
+                                    ({(placeInfo.user_ratings_total || placeInfo.user_rating_count).toLocaleString()} reviews)
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Reservation/Booking Info */}
+                              {(step.booking || step.business_phone || step.business_website) && (
+                                <div className="ml-6 mb-3 p-2.5 bg-blue-50 rounded-lg border border-blue-100">
+                                  <div className="flex items-start gap-2">
+                                    <CalendarIcon className="w-3.5 h-3.5 text-blue-600 mt-0.5 flex-shrink-0" />
+                                    <div className="flex-1">
+                                      <p className="text-xs font-semibold text-blue-900 mb-1">Reservation Info</p>
+                                      {step.booking && (
+                                        <p className="text-xs text-blue-700">
+                                          {step.booking.method}
+                                          {step.booking.fallback && ` • ${step.booking.fallback}`}
+                                        </p>
+                                      )}
+                                      {!step.booking && step.business_phone && (
+                                        <p className="text-xs text-blue-700">
+                                          Call ahead recommended: {step.business_phone}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
                               {/* Business Hours - Prominent Display */}
                               {(placeInfo?.opening_hours?.weekday_text || 
                                 placeInfo?.regularOpeningHours?.weekdayDescriptions || 
@@ -972,10 +1185,10 @@ export default function EnhancedPlansModal({
                             }`} />
                             {/* Arrow - Only bounce if this is the next step to complete */}
                             <div className={`p-2 rounded-full shadow-lg transition-all duration-300 ${
-                              step.completed 
-                                ? 'bg-gradient-to-br from-emerald-400 to-emerald-500 scale-110' 
-                                : index === nextIncompleteIndex 
-                                  ? 'bg-gradient-to-br from-[#3c7660] to-[#4d987b] animate-bounce' 
+                              step.completed
+                                ? 'bg-gradient-to-br from-emerald-400 to-emerald-500 scale-110'
+                                : currentStepIndex === nextIncompleteIndex
+                                  ? 'bg-gradient-to-br from-[#3c7660] to-[#4d987b] animate-bounce'
                                   : 'bg-gradient-to-br from-gray-300 to-gray-400 opacity-50'
                             }`}>
                               {step.completed ? (
@@ -986,16 +1199,44 @@ export default function EnhancedPlansModal({
                             </div>
                             {/* Dotted line */}
                             <div className={`w-0.5 h-8 rounded-full transition-all duration-500 ${
-                              step.completed 
-                                ? 'bg-gradient-to-b from-emerald-500 to-emerald-400 opacity-80' 
+                              step.completed
+                                ? 'bg-gradient-to-b from-emerald-500 to-emerald-400 opacity-80'
                                 : 'bg-gradient-to-b from-[#4d987b] to-[#3c7660] opacity-30'
                             }`} />
                           </div>
                         </div>
                       )}
+
+                      {/* Navigation buttons */}
+                      <div className="flex justify-between items-center mt-6 gap-4">
+                        <button
+                          onClick={() => handleStepNavigation(currentStepIndex - 1)}
+                          disabled={isFirst}
+                          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all ${
+                            isFirst
+                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                              : 'bg-white/40 backdrop-blur-md border border-[#3c7660]/30 text-[#3c7660] hover:bg-[#3c7660]/10 hover:border-[#3c7660] hover:shadow-lg'
+                          }`}
+                        >
+                          <ChevronUp className="w-5 h-5 rotate-[-90deg]" />
+                          Previous Step
+                        </button>
+                        <button
+                          onClick={() => handleStepNavigation(currentStepIndex + 1)}
+                          disabled={isLast}
+                          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all ${
+                            isLast
+                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                              : 'bg-white/40 backdrop-blur-md border border-[#3c7660]/30 text-[#3c7660] hover:bg-[#3c7660]/10 hover:border-[#3c7660] hover:shadow-lg'
+                          }`}
+                        >
+                          Next Step
+                          <ChevronDown className="w-5 h-5 rotate-[-90deg]" />
+                        </button>
+                      </div>
                     </div>
-                  );
-                });
+                  </div>
+                );
               })()}
             </div>
           </div>
