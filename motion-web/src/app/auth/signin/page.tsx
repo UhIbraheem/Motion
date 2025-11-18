@@ -103,7 +103,7 @@ export default function SignInPage() {
       } else {
         setError(result.error || "Sign in failed");
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Sign in error:", error);
       setError("An unexpected error occurred");
     } finally {
@@ -122,7 +122,7 @@ export default function SignInPage() {
         setIsLoading(false);
       }
       // The redirect will handle the rest if successful
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Google sign-in error:", error);
       setError("Failed to sign in with Google");
       setIsLoading(false);
