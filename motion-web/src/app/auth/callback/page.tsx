@@ -18,51 +18,37 @@ function AuthCallbackContent() {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
-        // If provider returned tokens in URL hash (implicit flow), clear them to avoid leaking
-        if (typeof window !== 'undefined' && window.location.hash) {
-          const hash = window.location.hash;
-          if (/#(access_token|refresh_token|provider_token)/i.test(hash)) {
-            // Replace state with same URL minus hash
-            window.history.replaceState(null, '', window.location.pathname + window.location.search);
-          }
-        }
-
         const code = searchParams.get('code');
         const type = searchParams.get('type');
-        
-        console.log('🔐 Auth callback - Code:', !!code, 'Type:', type);
-        
+
+        console.log('🔐 [Auth Callback] Starting...');
+        console.log('🔐 [Auth Callback] Query params:', { hasCode: !!code, error_code: searchParams.get('error'), error_description: searchParams.get('error_description') });
+
         if (code) {
-          // Handle OAuth callback
+          console.log('🔐 [Auth Callback] Exchanging code for session...');
           const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-          
+
           if (error) {
-            console.error('🔐 Session exchange error:', error);
+            console.error('🔐 [Auth Callback] Exchange error:', error);
             throw error;
           }
 
-            console.log('🔐 Session exchange successful:', !!data.session);
+          console.log('🔐 [Auth Callback] Exchange successful');
 
-            if (data.session) {
-              // Store a flag indicating auth is complete
-              if (typeof window !== 'undefined') {
-                localStorage.setItem('motion_auth_complete', Date.now().toString());
-              }
-
-              // Check if user profile exists, create if not
+          if (data.session) {
+            // Check if user profile exists, create if not
+            console.log('🔐 [Auth Callback] Checking for existing session...');
             const { data: profile, error: profileError } = await supabase
               .from('profiles')
               .select('*')
               .eq('id', data.session.user.id)
               .single();
 
-            console.log('👤 Profile check:', { exists: !!profile, error: profileError?.code });
-
             if (profileError && profileError.code === 'PGRST116') {
               // Profile doesn't exist, create it
               const userData = data.session.user;
-              console.log('👤 Creating profile for user:', userData.email);
-              
+              console.log('👤 [Auth Callback] Creating profile...');
+
               const { error: insertError } = await supabase.from('profiles').insert({
                 id: userData.id,
                 first_name: userData.user_metadata?.first_name || userData.user_metadata?.name?.split(' ')[0] || '',
@@ -79,26 +65,23 @@ function AuthCallbackContent() {
               });
 
               if (insertError) {
-                console.error('👤 Profile creation error:', insertError);
-              } else {
-                console.log('👤 Profile created successfully');
+                console.error('👤 [Auth Callback] Profile creation error:', insertError);
               }
             }
 
-            console.log('🔐 Auth successful, redirecting to home page...');
-            
-            // Set localStorage flag to help signin page detect completed auth
+            console.log('🔐 [Auth Callback] Success! Redirecting immediately...');
+
+            // Set flag and immediately redirect
             localStorage.setItem('motion_auth_complete', Date.now().toString());
-            
-            // Use router.replace for proper Next.js navigation with cookie handling
-            router.replace('/');
+
+            // Use window.location for immediate redirect (avoids Next.js routing delays)
+            window.location.href = '/';
             return;
           }
         }
 
         // Handle password reset
         if (type === 'recovery') {
-          // The user clicked the reset password link
           router.push('/auth/reset-password/confirm');
           return;
         }
@@ -109,35 +92,13 @@ function AuthCallbackContent() {
           return;
         }
 
-        // Handle password reset (alternative check)
-        const accessToken = searchParams.get('access_token');
-        const refreshToken = searchParams.get('refresh_token');
-        
-        if (accessToken && refreshToken && !type) {
-          // This might be a password reset link
-          try {
-            const { data, error } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken,
-            });
-            
-            if (!error && data.session) {
-              router.push('/auth/reset-password/confirm');
-              return;
-            }
-          } catch (err) {
-            console.log('Session set error:', err);
-          }
-        }
-
         // Default redirect if no specific type
         router.push('/auth/signin');
 
       } catch (error) {
         const err = error as { message?: string };
-        console.error('Auth callback error:', err);
+        console.error('❌ [Auth Callback] Error:', err);
         setError(err?.message || 'Authentication failed');
-        // Redirect to signin with error after 3 seconds
         setTimeout(() => {
           router.push('/auth/signin?error=Authentication failed');
         }, 3000);

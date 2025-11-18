@@ -380,6 +380,17 @@ export default function EnhancedPlansModal({
       return;
     }
 
+    // Ask for confirmation
+    const confirmed = window.confirm(
+      `Swap step ${draggedStepIndex + 1} with step ${dropIndex + 1}?\n\nThis will reorder your adventure.`
+    );
+
+    if (!confirmed) {
+      setDraggedStepIndex(null);
+      setDragOverStepIndex(null);
+      return;
+    }
+
     // Swap the steps
     const sortedSteps = [...adventure.steps].sort((a, b) => a.step_order - b.step_order);
     const draggedStep = sortedSteps[draggedStepIndex];
@@ -390,13 +401,11 @@ export default function EnhancedPlansModal({
     draggedStep.step_order = droppedStep.step_order;
     droppedStep.step_order = tempOrder;
 
-    // Call backend to update step orders (you'll need to implement this API endpoint)
     try {
       // TODO: Add API call to update step orders in database
       // await updateStepOrders(adventure.id, [draggedStep, droppedStep]);
 
-      // For now, show a toast
-      toast.success('Steps reordered! Changes will be saved.', {
+      toast.success('Steps reordered!', {
         description: `Moved step ${draggedStepIndex + 1} to position ${dropIndex + 1}`
       });
 
