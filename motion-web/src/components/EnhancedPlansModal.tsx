@@ -418,9 +418,21 @@ export default function EnhancedPlansModal({
     setDragOverStepIndex(null);
   };
 
+  // Prevent background scrolling when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl max-w-5xl w-full max-h-[92vh] overflow-hidden shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-300">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-200 overflow-y-auto">
+      <div className="bg-white rounded-3xl max-w-5xl w-full max-h-[92vh] overflow-hidden shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-300 my-8">
         {/* Premium Header */}
         <div className="sticky top-0 bg-gradient-to-br from-white via-white to-[#f8f2d5]/30 border-b border-gray-100 px-8 py-6 flex items-center justify-between rounded-t-3xl z-10 backdrop-blur-sm">
           <div className="flex-1 mr-4">
@@ -515,108 +527,68 @@ export default function EnhancedPlansModal({
             </div>
           </div>
 
-          {/* Premium Status Cards Grid */}
-          <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Status Card */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-100 shadow-lg hover:shadow-xl transition-all">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="p-3 bg-gradient-to-br from-[#3c7660]/10 to-[#4d987b]/10 rounded-xl">
-                  {adventure.is_completed ? (
-                    <Award className="w-5 h-5 text-emerald-600" />
-                  ) : isScheduled ? (
-                    <CalendarIcon className="w-5 h-5 text-[#3c7660]" />
-                  ) : (
-                    <Sparkles className="w-5 h-5 text-[#f2cc6c]" />
-                  )}
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 font-medium mb-1">Current Status</p>
-                  {adventure.is_completed ? (
-                    <Badge className="bg-white/40 backdrop-blur-md border border-emerald-500/30 text-emerald-700">
-                      <Award className="w-3.5 h-3.5 mr-1" />
-                      Completed
-                    </Badge>
-                  ) : isScheduled ? (
-                    <Badge className="bg-white/40 backdrop-blur-md border border-[#4d987b]/30 text-[#4d987b]">
-                      <CalendarIcon className="w-3.5 h-3.5 mr-1" />
-                      Scheduled
-                    </Badge>
-                  ) : (
-                    <Badge className="bg-white/40 backdrop-blur-md border border-gray-400/30 text-gray-600">
-                      <Clock className="w-3.5 h-3.5 mr-1" />
-                      Planning
-                    </Badge>
-                  )}
-                </div>
-              </div>
-              <div className="text-sm">
-                {scheduledDate ? (
-                  <div className="flex items-center gap-2 text-gray-700">
-                    <CalendarIcon className="w-4 h-4 text-[#3c7660]" />
-                    <span className="font-medium">
-                      {scheduledDate.toLocaleDateString('en-US', { 
-                        weekday: 'short', 
-                        month: 'short', 
-                        day: 'numeric',
-                        year: 'numeric'
-                      })}
-                    </span>
-                  </div>
+          {/* Compact Status Row */}
+          <div className="mb-6 flex items-center justify-between gap-4 bg-white/60 backdrop-blur-sm rounded-xl p-4 border border-gray-100 shadow-md">
+            {/* Status Badge */}
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-gradient-to-br from-[#3c7660]/10 to-[#4d987b]/10 rounded-lg">
+                {adventure.is_completed ? (
+                  <Award className="w-4 h-4 text-emerald-600" />
+                ) : isScheduled ? (
+                  <CalendarIcon className="w-4 h-4 text-[#3c7660]" />
                 ) : (
-                  <span className="text-gray-400 italic">Not scheduled</span>
+                  <Sparkles className="w-4 h-4 text-[#f2cc6c]" />
+                )}
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 font-medium">Status</p>
+                {adventure.is_completed ? (
+                  <Badge className="bg-emerald-50 border-emerald-200 text-emerald-700 text-xs">
+                    <Award className="w-3 h-3 mr-1" />
+                    Completed
+                  </Badge>
+                ) : isScheduled ? (
+                  <Badge className="bg-blue-50 border-blue-200 text-blue-700 text-xs">
+                    <CalendarIcon className="w-3 h-3 mr-1" />
+                    Scheduled{scheduledDate && ` • ${scheduledDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                  </Badge>
+                ) : (
+                  <Badge className="bg-gray-50 border-gray-200 text-gray-600 text-xs">
+                    <Clock className="w-3 h-3 mr-1" />
+                    Planning
+                  </Badge>
                 )}
               </div>
             </div>
 
-            {/* Schedule Card */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-100 shadow-lg hover:shadow-xl transition-all">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="p-3 bg-gradient-to-br from-[#f2cc6c]/20 to-[#f2cc6c]/10 rounded-xl">
-                  <TrendingUp className="w-5 h-5 text-[#3c7660]" />
-                </div>
-              </div>
+            {/* Progress Badge */}
+            <div className="flex items-center gap-3">
               <div>
-                <p className="text-xs text-gray-500 font-medium mb-1">Progress</p>
+                <p className="text-xs text-gray-500 font-medium text-right">Progress</p>
                 {canCompleteSteps ? (
-                  <Badge className="bg-white/40 backdrop-blur-md border border-emerald-500/30 text-emerald-700">
-                    <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                    Ready to Complete
+                  <Badge className="bg-emerald-50 border-emerald-200 text-emerald-700 text-xs">
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    Ready
                   </Badge>
                 ) : adventure.is_completed ? (
-                  <Badge className="bg-white/40 backdrop-blur-md border border-emerald-600/30 text-emerald-700">
-                    <Star className="w-3.5 h-3.5 mr-1" />
-                    Finished
+                  <Badge className="bg-emerald-50 border-emerald-200 text-emerald-700 text-xs">
+                    <Star className="w-3 h-3 mr-1" />
+                    Done
                   </Badge>
                 ) : !isScheduled ? (
-                  <Badge className="bg-white/40 backdrop-blur-md border border-amber-500/30 text-amber-700">
-                    <CalendarIcon className="w-3.5 h-3.5 mr-1" />
-                    Needs Scheduling
+                  <Badge className="bg-amber-50 border-amber-200 text-amber-700 text-xs">
+                    <CalendarIcon className="w-3 h-3 mr-1" />
+                    Unscheduled
                   </Badge>
                 ) : (
-                  <Badge className="bg-white/40 backdrop-blur-md border border-[#4d987b]/30 text-[#4d987b]">
-                    <Clock className="w-3.5 h-3.5 mr-1" />
+                  <Badge className="bg-blue-50 border-blue-200 text-blue-700 text-xs">
+                    <Clock className="w-3 h-3 mr-1" />
                     In Progress
                   </Badge>
                 )}
               </div>
-              <div className="mt-3 text-sm">
-                {adventure.is_completed ? (
-                  <span className="text-emerald-600 font-semibold flex items-center gap-1">
-                    <Sparkles className="w-4 h-4" />
-                    Adventure completed!
-                  </span>
-                ) : isScheduled && scheduledDate! > today ? (
-                  <span className="text-blue-600 font-medium">
-                    {Math.ceil((scheduledDate!.getTime() - today.getTime()) / (1000 * 3600 * 24))} days to go
-                  </span>
-                ) : isScheduled ? (
-                  <span className="text-emerald-600 font-semibold flex items-center gap-1">
-                    <CheckCircle2 className="w-4 h-4" />
-                    Available now!
-                  </span>
-                ) : (
-                  <span className="text-gray-500">Schedule to begin</span>
-                )}
+              <div className="p-2.5 bg-gradient-to-br from-[#f2cc6c]/20 to-[#f2cc6c]/10 rounded-lg">
+                <TrendingUp className="w-4 h-4 text-[#3c7660]" />
               </div>
             </div>
           </div>
@@ -797,17 +769,17 @@ export default function EnhancedPlansModal({
           )}
 
           {/* Step Navigation */}
-          <div className="mb-6 bg-white/80 backdrop-blur-sm rounded-2xl p-4 border border-gray-100 shadow-lg">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2">
+          <div className="mb-6 bg-white/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-100 shadow-lg">
+            <div className="text-center mb-4">
+              <h3 className="text-sm font-bold text-gray-700 inline-flex items-center gap-2 mb-1">
                 <Navigation className="w-4 h-4 text-[#3c7660]" />
                 Quick Navigation
               </h3>
-              <span className="text-xs text-gray-500">
+              <p className="text-xs text-gray-500">
                 Step {currentStepIndex + 1} of {adventure.steps.length}
-              </span>
+              </p>
             </div>
-            <div className="flex items-center gap-2 overflow-x-auto pb-2">
+            <div className="flex items-center justify-center gap-2.5 flex-wrap">
               {adventure.steps.sort((a, b) => a.step_order - b.step_order).map((step, index) => (
                 <button
                   key={step.id}
@@ -818,24 +790,29 @@ export default function EnhancedPlansModal({
                   onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, index)}
                   onDragEnd={handleDragEnd}
-                  className={`flex-shrink-0 w-12 h-12 rounded-xl font-bold text-sm transition-all duration-300 border-2 cursor-move ${
+                  className={`flex-shrink-0 w-14 h-14 rounded-xl font-bold text-base transition-all duration-300 border-2 ${
                     index === currentStepIndex
-                      ? 'bg-gradient-to-br from-[#3c7660] to-[#4d987b] text-white border-[#3c7660] scale-110 shadow-lg'
+                      ? 'bg-gradient-to-br from-[#3c7660] to-[#4d987b] text-white border-[#3c7660] scale-110 shadow-lg cursor-pointer'
                       : step.completed
-                      ? 'bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-200 hover:scale-105'
+                      ? 'bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-200 hover:scale-105 cursor-move'
                       : dragOverStepIndex === index && draggedStepIndex !== index
-                      ? 'bg-blue-100 border-blue-400 border-dashed scale-105'
+                      ? 'bg-blue-100 border-blue-400 border-dashed scale-105 cursor-move'
                       : draggedStepIndex === index
-                      ? 'opacity-50 scale-95'
-                      : 'bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200 hover:border-[#3c7660] hover:scale-105'
+                      ? 'opacity-50 scale-95 cursor-grabbing'
+                      : 'bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200 hover:border-[#3c7660] hover:scale-105 cursor-move'
                   }`}
-                  title={`Drag to reorder • Click to view: ${step.title}`}
+                  title={draggedStepIndex !== null ? 'Drop to swap positions' : `Click to view • Drag to reorder: ${step.title}`}
                 >
                   {step.completed ? <CheckCircle2 className="w-5 h-5 mx-auto" /> : index + 1}
                 </button>
               ))}
             </div>
-            <p className="text-xs text-gray-500 mt-2 italic">💡 Drag step numbers to reorder your adventure</p>
+            <p className="text-xs text-center text-gray-500 mt-3 italic flex items-center justify-center gap-1.5">
+              <span className="inline-block w-1 h-1 bg-[#3c7660] rounded-full"></span>
+              Drag & drop to reorder
+              <span className="inline-block w-1 h-1 bg-[#3c7660] rounded-full"></span>
+              Click to navigate
+            </p>
           </div>
 
           {/* Flowing Adventure Timeline - Modern Card Design */}
@@ -1172,40 +1149,6 @@ export default function EnhancedPlansModal({
                           </div>
                         </div>
                       </div>
-
-                      {/* Flowing Arrow Connector - Only bounce on next incomplete */}
-                      {!isLast && (
-                        <div className="flex justify-center my-4 relative">
-                          <div className="flex flex-col items-center gap-2">
-                            {/* Dotted line */}
-                            <div className={`w-0.5 h-8 rounded-full transition-all duration-500 ${
-                              step.completed 
-                                ? 'bg-gradient-to-b from-emerald-400 to-emerald-500 opacity-80' 
-                                : 'bg-gradient-to-b from-[#3c7660] to-[#4d987b] opacity-30'
-                            }`} />
-                            {/* Arrow - Only bounce if this is the next step to complete */}
-                            <div className={`p-2 rounded-full shadow-lg transition-all duration-300 ${
-                              step.completed
-                                ? 'bg-gradient-to-br from-emerald-400 to-emerald-500 scale-110'
-                                : currentStepIndex === nextIncompleteIndex
-                                  ? 'bg-gradient-to-br from-[#3c7660] to-[#4d987b] animate-bounce'
-                                  : 'bg-gradient-to-br from-gray-300 to-gray-400 opacity-50'
-                            }`}>
-                              {step.completed ? (
-                                <CheckCircle2 className="w-5 h-5 text-white" />
-                              ) : (
-                                <ChevronDown className="w-5 h-5 text-white" />
-                              )}
-                            </div>
-                            {/* Dotted line */}
-                            <div className={`w-0.5 h-8 rounded-full transition-all duration-500 ${
-                              step.completed
-                                ? 'bg-gradient-to-b from-emerald-500 to-emerald-400 opacity-80'
-                                : 'bg-gradient-to-b from-[#4d987b] to-[#3c7660] opacity-30'
-                            }`} />
-                          </div>
-                        </div>
-                      )}
 
                       {/* Navigation buttons */}
                       <div className="flex justify-between items-center mt-6 gap-4">
