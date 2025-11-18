@@ -841,28 +841,62 @@ function PlansContent() {
 
   // Render calendar view
   const renderCalendarView = () => {
+    const scheduledDates = scheduledAdventures
+      .filter(a => a.scheduled_for)
+      .map(a => new Date(a.scheduled_for as string));
+
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Calendar */}
-        <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-md">
+        <Card className="bg-white/95 backdrop-blur-xl border-2 border-gray-100 shadow-2xl">
           <CardContent className="p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Schedule</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <CalendarIcon className="w-5 h-5 text-[#3c7660]" />
+              Schedule
+            </h3>
             <Calendar
               mode="single"
               selected={selectedDate}
               onSelect={handleDateSelect}
-              className="rounded-md border-0"
+              className="rounded-xl"
               modifiers={{
-                scheduled: scheduledAdventures
-                  .filter(a => a.scheduled_for)
-                  .map(a => new Date(a.scheduled_for as string))
+                scheduled: scheduledDates
               }}
-              modifiersStyles={{
-                scheduled: { 
-                  backgroundColor: '#3c7660', 
-                  color: 'white',
-                  fontWeight: 'bold'
+              components={{
+                DayContent: ({ date }) => {
+                  const hasEvent = scheduledDates.some(
+                    d => d.toDateString() === date.toDateString()
+                  );
+                  return (
+                    <div className="relative w-full h-full flex items-center justify-center">
+                      <span>{date.getDate()}</span>
+                      {hasEvent && (
+                        <div className="absolute bottom-0.5 w-1 h-1 bg-[#3c7660] rounded-full shadow-sm" />
+                      )}
+                    </div>
+                  );
                 }
+              }}
+              classNames={{
+                months: "flex flex-col space-y-4",
+                month: "space-y-4",
+                caption: "flex justify-center pt-1 relative items-center mb-2",
+                caption_label: "text-base font-bold text-gray-900",
+                nav: "space-x-1 flex items-center",
+                nav_button: "h-8 w-8 bg-white/60 backdrop-blur-sm hover:bg-[#3c7660]/10 rounded-xl transition-all border border-gray-200 hover:border-[#3c7660]/30",
+                nav_button_previous: "absolute left-1",
+                nav_button_next: "absolute right-1",
+                table: "w-full border-collapse space-y-1",
+                head_row: "flex",
+                head_cell: "text-gray-600 rounded-lg w-10 font-semibold text-sm",
+                row: "flex w-full mt-2",
+                cell: "relative p-0 text-center text-sm focus-within:relative focus-within:z-20",
+                day: "h-10 w-10 p-0 font-medium hover:bg-[#3c7660]/10 rounded-xl transition-all inline-flex items-center justify-center backdrop-blur-sm",
+                day_selected: "bg-gradient-to-br from-[#3c7660]/20 to-[#4d987b]/20 text-[#3c7660] font-bold rounded-xl ring-2 ring-[#3c7660]/40 ring-offset-1 backdrop-blur-md",
+                day_today: "bg-[#f2cc6c]/30 text-[#3c7660] font-bold rounded-xl ring-2 ring-[#f2cc6c]/50 ring-offset-1",
+                day_outside: "text-gray-300 opacity-40",
+                day_disabled: "text-gray-200 opacity-30 cursor-not-allowed hover:bg-transparent",
+                day_hidden: "invisible",
               }}
             />
           </CardContent>
@@ -1222,9 +1256,12 @@ function PlansContent() {
 
       {/* Schedule Modal */}
       <Dialog open={showScheduleModal} onOpenChange={setShowScheduleModal}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md bg-white/95 backdrop-blur-xl border-2 border-gray-100">
           <DialogHeader>
-            <DialogTitle>Schedule Adventure</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarIcon className="w-5 h-5 text-[#3c7660]" />
+              Schedule Adventure
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-gray-600">
@@ -1234,16 +1271,42 @@ function PlansContent() {
               mode="single"
               selected={selectedDate}
               onSelect={setSelectedDate}
-              disabled={(date) => date < new Date()}
-              className="rounded-md border"
+              disabled={(date) => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                return date < today;
+              }}
+              className="rounded-xl mx-auto"
+              classNames={{
+                months: "flex flex-col space-y-4",
+                month: "space-y-4",
+                caption: "flex justify-center pt-1 relative items-center mb-2",
+                caption_label: "text-base font-bold text-gray-900",
+                nav: "space-x-1 flex items-center",
+                nav_button: "h-8 w-8 bg-white/60 backdrop-blur-sm hover:bg-[#3c7660]/10 rounded-xl transition-all border border-gray-200 hover:border-[#3c7660]/30",
+                nav_button_previous: "absolute left-1",
+                nav_button_next: "absolute right-1",
+                table: "w-full border-collapse space-y-1",
+                head_row: "flex",
+                head_cell: "text-gray-600 rounded-lg w-10 font-semibold text-sm",
+                row: "flex w-full mt-2",
+                cell: "relative p-0 text-center text-sm focus-within:relative focus-within:z-20",
+                day: "h-10 w-10 p-0 font-medium hover:bg-[#3c7660]/10 rounded-xl transition-all inline-flex items-center justify-center backdrop-blur-sm",
+                day_selected: "bg-gradient-to-br from-[#3c7660]/90 to-[#4d987b]/90 text-white hover:from-[#3c7660] hover:to-[#4d987b] shadow-lg backdrop-blur-md rounded-xl scale-105",
+                day_today: "bg-[#f2cc6c]/30 text-[#3c7660] font-bold rounded-xl ring-2 ring-[#f2cc6c]/50 ring-offset-1",
+                day_outside: "text-gray-300 opacity-40",
+                day_disabled: "text-gray-200 opacity-30 cursor-not-allowed hover:bg-transparent",
+                day_hidden: "invisible",
+              }}
             />
-            <div className="flex gap-2 justify-end">
+            <div className="flex gap-2 justify-end pt-2">
               <Button
                 variant="outline"
                 onClick={() => {
                   setShowScheduleModal(false);
                   setSelectedDate(undefined);
                 }}
+                className="border-gray-300 hover:bg-gray-50"
               >
                 Cancel
               </Button>
@@ -1256,8 +1319,9 @@ function PlansContent() {
                   }
                 }}
                 disabled={!selectedDate}
-                className="bg-[#3c7660] hover:bg-[#2a5444] text-white"
+                className="bg-gradient-to-r from-[#3c7660] to-[#4d987b] hover:shadow-lg text-white disabled:opacity-50"
               >
+                <CheckCircle2 className="w-4 h-4 mr-2" />
                 Schedule
               </Button>
             </div>
