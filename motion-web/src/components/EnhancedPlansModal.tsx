@@ -488,22 +488,30 @@ export default function EnhancedPlansModal({
               </div>
             )}
             
-            <div className="flex items-center gap-5 text-sm">
-              <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-full px-3 py-1.5 border border-gray-100">
-                <MapPin className="w-4 h-4 text-[#3c7660]" />
-                <span className="font-medium text-gray-700">{adventure.location}</span>
+            {/* Location & Time Subheading with Dividers */}
+            <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
+              <div className="flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-[#3c7660]" />
+                <span className="font-medium">{adventure.location}</span>
               </div>
-              <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-full px-3 py-1.5 border border-gray-100">
-                <Clock className="w-4 h-4 text-[#3c7660]" />
-                <span className="font-medium text-gray-700">{adventure.duration}</span>
+              <span className="text-gray-300">•</span>
+              <div className="flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-[#3c7660]" />
+                <span className="font-medium">{adventure.duration}</span>
               </div>
               {adventure.google_places_validated && (
-                <Badge className="bg-white/40 backdrop-blur-md border border-emerald-500/30 text-emerald-700 shadow-sm">
-                  <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                  Verified
-                </Badge>
+                <>
+                  <span className="text-gray-300">•</span>
+                  <div className="flex items-center gap-1.5 text-emerald-600">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span className="font-medium">Verified</span>
+                  </div>
+                </>
               )}
             </div>
+
+            {/* Elegant Divider */}
+            <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent"></div>
           </div>
           <Button 
             variant="ghost" 
@@ -536,291 +544,205 @@ export default function EnhancedPlansModal({
             </div>
           </div>
 
-          {/* Compact Status Row */}
-          <div className="mb-6 flex items-center justify-between gap-4 bg-white/60 backdrop-blur-sm rounded-xl p-4 border border-gray-100 shadow-md">
-            {/* Status Badge */}
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-gradient-to-br from-[#3c7660]/10 to-[#4d987b]/10 rounded-lg">
-                {adventure.is_completed ? (
-                  <Award className="w-4 h-4 text-emerald-600" />
-                ) : isScheduled ? (
-                  <CalendarIcon className="w-4 h-4 text-[#3c7660]" />
-                ) : (
-                  <Sparkles className="w-4 h-4 text-[#f2cc6c]" />
-                )}
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 font-medium">Status</p>
-                {adventure.is_completed ? (
-                  <Badge className="bg-emerald-50 border-emerald-200 text-emerald-700 text-xs">
-                    <Award className="w-3 h-3 mr-1" />
-                    Completed
-                  </Badge>
-                ) : isScheduled ? (
-                  <Badge className="bg-blue-50 border-blue-200 text-blue-700 text-xs">
-                    <CalendarIcon className="w-3 h-3 mr-1" />
-                    Scheduled{scheduledDate && ` • ${scheduledDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
-                  </Badge>
-                ) : (
-                  <Badge className="bg-gray-50 border-gray-200 text-gray-600 text-xs">
-                    <Clock className="w-3 h-3 mr-1" />
-                    Planning
-                  </Badge>
-                )}
-              </div>
-            </div>
+          {/* Unified Status & Schedule Box */}
+          <div className="mb-8 relative overflow-hidden rounded-2xl bg-gradient-to-br from-white via-white to-[#f8f2d5]/20 border-2 border-gray-100 shadow-xl">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
+              {/* LEFT: Schedule Section */}
+              {!adventure.is_completed && (
+                <div className="p-6 border-r border-gray-100">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-3 bg-gradient-to-br from-[#3c7660] to-[#4d987b] rounded-xl shadow-md">
+                      <CalendarIcon className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-gray-900">
+                        {scheduledDate ? 'Scheduled' : 'Schedule Adventure'}
+                      </h3>
+                      <p className="text-xs text-gray-600">
+                        {scheduledDate ? scheduledDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Pick a date'}
+                      </p>
+                    </div>
+                  </div>
 
-            {/* Progress Badge */}
-            <div className="flex items-center gap-3">
-              <div>
-                <p className="text-xs text-gray-500 font-medium text-right">Progress</p>
-                {canCompleteSteps ? (
-                  <Badge className="bg-emerald-50 border-emerald-200 text-emerald-700 text-xs">
-                    <CheckCircle2 className="w-3 h-3 mr-1" />
-                    Ready
-                  </Badge>
-                ) : adventure.is_completed ? (
-                  <Badge className="bg-emerald-50 border-emerald-200 text-emerald-700 text-xs">
-                    <Star className="w-3 h-3 mr-1" />
-                    Done
-                  </Badge>
-                ) : !isScheduled ? (
-                  <Badge className="bg-amber-50 border-amber-200 text-amber-700 text-xs">
-                    <CalendarIcon className="w-3 h-3 mr-1" />
-                    Unscheduled
-                  </Badge>
-                ) : (
-                  <Badge className="bg-blue-50 border-blue-200 text-blue-700 text-xs">
-                    <Clock className="w-3 h-3 mr-1" />
-                    In Progress
-                  </Badge>
-                )}
-              </div>
-              <div className="p-2.5 bg-gradient-to-br from-[#f2cc6c]/20 to-[#f2cc6c]/10 rounded-lg">
-                <TrendingUp className="w-4 h-4 text-[#3c7660]" />
+                  {/* Status Badge */}
+                  <div className="mb-4">
+                    {isScheduled ? (
+                      <Badge className="bg-blue-50 border-blue-200 text-blue-700">
+                        <CalendarIcon className="w-3 h-3 mr-1" />
+                        Scheduled
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-gray-50 border-gray-200 text-gray-600">
+                        <Clock className="w-3 h-3 mr-1" />
+                        Needs Scheduling
+                      </Badge>
+                    )}
+                  </div>
+
+                  {/* Compact Calendar */}
+                  <div className="bg-white rounded-xl p-4 border border-gray-100 mb-4">
+                    <Calendar
+                      mode="single"
+                      selected={tempSelectedDate}
+                      onSelect={handleDateSelect}
+                      disabled={(date) => {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        return date < today;
+                      }}
+                      className="rounded-lg border-0"
+                      classNames={{
+                        months: "flex flex-col space-y-3",
+                        month: "space-y-3",
+                        caption: "flex justify-center pt-1 relative items-center",
+                        caption_label: "text-sm font-bold text-gray-900",
+                        nav: "space-x-1 flex items-center",
+                        nav_button: "h-7 w-7 bg-transparent hover:bg-[#3c7660]/10 rounded-lg transition-all p-0 inline-flex items-center justify-center",
+                        nav_button_previous: "absolute left-1",
+                        nav_button_next: "absolute right-1",
+                        table: "w-full border-collapse space-y-1",
+                        head_row: "flex",
+                        head_cell: "text-gray-500 rounded-md w-9 font-medium text-xs",
+                        row: "flex w-full mt-1.5",
+                        cell: "relative p-0 text-center text-xs focus-within:relative focus-within:z-20",
+                        day: "h-9 w-9 p-0 font-medium hover:bg-[#3c7660]/10 hover:text-[#3c7660] rounded-lg transition-all inline-flex items-center justify-center",
+                        day_selected: "bg-gradient-to-br from-[#3c7660] to-[#4d987b] text-white hover:from-[#3c7660] hover:to-[#4d987b] focus:from-[#3c7660] focus:to-[#4d987b] shadow-md rounded-lg",
+                        day_today: "bg-[#f2cc6c]/20 text-[#3c7660] font-bold border border-[#f2cc6c]/50 rounded-lg",
+                        day_outside: "text-gray-300 opacity-50",
+                        day_disabled: "text-gray-300 opacity-30 cursor-not-allowed hover:bg-transparent",
+                        day_hidden: "invisible",
+                      }}
+                    />
+                  </div>
+
+                  {/* Reschedule Button */}
+                  {tempSelectedDate && (
+                    <Button
+                      onClick={handleScheduleSubmit}
+                      className="w-full bg-gradient-to-r from-[#3c7660] to-[#4d987b] text-white hover:shadow-lg transition-all"
+                      size="sm"
+                    >
+                      <CheckCircle2 className="w-4 h-4 mr-2" />
+                      {scheduledDate ? 'Reschedule' : 'Confirm Schedule'}
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              {/* If completed, show completion status instead */}
+              {adventure.is_completed && (
+                <div className="p-6 border-r border-gray-100 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="p-4 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl shadow-lg mb-3 inline-block">
+                      <Award className="w-8 h-8 text-white" />
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-1">Adventure Completed!</h3>
+                    <p className="text-sm text-gray-600">Congratulations on finishing this journey</p>
+                  </div>
+                </div>
+              )}
+
+              {/* RIGHT: Progress Section */}
+              <div className="p-6 flex flex-col justify-center">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-3 bg-gradient-to-br from-[#f2cc6c]/30 to-[#f2cc6c]/10 rounded-xl">
+                    <TrendingUp className="w-5 h-5 text-[#3c7660]" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900">Progress Tracking</h3>
+                    <p className="text-xs text-gray-600">{completedSteps} of {totalSteps} steps completed</p>
+                  </div>
+                </div>
+
+                {/* Progress Stats */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Completion</span>
+                    <span className="text-sm font-bold text-[#3c7660]">{Math.round(progressPercentage)}%</span>
+                  </div>
+                  <div className="relative w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                    <div
+                      className="absolute inset-y-0 left-0 bg-gradient-to-r from-[#3c7660] to-[#4d987b] rounded-full transition-all duration-700"
+                      style={{ width: `${progressPercentage}%` }}
+                    />
+                  </div>
+
+                  {/* Status Badge */}
+                  <div className="pt-2">
+                    {adventure.is_completed ? (
+                      <Badge className="bg-emerald-50 border-emerald-200 text-emerald-700">
+                        <Star className="w-3 h-3 mr-1" />
+                        Completed
+                      </Badge>
+                    ) : canCompleteSteps ? (
+                      <Badge className="bg-emerald-50 border-emerald-200 text-emerald-700">
+                        <CheckCircle2 className="w-3 h-3 mr-1" />
+                        Ready to Complete
+                      </Badge>
+                    ) : !isScheduled ? (
+                      <Badge className="bg-amber-50 border-amber-200 text-amber-700">
+                        <CalendarIcon className="w-3 h-3 mr-1" />
+                        Schedule to Start
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-blue-50 border-blue-200 text-blue-700">
+                        <Clock className="w-3 h-3 mr-1" />
+                        In Progress
+                      </Badge>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Collapsible Interactive Calendar Scheduling Section */}
-          {!adventure.is_completed && (
-            <div className="mb-8">
-              {/* Header Button - Always Visible */}
-              <button
-                onClick={() => setIsScheduleSectionOpen(!isScheduleSectionOpen)}
-                className="w-full relative overflow-hidden rounded-2xl transition-all duration-300 hover:shadow-xl group"
-              >
-                {/* Background gradient */}
-                <div className="absolute inset-0 bg-gradient-to-br from-[#f8f2d5] via-[#f2cc6c]/10 to-[#3c7660]/5" />
-                <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/40 to-transparent" />
-                
-                <div className="relative p-6 border-2 border-[#f2cc6c]/40 rounded-2xl backdrop-blur-sm group-hover:border-[#3c7660]/50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="p-3 bg-gradient-to-br from-[#3c7660] to-[#4d987b] rounded-xl shadow-lg group-hover:scale-110 transition-transform">
-                        <CalendarIcon className="w-6 h-6 text-white" />
-                      </div>
-                      <div className="text-left">
-                        <h4 className="text-xl font-bold text-gray-900 mb-1">
-                          {scheduledDate ? 'Scheduled Adventure' : 'Schedule Your Adventure'}
-                        </h4>
-                        <p className="text-sm text-gray-600">
-                          {scheduledDate 
-                            ? `${scheduledDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}`
-                            : 'Click to pick the perfect day to explore'
-                          }
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-3">
-                      {scheduledDate && (
-                        <div className="text-right mr-4">
-                          <div className="bg-white px-4 py-2 rounded-xl shadow-md border border-[#3c7660]/20">
-                            <p className="text-2xl font-bold text-[#3c7660]">
-                              {scheduledDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                            </p>
-                            <p className="text-xs text-gray-600">
-                              {scheduledDate.toLocaleDateString('en-US', { weekday: 'short' })}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                      <div className={`p-2 rounded-lg transition-all ${
-                        isScheduleSectionOpen 
-                          ? 'bg-[#3c7660] text-white rotate-180' 
-                          : 'bg-gray-100 text-gray-600'
-                      }`}>
-                        <ChevronDown className="w-5 h-5" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </button>
-
-              {/* Expandable Calendar Section */}
-              {isScheduleSectionOpen && (
-                <div className="mt-4 relative overflow-hidden animate-in slide-in-from-top-2 duration-300">
-                  {/* Animated background gradient */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-[#f8f2d5] via-[#f2cc6c]/10 to-[#3c7660]/5 rounded-3xl" />
-                  <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/40 to-transparent rounded-3xl" />
-                  
-                  <div className="relative rounded-3xl p-8 border-2 border-[#f2cc6c]/40 shadow-2xl backdrop-blur-sm">
-                    {/* Inline Calendar - Beautiful Design */}
-                    <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-xl border border-gray-100">
-                      <Calendar
-                        mode="single"
-                        selected={tempSelectedDate}
-                        onSelect={handleDateSelect}
-                        disabled={(date) => {
-                          // Allow scheduling for today and future dates (no restriction on time of day)
-                          const today = new Date();
-                          today.setHours(0, 0, 0, 0);
-                          return date < today;
-                        }}
-                        className="rounded-xl border-0 mx-auto"
-                        classNames={{
-                          months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
-                          month: "space-y-4",
-                          caption: "flex justify-center pt-1 relative items-center",
-                          caption_label: "text-lg font-bold text-gray-900",
-                          nav: "space-x-1 flex items-center",
-                          nav_button: "h-9 w-9 bg-transparent hover:bg-[#3c7660]/10 rounded-lg transition-all p-0 inline-flex items-center justify-center",
-                          nav_button_previous: "absolute left-1",
-                          nav_button_next: "absolute right-1",
-                          table: "w-full border-collapse space-y-1",
-                          head_row: "flex",
-                          head_cell: "text-gray-500 rounded-md w-12 font-semibold text-sm uppercase",
-                          row: "flex w-full mt-2",
-                          cell: "relative p-0 text-center text-sm focus-within:relative focus-within:z-20 [&:has([aria-selected])]:bg-[#3c7660]/10 [&:has([aria-selected])]:rounded-lg",
-                          day: "h-12 w-12 p-0 font-semibold hover:bg-[#3c7660]/20 hover:text-[#3c7660] rounded-lg transition-all inline-flex items-center justify-center aria-selected:opacity-100 aria-selected:bg-gradient-to-br aria-selected:from-[#3c7660] aria-selected:to-[#4d987b] aria-selected:text-white aria-selected:shadow-lg aria-selected:scale-105",
-                          day_selected: "bg-gradient-to-br from-[#3c7660] to-[#4d987b] text-white hover:bg-[#3c7660] hover:text-white focus:bg-[#3c7660] focus:text-white shadow-lg scale-105",
-                          day_today: "bg-[#f2cc6c]/30 text-[#3c7660] font-bold border-2 border-[#f2cc6c]",
-                          day_outside: "text-gray-300 opacity-50",
-                          day_disabled: "text-gray-300 opacity-30 cursor-not-allowed hover:bg-transparent",
-                          day_hidden: "invisible",
-                        }}
-                      />
-                      
-                      {/* Quick Date Suggestions */}
-                      <div className="mt-6 pt-6 border-t border-gray-200">
-                        <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-3">Quick Pick</p>
-                        <div className="flex gap-2 flex-wrap">
-                          {[
-                            { label: 'Today', days: 0 },
-                            { label: 'Tomorrow', days: 1 },
-                            { label: 'This Weekend', days: (6 - new Date().getDay() + 7) % 7 || 7 },
-                            { label: 'Next Week', days: 7 },
-                          ].map((suggestion) => {
-                            const suggestedDate = new Date();
-                            suggestedDate.setDate(suggestedDate.getDate() + suggestion.days);
-                            
-                            return (
-                              <button
-                                key={suggestion.label}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDateSelect(suggestedDate);
-                                }}
-                                className="px-4 py-2 bg-gradient-to-br from-gray-50 to-gray-100 hover:from-[#3c7660]/10 hover:to-[#4d987b]/10 border border-gray-200 hover:border-[#3c7660]/30 rounded-xl text-sm font-medium text-gray-700 hover:text-[#3c7660] transition-all hover:shadow-md"
-                              >
-                                {suggestion.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Confirm/Cancel Buttons */}
-                    {tempSelectedDate && (
-                      <div className="mt-6 flex items-center justify-between gap-4 bg-emerald-50 rounded-xl p-5 border border-emerald-200 animate-in slide-in-from-bottom-2 duration-300">
-                        <div className="flex items-start gap-3 flex-1">
-                          <CalendarIcon className="w-5 h-5 text-emerald-600 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="text-sm font-semibold text-emerald-900">
-                              {tempSelectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
-                            </p>
-                            <p className="text-xs text-emerald-700 mt-1">
-                              Ready to confirm this date for your adventure?
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setTempSelectedDate(scheduledDate || undefined);
-                              setIsScheduleSectionOpen(false);
-                            }}
-                            variant="outline"
-                            className="border-gray-300 hover:bg-gray-50"
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleScheduleSubmit();
-                            }}
-                            className="bg-white/40 backdrop-blur-md border border-[#3c7660]/30 text-[#3c7660] hover:bg-[#3c7660]/10 hover:border-[#3c7660] hover:shadow-lg transition-all"
-                          >
-                            <CheckCircle2 className="w-4 h-4 mr-2" />
-                            Confirm Schedule
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Step Navigation */}
-          <div className="mb-6 bg-white/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-100 shadow-lg">
-            <div className="text-center mb-4">
-              <h3 className="text-sm font-bold text-gray-700 inline-flex items-center gap-2 mb-1">
-                <Navigation className="w-4 h-4 text-[#3c7660]" />
+          {/* Step Navigation - Thinner with Arrows */}
+          <div className="mb-6 bg-white/80 backdrop-blur-sm rounded-2xl p-4 border border-gray-100 shadow-lg">
+            <div className="text-center mb-3">
+              <h3 className="text-xs font-bold text-gray-700 inline-flex items-center gap-2 mb-1">
+                <Navigation className="w-3.5 h-3.5 text-[#3c7660]" />
                 Quick Navigation
               </h3>
               <p className="text-xs text-gray-500">
                 Step {currentStepIndex + 1} of {adventure.steps.length}
               </p>
             </div>
-            <div className="flex items-center justify-center gap-2.5 flex-wrap">
+            <div className="flex items-center justify-between w-full gap-1">
               {adventure.steps.sort((a, b) => a.step_order - b.step_order).map((step, index) => (
-                <button
-                  key={step.id}
-                  draggable
-                  onClick={() => handleStepNavigation(index)}
-                  onDragStart={(e) => handleDragStart(e, index)}
-                  onDragOver={(e) => handleDragOver(e, index)}
-                  onDragLeave={handleDragLeave}
-                  onDrop={(e) => handleDrop(e, index)}
-                  onDragEnd={handleDragEnd}
-                  className={`flex-shrink-0 w-14 h-14 rounded-xl font-bold text-base transition-all duration-300 border-2 ${
-                    index === currentStepIndex
-                      ? 'bg-gradient-to-br from-[#3c7660] to-[#4d987b] text-white border-[#3c7660] scale-110 shadow-lg cursor-pointer'
-                      : step.completed
-                      ? 'bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-200 hover:scale-105 cursor-move'
-                      : dragOverStepIndex === index && draggedStepIndex !== index
-                      ? 'bg-blue-100 border-blue-400 border-dashed scale-105 cursor-move'
-                      : draggedStepIndex === index
-                      ? 'opacity-50 scale-95 cursor-grabbing'
-                      : 'bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200 hover:border-[#3c7660] hover:scale-105 cursor-move'
-                  }`}
-                  title={draggedStepIndex !== null ? 'Drop to swap positions' : `Click to view • Drag to reorder: ${step.title}`}
-                >
-                  {step.completed ? <CheckCircle2 className="w-5 h-5 mx-auto" /> : index + 1}
-                </button>
+                <React.Fragment key={step.id}>
+                  <button
+                    draggable
+                    onClick={() => handleStepNavigation(index)}
+                    onDragStart={(e) => handleDragStart(e, index)}
+                    onDragOver={(e) => handleDragOver(e, index)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, index)}
+                    onDragEnd={handleDragEnd}
+                    className={`flex-shrink-0 w-10 h-10 rounded-lg font-bold text-sm transition-all duration-300 border ${
+                      index === currentStepIndex
+                        ? 'bg-gradient-to-br from-[#3c7660] to-[#4d987b] text-white border-[#3c7660] scale-110 shadow-md cursor-pointer z-10'
+                        : step.completed
+                        ? 'bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-200 hover:scale-105 cursor-move'
+                        : dragOverStepIndex === index && draggedStepIndex !== index
+                        ? 'bg-blue-100 border-blue-400 border-dashed scale-105 cursor-move'
+                        : draggedStepIndex === index
+                        ? 'opacity-50 scale-95 cursor-grabbing'
+                        : 'bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200 hover:border-[#3c7660] hover:scale-105 cursor-move'
+                    }`}
+                    title={draggedStepIndex !== null ? 'Drop to swap positions' : `Click to view • Drag to reorder: ${step.title}`}
+                  >
+                    {step.completed ? <CheckCircle2 className="w-4 h-4 mx-auto" /> : index + 1}
+                  </button>
+                  {index < adventure.steps.length - 1 && (
+                    <div className="flex-1 flex items-center justify-center min-w-[12px]">
+                      <ChevronDown className="w-4 h-4 text-gray-300 rotate-[-90deg]" />
+                    </div>
+                  )}
+                </React.Fragment>
               ))}
             </div>
-            <p className="text-xs text-center text-gray-500 mt-3 italic flex items-center justify-center gap-1.5">
-              <span className="inline-block w-1 h-1 bg-[#3c7660] rounded-full"></span>
-              Drag & drop to reorder
-              <span className="inline-block w-1 h-1 bg-[#3c7660] rounded-full"></span>
-              Click to navigate
+            <p className="text-xs text-center text-gray-500 mt-2 italic">
+              Drag to reorder • Click to navigate
             </p>
           </div>
 
