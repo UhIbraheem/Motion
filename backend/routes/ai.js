@@ -295,7 +295,13 @@ CRITICAL BUSINESS NAME REQUIREMENTS:
 - For attractions: use the official name (e.g., "Empire State Building", "Brooklyn Bridge")
 - For parks/outdoor spaces: use the official park name (e.g., "Central Park", "Prospect Park")
 - Business names should be searchable in Google Places API
-- If unsure of exact name, use the most commonly known official name`;
+- If unsure of exact name, use the most commonly known official name
+
+QUALITY STANDARDS:
+- ONLY recommend businesses/venues with 3.5+ star ratings on Google
+- Prioritize highly-rated, popular, and well-reviewed locations
+- Avoid places with poor reviews or ratings below 3.5 stars
+- For restaurants, cafes, and venues: verify they have good ratings before including them`;
 
     const userPrompt = `Create an adventure plan based on these filters: ${app_filter}`;
 
