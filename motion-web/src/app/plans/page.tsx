@@ -22,7 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { 
+import {
   MapPin,
   Clock,
   Star,
@@ -43,7 +43,9 @@ import {
   Navigation as NavigationIcon,
   Calendar as CalendarIcon,
   Filter,
-  Search
+  Search,
+  RefreshCw,
+  Share2
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -122,8 +124,15 @@ function PlansContent() {
   const [selectedAdventure, setSelectedAdventure] = useState<SavedAdventure | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [highlightedAdventureId, setHighlightedAdventureId] = useState<string | null>(null);
+
+  // Share modal state
+  const [shareTitle, setShareTitle] = useState('');
+  const [shareDescription, setShareDescription] = useState('');
+  const [shareRating, setShareRating] = useState(5);
+  const [isSharing, setIsSharing] = useState(false);
 
   // Share to Discover with a quick review
   const handleShare = async (rating: number, text?: string) => {
@@ -803,32 +812,65 @@ function PlansContent() {
               </div>
             </div>
 
-            {/* Action Button */}
-            <Button 
-              className="w-full bg-gradient-to-r from-[#3c7660] via-[#4d987b] to-[#3c7660] hover:shadow-lg hover:shadow-[#3c7660]/30 text-white font-semibold transition-all duration-300 hover:scale-[1.02] group/btn bg-[length:200%_100%] hover:bg-right"
-              onClick={(e) => {
-                e.stopPropagation();
-                openAdventureModal(adventure);
-              }}
-            >
-              <NavigationIcon className="mr-2 h-4 w-4 group-hover/btn:animate-pulse" />
-              Start Quest
-            </Button>
+            {/* Action Buttons - Different for completed vs active */}
+            {adventure.is_completed ? (
+              <div className="space-y-2">
+                <Button
+                  className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:shadow-lg hover:shadow-emerald-500/30 text-white font-semibold transition-all duration-300 hover:scale-[1.02]"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedAdventure(adventure);
+                    setShareTitle(adventure.custom_title || '');
+                    setShareDescription('');
+                    setShareRating(5);
+                    setShowShareModal(true);
+                  }}
+                >
+                  <Share2 className="mr-2 h-4 w-4" />
+                  Post to Discover
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full border-[#3c7660]/30 text-[#3c7660] hover:bg-[#3c7660]/5 transition-all duration-300"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    setSelectedAdventure(adventure);
+                    await handleDuplicate();
+                  }}
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Do Again
+                </Button>
+              </div>
+            ) : (
+              <>
+                <Button
+                  className="w-full bg-gradient-to-r from-[#3c7660] via-[#4d987b] to-[#3c7660] hover:shadow-lg hover:shadow-[#3c7660]/30 text-white font-semibold transition-all duration-300 hover:scale-[1.02] group/btn bg-[length:200%_100%] hover:bg-right"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openAdventureModal(adventure);
+                  }}
+                >
+                  <NavigationIcon className="mr-2 h-4 w-4 group-hover/btn:animate-pulse" />
+                  Start Quest
+                </Button>
 
-            {/* Schedule CTA for unscheduled */}
-            {!adventure.scheduled_for && !adventure.is_completed && (
-              <Button 
-                variant="outline"
-                className="w-full border-[#3c7660]/30 text-[#3c7660] hover:bg-[#3c7660]/5 transition-all duration-300"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedAdventure(adventure);
-                  setShowScheduleModal(true);
-                }}
-              >
-                <CalendarDays className="mr-2 h-4 w-4" />
-                Schedule This Adventure
-              </Button>
+                {/* Schedule CTA for unscheduled */}
+                {!adventure.scheduled_for && (
+                  <Button
+                    variant="outline"
+                    className="w-full border-[#3c7660]/30 text-[#3c7660] hover:bg-[#3c7660]/5 transition-all duration-300"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedAdventure(adventure);
+                      setShowScheduleModal(true);
+                    }}
+                  >
+                    <CalendarDays className="mr-2 h-4 w-4" />
+                    Schedule This Adventure
+                  </Button>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -1323,6 +1365,145 @@ function PlansContent() {
               >
                 <CheckCircle2 className="w-4 h-4 mr-2" />
                 Schedule
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Share to Discover Modal */}
+      <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
+        <DialogContent className="max-w-2xl bg-white/95 backdrop-blur-xl border-2 border-gray-100">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-2xl">
+              <Share2 className="w-6 h-6 text-emerald-600" />
+              Share Adventure to Discover
+            </DialogTitle>
+            <p className="text-sm text-gray-600 mt-2">
+              Share your completed adventure with the community and inspire others!
+            </p>
+          </DialogHeader>
+          <div className="space-y-6 mt-4">
+            {/* Title */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-800 mb-2">
+                Adventure Title
+              </label>
+              <input
+                type="text"
+                value={shareTitle}
+                onChange={(e) => setShareTitle(e.target.value)}
+                placeholder="Give your adventure a memorable title..."
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-base text-gray-800 focus:border-[#3c7660] focus:ring-2 focus:ring-[#3c7660]/20 outline-none transition-all"
+              />
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-800 mb-2">
+                Share Your Experience
+              </label>
+              <textarea
+                value={shareDescription}
+                onChange={(e) => setShareDescription(e.target.value)}
+                placeholder="Share highlights, tips, or memorable moments from your adventure..."
+                rows={4}
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-base text-gray-800 focus:border-[#3c7660] focus:ring-2 focus:ring-[#3c7660]/20 outline-none transition-all resize-none"
+              />
+            </div>
+
+            {/* Rating */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-800 mb-3">
+                Rate Your Adventure
+              </label>
+              <div className="flex items-center gap-2">
+                {[1, 2, 3, 4, 5].map((rating) => (
+                  <button
+                    key={rating}
+                    onClick={() => setShareRating(rating)}
+                    className="transition-all duration-200 hover:scale-110"
+                  >
+                    <Star
+                      className={`w-10 h-10 transition-all ${
+                        rating <= shareRating
+                          ? 'fill-[#f2cc6c] text-[#f2cc6c]'
+                          : 'text-gray-300'
+                      }`}
+                    />
+                  </button>
+                ))}
+                <span className="ml-3 text-lg font-semibold text-gray-700">
+                  {shareRating} {shareRating === 1 ? 'star' : 'stars'}
+                </span>
+              </div>
+            </div>
+
+            {/* Preview */}
+            {selectedAdventure && (
+              <div className="bg-gradient-to-br from-gray-50 to-[#f8f2d5]/20 rounded-xl p-4 border border-gray-100">
+                <p className="text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Preview</p>
+                <div className="flex items-center gap-3">
+                  <MapPin className="w-4 h-4 text-[#3c7660]" />
+                  <span className="text-sm text-gray-700">{selectedAdventure.location}</span>
+                </div>
+                <div className="flex items-center gap-3 mt-1">
+                  <Clock className="w-4 h-4 text-[#3c7660]" />
+                  <span className="text-sm text-gray-700">{selectedAdventure.duration_hours}h</span>
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowShareModal(false);
+                  setShareTitle('');
+                  setShareDescription('');
+                  setShareRating(5);
+                }}
+                disabled={isSharing}
+                className="flex-1 border-gray-300 hover:bg-gray-50"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (!shareTitle.trim()) {
+                    toast.error('Please add a title for your adventure');
+                    return;
+                  }
+                  if (!selectedAdventure) return;
+
+                  setIsSharing(true);
+                  try {
+                    await handleShare(shareRating, shareDescription);
+                    setShowShareModal(false);
+                    setShareTitle('');
+                    setShareDescription('');
+                    setShareRating(5);
+                  } catch (error) {
+                    console.error('Share error:', error);
+                  } finally {
+                    setIsSharing(false);
+                  }
+                }}
+                disabled={isSharing || !shareTitle.trim()}
+                className="flex-1 bg-gradient-to-r from-emerald-500 to-green-600 hover:shadow-lg text-white disabled:opacity-50"
+              >
+                {isSharing ? (
+                  <>
+                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
+                    Sharing...
+                  </>
+                ) : (
+                  <>
+                    <Share2 className="w-4 h-4 mr-2" />
+                    Share to Discover
+                  </>
+                )}
               </Button>
             </div>
           </div>
