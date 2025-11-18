@@ -53,6 +53,7 @@ import AdventureService from '@/services/AdventureService';
 import GooglePlacesService from '@/services/GooglePlacesService';
 import { SavedAdventure } from '@/types/adventureTypes';
 import EnhancedPlansModal from '@/components/EnhancedPlansModal';
+import { AdventureCardSkeleton, CalendarSkeleton } from '@/components/LoadingSkeleton';
 
 // Mock calendar events data - this will be replaced with real data from backend
 const mockCalendarEvents = [
@@ -630,8 +631,10 @@ function PlansContent() {
                   fill
                   className="object-cover transition-all duration-700 group-hover:scale-110"
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                  priority={photoIndex === 0}
-                  quality={95} // High quality images
+                  loading={photoIndex === 0 ? 'eager' : 'lazy'}
+                  quality={85}
+                  placeholder="blur"
+                  blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2YzZjRmNiIvPjwvc3ZnPg=="
                   key={photo}
                 />
                 {/* Multi-layer gradient overlay for depth */}
@@ -1013,15 +1016,28 @@ function PlansContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white relative">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-[#f8f2d5]/20 relative">
         <Navigation />
-        <div className="pt-20 px-4">
-          <div className="max-w-6xl mx-auto">
-            <div className="flex items-center justify-center py-20">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#3c7660] mx-auto mb-4"></div>
-                <p className="text-[#3c7660] font-medium">Loading your adventures...</p>
+        <div className="pt-20 px-4 pb-12">
+          <div className="max-w-7xl mx-auto">
+            {/* Header skeleton */}
+            <div className="mb-10">
+              <div className="h-10 bg-gray-200 rounded w-1/3 mb-3 animate-pulse" />
+              <div className="h-6 bg-gray-100 rounded w-1/4 mb-6 animate-pulse" />
+
+              {/* Stats skeleton */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="bg-white/80 rounded-2xl p-5 h-32 animate-pulse" />
+                ))}
               </div>
+            </div>
+
+            {/* Grid skeleton */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <AdventureCardSkeleton key={i} />
+              ))}
             </div>
           </div>
         </div>
