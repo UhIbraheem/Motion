@@ -22,7 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { 
+import {
   MapPin,
   Clock,
   Star,
@@ -43,7 +43,9 @@ import {
   Navigation as NavigationIcon,
   Calendar as CalendarIcon,
   Filter,
-  Search
+  Search,
+  RefreshCw,
+  Share2
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -51,6 +53,44 @@ import AdventureService from '@/services/AdventureService';
 import GooglePlacesService from '@/services/GooglePlacesService';
 import { SavedAdventure } from '@/types/adventureTypes';
 import EnhancedPlansModal from '@/components/EnhancedPlansModal';
+import { AdventureCardSkeleton, CalendarSkeleton } from '@/components/LoadingSkeleton';
+
+// Mock calendar events data - this will be replaced with real data from backend
+const mockCalendarEvents = [
+  {
+    id: "cal-1",
+    title: "Wine Country Day Trip",
+    date: new Date(2025, 7, 25), // August 25, 2025
+    startTime: "9:00 AM",
+    endTime: "6:00 PM",
+    location: "Napa Valley, CA",
+    type: 'adventure' as const,
+    status: 'planned' as const,
+    color: '#3c7660'
+  },
+  {
+    id: "cal-2",
+    title: "Mission District Food Tour",
+    date: new Date(2025, 7, 28), // August 28, 2025
+    startTime: "11:00 AM",
+    endTime: "3:00 PM",
+    location: "Mission District, SF",
+    type: 'scheduled' as const,
+    status: 'planned' as const,
+    color: '#3c7660'
+  },
+  {
+    id: "cal-3",
+    title: "Golden Gate Sunrise Hike",
+    date: new Date(2025, 7, 15), // August 15, 2025
+    startTime: "6:00 AM",
+    endTime: "9:00 AM",
+    location: "Golden Gate Park",
+    type: 'adventure' as const,
+    status: 'completed' as const,
+    color: '#3c7660'
+  }
+];
 
 export default function PlansPage() {
   return (
@@ -77,18 +117,23 @@ function PlansContent() {
   const [savedAdventures, setSavedAdventures] = useState<SavedAdventure[]>([]);
   const [scheduledAdventures, setScheduledAdventures] = useState<SavedAdventure[]>([]);
   const [loading, setLoading] = useState(true);
-  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [adventurePhotos, setAdventurePhotos] = useState<Record<string, string>>({}); // Cache for fetched photos
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState<Record<string, number>>({}); // Track photo index per adventure
-
+  
   // Modal state
   const [selectedAdventure, setSelectedAdventure] = useState<SavedAdventure | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [highlightedAdventureId, setHighlightedAdventureId] = useState<string | null>(null);
-  const [isScheduling, setIsScheduling] = useState(false); // Loading state for scheduling
+
+  // Share modal state
+  const [shareTitle, setShareTitle] = useState('');
+  const [shareDescription, setShareDescription] = useState('');
+  const [shareRating, setShareRating] = useState(5);
+  const [isSharing, setIsSharing] = useState(false);
 
   // Share to Discover with a quick review
   const handleShare = async (rating: number, text?: string) => {
@@ -118,14 +163,11 @@ function PlansContent() {
 
   // Load adventures
   useEffect(() => {
-    console.log('👤 [Plans] useEffect triggered, user:', { hasUser: !!user, userId: user?.id, email: user?.email });
     if (user) {
-      console.log('👤 [Plans] User authenticated, calling loadAdventures...');
+      console.log('👤 User authenticated, loading adventures...', { userId: user.id, email: user.email });
       loadAdventures();
     } else {
-      console.log('👤 [Plans] No user found, setting loading=false');
-      setLoading(false);
-      setInitialLoadComplete(true);
+      console.log('👤 No user found, skipping adventure load');
     }
   }, [user]);
 
@@ -236,14 +278,13 @@ function PlansContent() {
       // Filter scheduled adventures
       const scheduled = adventures.filter((adventure: SavedAdventure) => adventure.scheduled_for);
       setScheduledAdventures(scheduled);
-
+      
     } catch (error) {
       console.error('❌ Error loading adventures:', error);
       setError('Failed to load your adventures. Please try again.');
       toast.error('Failed to load adventures');
     } finally {
       setLoading(false);
-      setInitialLoadComplete(true);
     }
   };
 
@@ -292,119 +333,37 @@ function PlansContent() {
     }
   };
 
-  // Schedule adventure with enhanced error handling and loading state
+  // Schedule adventure
   const handleSchedule = async (date: Date) => {
-    console.log('📅 [Plans] handleSchedule called with date:', date);
-
-    if (!selectedAdventure) {
-      console.error('❌ [Plans] No adventure selected for scheduling');
-      toast.error('No adventure selected');
-      return;
-    }
-
-    if (!user) {
-      console.error('❌ [Plans] No user found');
-      toast.error('Please sign in to schedule adventures');
-      return;
-    }
-
-    // Validate date is in the future
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const scheduleDate = new Date(date);
-    scheduleDate.setHours(0, 0, 0, 0);
-
-    if (scheduleDate < now) {
-      toast.error('Please select a future date for your adventure.');
-      return;
-    }
-
-    console.log('📅 [Plans] Setting isScheduling = true');
-    setIsScheduling(true);
+    if (!selectedAdventure) return;
 
     try {
-      console.log('📅 [Plans] Scheduling adventure:', {
-        id: selectedAdventure.id,
-        title: selectedAdventure.custom_title,
-        date: date.toISOString(),
-        alreadyScheduled: !!selectedAdventure.scheduled_for,
-        userId: user.id
-      });
-
-      // Handle rescheduling case
-      if (selectedAdventure.scheduled_for) {
-        const oldDate = new Date(selectedAdventure.scheduled_for).toLocaleDateString();
-        const newDate = date.toLocaleDateString();
-        console.log(`🔄 [Plans] Rescheduling from ${oldDate} to ${newDate}`);
-      }
-
-      console.log('📅 [Plans] Calling AdventureService.scheduleAdventure...');
-
-      // Call service - now returns full updated adventure
-      const updatedAdventure = await AdventureService.scheduleAdventure(
-        selectedAdventure.id,
-        date
-      );
-
-      console.log('✅ [Plans] Adventure scheduled successfully:', {
-        id: updatedAdventure.id,
-        scheduled_for: updatedAdventure.scheduled_for,
-        is_scheduled: updatedAdventure.is_scheduled
-      });
-
-      // Update selected adventure in modal
+      console.log('📅 Scheduling adventure:', selectedAdventure.id, 'for', date);
+      
+      // Sync with backend first (updates both scheduled_date AND is_scheduled)
+      await AdventureService.scheduleAdventure(selectedAdventure.id, date);
+      
+      // Update locally with BOTH fields
+      const updatedAdventure = { 
+        ...selectedAdventure, 
+        scheduled_for: date.toISOString(),
+        is_scheduled: true  // Critical: set the boolean flag
+      };
       setSelectedAdventure(updatedAdventure);
-
-      // Update in the main adventures list
-      setSavedAdventures(prev =>
-        prev.map(adv => (adv.id === updatedAdventure.id ? updatedAdventure : adv))
-      );
-
-      // Update scheduled adventures list for tab counter
-      if (updatedAdventure.scheduled_for) {
-        setScheduledAdventures(prev => {
-          const exists = prev.find(a => a.id === updatedAdventure.id);
-          if (exists) {
-            return prev.map(a => a.id === updatedAdventure.id ? updatedAdventure : a);
-          } else {
-            return [...prev, updatedAdventure];
-          }
-        });
-      }
-
-      // Show success message
-      const formattedDate = date.toLocaleDateString('en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
-
-      if (selectedAdventure.scheduled_for) {
-        toast.success(`Adventure rescheduled to ${formattedDate}! 📅`);
-      } else {
-        toast.success(`Adventure scheduled for ${formattedDate}! 🎉`);
-      }
-
-      // Close the schedule modal
-      setShowScheduleModal(false);
-      console.log('📅 [Plans] Schedule modal closed');
-
+      
+      // Update in the main list too
+      setSavedAdventures(prev => prev.map(adv => 
+        adv.id === selectedAdventure.id ? updatedAdventure : adv
+      ));
+      
+      toast.success(`Adventure scheduled for ${date.toLocaleDateString()}! 🎉`);
+      
+      // Reload to ensure complete sync
+      await loadAdventures();
+      
     } catch (error: any) {
-      console.error('❌ [Plans] Scheduling failed:', {
-        error: error?.message,
-        stack: error?.stack,
-        adventureId: selectedAdventure.id,
-        name: error?.name
-      });
-
-      // Show user-friendly error message
-      toast.error(error?.message || 'Failed to schedule adventure. Please try again.', {
-        duration: 5000,
-      });
-    } finally {
-      console.log('📅 [Plans] Setting isScheduling = false');
-      setIsScheduling(false);
+      console.error('❌ Scheduling failed:', error);
+      toast.error(error?.message || 'Failed to schedule adventure. Please try again.');
     }
   };
 
@@ -505,8 +464,6 @@ function PlansContent() {
   // Open adventure modal
   const openAdventureModal = (adventure: SavedAdventure) => {
     setSelectedAdventure(adventure);
-    // Reset scheduling state for new adventure
-    setSelectedDate(adventure.scheduled_for ? new Date(adventure.scheduled_for) : undefined);
     setIsModalOpen(true);
   };
 
@@ -515,13 +472,8 @@ function PlansContent() {
     switch (activeTab) {
       case 'scheduled':
         // Ordered by soonest to latest scheduled date
-        // IMPORTANT: Check BOTH scheduled_for AND is_scheduled flag
         return savedAdventures
-          .filter(adventure =>
-            adventure.scheduled_for &&
-            adventure.is_scheduled === true &&
-            !adventure.is_completed
-          )
+          .filter(adventure => adventure.scheduled_for && !adventure.is_completed)
           .sort((a, b) => {
             const dateA = new Date(a.scheduled_for!);
             const dateB = new Date(b.scheduled_for!);
@@ -530,7 +482,7 @@ function PlansContent() {
       case 'completed':
         // Most recently completed to oldest
         return savedAdventures
-          .filter(adventure => adventure.is_completed === true)
+          .filter(adventure => adventure.is_completed)
           .sort((a, b) => {
             const dateA = new Date(a.saved_at);
             const dateB = new Date(b.saved_at);
@@ -547,197 +499,42 @@ function PlansContent() {
     }
   };
 
-  /**
-   * Get photo URL with caching and multiple fallbacks
-   * Implements localStorage cache with 24hr TTL
-   */
-  const getAdventurePhoto = (adventure: SavedAdventure): string => {
-    const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
-    const cacheKey = `motion_photo_${adventure.id}`;
-
-    // Check memory cache first (fastest)
+  // Get real photo URL from Google Places data
+  const getAdventurePhoto = (adventure: SavedAdventure) => {
+    // Check cache first
     if (adventurePhotos[adventure.id]) {
       return adventurePhotos[adventure.id];
     }
 
-    // Check localStorage cache
-    try {
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) {
-        const { url, cachedAt } = JSON.parse(cached);
-        if (Date.now() - cachedAt < CACHE_TTL) {
-          console.log(`📷 [Photo] Cache hit for ${adventure.id}`);
-          // Update memory cache
-          setAdventurePhotos(prev => ({ ...prev, [adventure.id]: url }));
-          return url;
-        } else {
-          // Expired, remove it
-          localStorage.removeItem(cacheKey);
-        }
-      }
-    } catch (e) {
-      console.warn('📷 [Photo] Cache read error:', e);
+    // Priority 1: adventure_photos table
+    if (adventure.adventure_photos?.length > 0 && adventure.adventure_photos[0]?.photo_url) {
+      return adventure.adventure_photos[0].photo_url;
     }
-
-    // Priority 1: adventure_photos array (database stored photos)
-    if (adventure.adventure_photos?.length > 0) {
-      for (const photo of adventure.adventure_photos) {
-        if (photo.photo_url) {
-          const url = photo.photo_url;
-          cachePhoto(adventure.id, url);
-          return url;
-        }
-      }
-    }
-
-    // Priority 2: First step's primary photo
-    if (adventure.adventure_steps?.length > 0) {
-      const firstStep = adventure.adventure_steps[0] as any;
-
-      // Check for photos array with primary flag
-      if (firstStep.photos?.length > 0) {
-        const primaryPhoto = firstStep.photos.find((p: any) => p.isPrimary);
-        if (primaryPhoto?.url) {
-          cachePhoto(adventure.id, primaryPhoto.url);
-          return primaryPhoto.url;
-        }
-        // Use first photo if no primary
-        if (firstStep.photos[0]?.url) {
-          cachePhoto(adventure.id, firstStep.photos[0].url);
-          return firstStep.photos[0].url;
-        }
-      }
-
-      // Check google_photo_url
-      if (firstStep.google_photo_url) {
-        cachePhoto(adventure.id, firstStep.google_photo_url);
-        return firstStep.google_photo_url;
-      }
-
-      // Check google_places.photo_url
-      if (firstStep.google_places?.photo_url) {
-        cachePhoto(adventure.id, firstStep.google_places.photo_url);
-        return firstStep.google_places.photo_url;
-      }
-
-      // Check generic photo_url
-      if (firstStep.photo_url) {
-        cachePhoto(adventure.id, firstStep.photo_url);
-        return firstStep.photo_url;
-      }
-    }
-
-    // Priority 3: Any step with a photo
+    
+    // Priority 2: Google Places data in steps
     if (adventure.adventure_steps?.length > 0) {
       for (const step of adventure.adventure_steps) {
         const stepData = step as any;
-
-        if (stepData.photos?.length > 0 && stepData.photos[0]?.url) {
-          cachePhoto(adventure.id, stepData.photos[0].url);
-          return stepData.photos[0].url;
-        }
-
-        if (stepData.google_photo_url) {
-          cachePhoto(adventure.id, stepData.google_photo_url);
-          return stepData.google_photo_url;
-        }
-
-        if (stepData.google_places?.photo_url) {
-          cachePhoto(adventure.id, stepData.google_places.photo_url);
-          return stepData.google_places.photo_url;
-        }
-
-        if (stepData.photo_url) {
-          cachePhoto(adventure.id, stepData.photo_url);
-          return stepData.photo_url;
-        }
+        
+        if (stepData.google_photo_url) return stepData.google_photo_url;
+        if (stepData.google_places?.photo_url) return stepData.google_places.photo_url;
+        if (stepData.photo_url) return stepData.photo_url;
       }
     }
-
-    // Priority 4: Unsplash generic category image based on adventure location
-    const location = adventure.location?.toLowerCase() || '';
-    let unsplashQuery = 'adventure';
-
-    if (location.includes('beach') || location.includes('miami') || location.includes('bahamas')) {
-      unsplashQuery = 'beach';
-    } else if (location.includes('mountain') || location.includes('denver') || location.includes('colorado')) {
-      unsplashQuery = 'mountain';
-    } else if (location.includes('city') || location.includes('new york') || location.includes('chicago')) {
-      unsplashQuery = 'city';
-    } else if (location.includes('food') || location.includes('restaurant')) {
-      unsplashQuery = 'food';
-    }
-
-    const unsplashUrl = `https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=400&q=80`;
-
-    // Priority 5: Final fallback placeholder
-    const fallbackUrl = '/images/adventure-placeholder.png';
-
-    // Try Unsplash first, then fallback
-    const finalUrl = unsplashUrl;
-    cachePhoto(adventure.id, finalUrl);
-    return finalUrl;
+    
+    // Fallback
+    return 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400&h=300&fit=crop';
   };
-
-  /**
-   * Cache photo URL to localStorage and memory
-   */
-  const cachePhoto = (adventureId: string, url: string) => {
-    try {
-      const cacheKey = `motion_photo_${adventureId}`;
-      localStorage.setItem(cacheKey, JSON.stringify({
-        url,
-        cachedAt: Date.now()
-      }));
-      setAdventurePhotos(prev => ({ ...prev, [adventureId]: url }));
-    } catch (e) {
-      console.warn('📷 [Photo] Cache write error:', e);
-    }
-  };
-
-  /**
-   * Clear expired cache entries on mount
-   */
-  useEffect(() => {
-    const clearExpiredCache = () => {
-      const CACHE_TTL = 24 * 60 * 60 * 1000;
-      const keysToRemove: string[] = [];
-
-      try {
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key?.startsWith('motion_photo_')) {
-            const cached = localStorage.getItem(key);
-            if (cached) {
-              const { cachedAt } = JSON.parse(cached);
-              if (Date.now() - cachedAt >= CACHE_TTL) {
-                keysToRemove.push(key);
-              }
-            }
-          }
-        }
-
-        keysToRemove.forEach(key => localStorage.removeItem(key));
-        if (keysToRemove.length > 0) {
-          console.log(`📷 [Photo] Cleared ${keysToRemove.length} expired cache entries`);
-        }
-      } catch (e) {
-        console.warn('📷 [Photo] Cache cleanup error:', e);
-      }
-    };
-
-    clearExpiredCache();
-  }, []);
 
   // Get all available photos for an adventure
   const getAllAdventurePhotos = (adventure: SavedAdventure): string[] => {
     const photos: string[] = [];
-
+    
     // Check cache first
     if (adventurePhotos[adventure.id]) {
       photos.push(adventurePhotos[adventure.id]);
     }
-
+    
     // Check adventure_photos table
     if (adventure.adventure_photos?.length > 0) {
       for (const photo of adventure.adventure_photos) {
@@ -746,7 +543,7 @@ function PlansContent() {
         }
       }
     }
-
+    
     // Get photos from all steps
     if (adventure.adventure_steps?.length > 0) {
       for (const step of adventure.adventure_steps) {
@@ -757,93 +554,12 @@ function PlansContent() {
         }
       }
     }
-
+    
     // If no photos found, return fallback
     if (photos.length === 0) {
       photos.push('https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400&h=300&fit=crop');
     }
-
-    return photos;
-  };
-
-  // Get up to 3 step photos for card display (one per step)
-  const getStepPhotos = (adventure: SavedAdventure): string[] => {
-    const photos: string[] = [];
-
-    // Priority 1: Check adventure_photos first (most reliable)
-    if (adventure.adventure_photos?.length > 0) {
-      for (const photo of adventure.adventure_photos) {
-        if (photos.length >= 3) break;
-        if (photo.photo_url && !photos.includes(photo.photo_url)) {
-          photos.push(photo.photo_url);
-        }
-      }
-    }
-
-    // Priority 2: Get photos from steps (one per step, up to 3)
-    if (photos.length < 3 && adventure.adventure_steps?.length > 0) {
-      for (const step of adventure.adventure_steps) {
-        if (photos.length >= 3) break; // Max 3 photos
-
-        const stepData = step as any;
-        const photoUrl = stepData.google_photo_url || stepData.google_places?.photo_url || stepData.photo_url;
-        if (photoUrl && !photos.includes(photoUrl)) {
-          photos.push(photoUrl);
-        }
-      }
-    }
-
-    // Priority 3: Use cached photo from memory
-    if (photos.length === 0 && adventurePhotos[adventure.id]) {
-      photos.push(adventurePhotos[adventure.id]);
-    }
-
-    // Priority 4: Check ALL steps for ANY photo (exhaustive search)
-    if (photos.length === 0 && adventure.adventure_steps?.length > 0) {
-      for (const step of adventure.adventure_steps) {
-        const stepData = step as any;
-
-        // Check all possible photo fields
-        const possiblePhotos = [
-          stepData.google_photo_url,
-          stepData.google_places?.photo_url,
-          stepData.photo_url,
-          stepData.google_photo_reference
-        ].filter(Boolean);
-
-        for (const photo of possiblePhotos) {
-          if (!photos.includes(photo)) {
-            photos.push(photo);
-            if (photos.length >= 3) break;
-          }
-        }
-        if (photos.length >= 3) break;
-      }
-    }
-
-    // Priority 5: Fallback to a nice location-based image
-    if (photos.length === 0) {
-      const location = adventure.location?.toLowerCase() || '';
-      if (location.includes('beach') || location.includes('miami') || location.includes('ocean')) {
-        photos.push('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80'); // Beach
-      } else if (location.includes('mountain') || location.includes('hike') || location.includes('trail')) {
-        photos.push('https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80'); // Mountain
-      } else if (location.includes('city') || location.includes('urban') || location.includes('downtown')) {
-        photos.push('https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=800&q=80'); // City
-      } else if (location.includes('food') || location.includes('restaurant') || location.includes('cafe')) {
-        photos.push('https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800&q=80'); // Food
-      } else {
-        photos.push('https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=800&q=80'); // Default adventure
-      }
-    }
-
-    console.log('📸 [getStepPhotos]', {
-      adventureId: adventure.id,
-      title: adventure.custom_title,
-      photosFound: photos.length,
-      photos: photos
-    });
-
+    
     return photos;
   };
 
@@ -871,14 +587,16 @@ function PlansContent() {
   };
 
   // Ultra-modern adventure card with premium design
-  const renderAdventureCard = (adventure: SavedAdventure, cardIndex: number) => {
-    const stepPhotos = getStepPhotos(adventure); // Get up to 3 step photos
-    const hasPhotos = stepPhotos.length > 0;
-
+  const renderAdventureCard = (adventure: SavedAdventure) => {
+    const allPhotos = getAllAdventurePhotos(adventure);
+    const photoIndex = currentPhotoIndex[adventure.id] || 0;
+    const photo = allPhotos[photoIndex];
+    const hasMultiplePhotos = allPhotos.length > 1;
+    
     const completedSteps = adventure.adventure_steps.filter((step: any) => step.completed).length;
     const totalSteps = adventure.adventure_steps.length;
     const progress = totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0;
-
+    
     const formatBudget = (cost: string | number | null | undefined) => {
       if (!cost) return '$';
       const costStr = String(cost);
@@ -886,105 +604,42 @@ function PlansContent() {
       if (/^\d+$/.test(costStr)) return `$${costStr}`;
       return `$${costStr}`;
     };
-
+    
     const budgetPerPerson = formatBudget(adventure.estimated_cost || '$');
     const isHighlighted = highlightedAdventureId === adventure.id;
 
     return (
-      <div
+      <div 
         key={adventure.id}
         className={`group relative overflow-hidden rounded-2xl transition-all duration-500 cursor-pointer border ${
-          isHighlighted
-            ? 'ring-2 ring-[#f2cc6c] ring-offset-4 shadow-2xl shadow-[#f2cc6c]/30 scale-[1.02] border-[#f2cc6c]'
+          isHighlighted 
+            ? 'ring-2 ring-[#f2cc6c] ring-offset-4 shadow-2xl shadow-[#f2cc6c]/30 scale-[1.02] border-[#f2cc6c]' 
             : 'hover:scale-[1.02] hover:shadow-2xl border-gray-200/60'
         }`}
         onClick={() => openAdventureModal(adventure)}
       >
-        {/* Main Card Container with Apple Glassmorphism */}
-        <div className="relative bg-white/90 backdrop-blur-2xl border border-white/30 shadow-xl h-full">
-
-          {/* Hero Image Section - Multiple Photos Grid */}
-          <div className="relative h-56 overflow-hidden">
-            {hasPhotos ? (
+        {/* Main Card Container with Glassmorphism */}
+        <div className="relative bg-white/80 backdrop-blur-xl border-0 shadow-xl h-full">
+          
+          {/* Hero Image Section - Premium Quality */}
+          <div className="relative h-72 overflow-hidden">
+            {photo ? (
               <div className="absolute inset-0">
-                {stepPhotos.length === 1 ? (
-                  // Single photo - full width
-                  <div className="relative w-full h-full">
-                    <Image
-                      src={stepPhotos[0]}
-                      alt={adventure.custom_title || 'Adventure'}
-                      fill
-                      className="object-cover transition-all duration-700 group-hover:scale-110"
-                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                      priority={cardIndex < 3}
-                      loading={cardIndex < 3 ? 'eager' : 'lazy'}
-                      quality={90}
-                    />
-                  </div>
-                ) : stepPhotos.length === 2 ? (
-                  // Two photos - side by side
-                  <div className="flex gap-1 h-full">
-                    {stepPhotos.map((photo, idx) => (
-                      <div key={idx} className="relative flex-1">
-                        <Image
-                          src={photo}
-                          alt={`${adventure.custom_title} - Stop ${idx + 1}`}
-                          fill
-                          className="object-cover transition-all duration-700 group-hover:scale-110"
-                          sizes="(max-width: 768px) 50vw, (max-width: 1200px) 25vw, 16vw"
-                          priority={cardIndex < 3 && idx === 0}
-                          loading={cardIndex < 3 && idx === 0 ? 'eager' : 'lazy'}
-                          quality={85}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  // Three photos - grid layout (1 large + 2 small)
-                  <div className="flex gap-1 h-full">
-                    {/* First photo - takes 60% width */}
-                    <div className="relative w-[60%]">
-                      <Image
-                        src={stepPhotos[0]}
-                        alt={`${adventure.custom_title} - Stop 1`}
-                        fill
-                        className="object-cover transition-all duration-700 group-hover:scale-110"
-                        sizes="(max-width: 768px) 60vw, (max-width: 1200px) 30vw, 20vw"
-                        priority={cardIndex < 3}
-                        loading={cardIndex < 3 ? 'eager' : 'lazy'}
-                        quality={85}
-                      />
-                    </div>
-                    {/* Second and third photos - stacked, 40% width */}
-                    <div className="flex flex-col gap-1 w-[40%]">
-                      <div className="relative flex-1">
-                        <Image
-                          src={stepPhotos[1]}
-                          alt={`${adventure.custom_title} - Stop 2`}
-                          fill
-                          className="object-cover transition-all duration-700 group-hover:scale-110"
-                          sizes="(max-width: 768px) 40vw, (max-width: 1200px) 20vw, 13vw"
-                          loading="lazy"
-                          quality={80}
-                        />
-                      </div>
-                      <div className="relative flex-1">
-                        <Image
-                          src={stepPhotos[2]}
-                          alt={`${adventure.custom_title} - Stop 3`}
-                          fill
-                          className="object-cover transition-all duration-700 group-hover:scale-110"
-                          sizes="(max-width: 768px) 40vw, (max-width: 1200px) 20vw, 13vw"
-                          loading="lazy"
-                          quality={80}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
+                <Image
+                  src={photo}
+                  alt={adventure.custom_title || 'Adventure'}
+                  fill
+                  className="object-cover transition-all duration-700 group-hover:scale-110"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  loading={photoIndex === 0 ? 'eager' : 'lazy'}
+                  quality={85}
+                  placeholder="blur"
+                  blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2YzZjRmNiIvPjwvc3ZnPg=="
+                  key={photo}
+                />
                 {/* Multi-layer gradient overlay for depth */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
-                <div className="absolute inset-0 bg-gradient-to-br from-[#3c7660]/10 via-transparent to-[#f2cc6c]/10 pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-br from-[#3c7660]/10 via-transparent to-[#f2cc6c]/10" />
               </div>
             ) : (
               <div className="absolute inset-0 bg-gradient-to-br from-[#3c7660]/5 via-white to-[#f2cc6c]/5 flex items-center justify-center">
@@ -992,12 +647,38 @@ function PlansContent() {
               </div>
             )}
 
-            {/* Step Photos Badge */}
-            {stepPhotos.length > 1 && (
-              <div className="absolute bottom-4 right-4 bg-black/50 backdrop-blur-xl rounded-full px-3 py-1.5 shadow-lg border border-white/30">
+            {/* Premium Photo Navigation */}
+            {hasMultiplePhotos && (
+              <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-between px-3 z-20">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigatePhoto(adventure.id, 'prev', adventure);
+                  }}
+                  className="group/btn bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full p-2.5 transition-all duration-300 hover:scale-110 shadow-lg border border-white/20"
+                  aria-label="Previous photo"
+                >
+                  <ChevronLeft className="w-5 h-5 text-white drop-shadow-lg" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigatePhoto(adventure.id, 'next', adventure);
+                  }}
+                  className="group/btn bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full p-2.5 transition-all duration-300 hover:scale-110 shadow-lg border border-white/20"
+                  aria-label="Next photo"
+                >
+                  <ChevronRight className="w-5 h-5 text-white drop-shadow-lg" />
+                </button>
+              </div>
+            )}
+
+            {/* Photo Counter Badge */}
+            {hasMultiplePhotos && (
+              <div className="absolute bottom-4 right-4 bg-black/40 backdrop-blur-md rounded-full px-3 py-1.5 shadow-lg border border-white/20">
                 <span className="text-white text-xs font-semibold flex items-center gap-1">
                   <Sparkles className="w-3 h-3" />
-                  {stepPhotos.length} stops
+                  {photoIndex + 1} / {allPhotos.length}
                 </span>
               </div>
             )}
@@ -1006,13 +687,13 @@ function PlansContent() {
             <div className="absolute top-4 left-4 right-4 flex items-start justify-between z-10">
               <div className="flex flex-col gap-2">
                 {adventure.is_completed && (
-                  <Badge className="bg-emerald-500/80 backdrop-blur-xl text-white border border-white/20 shadow-lg shadow-emerald-500/30 text-xs font-semibold">
+                  <Badge className="bg-emerald-500/90 backdrop-blur-sm text-white border-0 shadow-lg shadow-emerald-500/30 text-xs font-semibold">
                     <Award className="mr-1 h-3.5 w-3.5" />
                     Completed
                   </Badge>
                 )}
                 {adventure.scheduled_for && !adventure.is_completed && (
-                  <Badge className="bg-[#3c7660]/50 backdrop-blur-2xl border border-white/60 text-white text-xs font-semibold shadow-lg">
+                  <Badge className="bg-[#3c7660]/90 backdrop-blur-sm border border-white/20 text-white text-xs font-semibold shadow-lg">
                     <CalendarDays className="mr-1 h-3.5 w-3.5" />
                     {new Date(adventure.scheduled_for).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                   </Badge>
@@ -1025,13 +706,13 @@ function PlansContent() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="bg-white/20 hover:bg-white/30 backdrop-blur-xl rounded-full p-2 shadow-lg border border-white/40 transition-all duration-200 hover:scale-110"
+                    className="bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full p-2 shadow-lg border border-white/20 transition-all duration-200 hover:scale-110"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <MoreHorizontal className="h-4 w-4 text-white" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48 bg-white/95 backdrop-blur-2xl border border-white/40">
+                <DropdownMenuContent align="end" className="w-48 bg-white/95 backdrop-blur-md">
                   <DropdownMenuItem 
                     onClick={(e) => {
                       e.stopPropagation();
@@ -1068,13 +749,13 @@ function PlansContent() {
             </div>
 
             {/* Adventure Title Overlay */}
-            <div className="absolute bottom-0 left-0 right-0 p-4">
-              <div className="space-y-1.5">
-                <h3 className="font-bold text-white text-lg leading-tight line-clamp-2 drop-shadow-2xl">
+            <div className="absolute bottom-0 left-0 right-0 p-5">
+              <div className="space-y-2">
+                <h3 className="font-bold text-white text-xl leading-tight line-clamp-2 drop-shadow-2xl">
                   {adventure.custom_title || 'Your Adventure'}
                 </h3>
-                <div className="flex items-center gap-1.5 text-white/90 text-xs">
-                  <MapPin className="w-3.5 h-3.5 drop-shadow-lg" />
+                <div className="flex items-center gap-2 text-white/90 text-sm">
+                  <MapPin className="w-4 h-4 drop-shadow-lg" />
                   <span className="truncate drop-shadow-lg font-medium">
                     {adventure.location || 'Destination'}
                   </span>
@@ -1084,7 +765,7 @@ function PlansContent() {
           </div>
 
           {/* Card Content - Data Visualization */}
-          <div className="p-4 space-y-3">
+          <div className="p-5 space-y-4">
             
             {/* Progress Visualization - Only for incomplete */}
             {!adventure.is_completed && totalSteps > 0 && (
@@ -1110,46 +791,75 @@ function PlansContent() {
             )}
 
             {/* Key Metrics Grid */}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-3">
               {/* Duration */}
-              <div className="bg-gradient-to-br from-[#3c7660]/5 to-transparent rounded-lg p-2.5 border border-[#3c7660]/10">
-                <div className="flex items-center gap-1.5 text-gray-600 text-xs font-medium mb-0.5">
-                  <Clock className="w-3 h-3" />
+              <div className="bg-gradient-to-br from-[#3c7660]/5 to-transparent rounded-xl p-3 border border-[#3c7660]/10">
+                <div className="flex items-center gap-2 text-gray-600 text-xs font-medium mb-1">
+                  <Clock className="w-3.5 h-3.5" />
                   Duration
                 </div>
-                <p className="text-base font-bold text-[#3c7660]">
+                <p className="text-lg font-bold text-[#3c7660]">
                   {adventure.duration_hours}h
                 </p>
               </div>
 
               {/* Budget */}
-              <div className="bg-gradient-to-br from-[#f2cc6c]/5 to-transparent rounded-lg p-2.5 border border-[#f2cc6c]/20">
-                <div className="flex items-center gap-1.5 text-gray-600 text-xs font-medium mb-0.5">
-                  <DollarSign className="w-3 h-3" />
+              <div className="bg-gradient-to-br from-[#f2cc6c]/5 to-transparent rounded-xl p-3 border border-[#f2cc6c]/20">
+                <div className="flex items-center gap-2 text-gray-600 text-xs font-medium mb-1">
+                  <DollarSign className="w-3.5 h-3.5" />
                   Budget
                 </div>
-                <p className="text-base font-bold text-[#3c7660]">
+                <p className="text-lg font-bold text-[#3c7660]">
                   {budgetPerPerson}
                 </p>
               </div>
             </div>
 
-            {/* Action Button */}
-            <Button 
-              className="w-full bg-gradient-to-r from-[#3c7660] via-[#4d987b] to-[#3c7660] hover:shadow-lg hover:shadow-[#3c7660]/30 text-white font-semibold transition-all duration-300 hover:scale-[1.02] group/btn bg-[length:200%_100%] hover:bg-right"
-              onClick={(e) => {
-                e.stopPropagation();
-                openAdventureModal(adventure);
-              }}
-            >
-              <NavigationIcon className="mr-2 h-4 w-4 group-hover/btn:animate-pulse" />
-              Start Quest
-            </Button>
-
-            {/* Schedule CTA or Scheduled Date Display */}
-            {!adventure.is_completed && (
+            {/* Action Buttons - Different for completed vs active */}
+            {adventure.is_completed ? (
+              <div className="space-y-2">
+                <Button
+                  className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:shadow-lg hover:shadow-emerald-500/30 text-white font-semibold transition-all duration-300 hover:scale-[1.02]"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedAdventure(adventure);
+                    setShareTitle(adventure.custom_title || '');
+                    setShareDescription('');
+                    setShareRating(5);
+                    setShowShareModal(true);
+                  }}
+                >
+                  <Share2 className="mr-2 h-4 w-4" />
+                  Post to Discover
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full border-[#3c7660]/30 text-[#3c7660] hover:bg-[#3c7660]/5 transition-all duration-300"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    setSelectedAdventure(adventure);
+                    await handleDuplicate();
+                  }}
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Do Again
+                </Button>
+              </div>
+            ) : (
               <>
-                {!adventure.scheduled_for ? (
+                <Button
+                  className="w-full bg-gradient-to-r from-[#3c7660] via-[#4d987b] to-[#3c7660] hover:shadow-lg hover:shadow-[#3c7660]/30 text-white font-semibold transition-all duration-300 hover:scale-[1.02] group/btn bg-[length:200%_100%] hover:bg-right"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openAdventureModal(adventure);
+                  }}
+                >
+                  <NavigationIcon className="mr-2 h-4 w-4 group-hover/btn:animate-pulse" />
+                  Start Quest
+                </Button>
+
+                {/* Schedule CTA for unscheduled */}
+                {!adventure.scheduled_for && (
                   <Button
                     variant="outline"
                     className="w-full border-[#3c7660]/30 text-[#3c7660] hover:bg-[#3c7660]/5 transition-all duration-300"
@@ -1161,27 +871,6 @@ function PlansContent() {
                   >
                     <CalendarDays className="mr-2 h-4 w-4" />
                     Schedule This Adventure
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    className="w-full border-[#3c7660]/30 text-[#3c7660] hover:bg-[#3c7660]/5 transition-all duration-300 justify-between"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedAdventure(adventure);
-                      setShowScheduleModal(true);
-                    }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <CalendarDays className="h-4 w-4" />
-                      <span className="text-sm font-medium">
-                        {new Date(adventure.scheduled_for).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric'
-                        })}
-                      </span>
-                    </div>
-                    <span className="text-xs opacity-60">Reschedule</span>
                   </Button>
                 )}
               </>
@@ -1197,148 +886,127 @@ function PlansContent() {
 
   // Render calendar view
   const renderCalendarView = () => {
-    // Get adventures for selected date
-    const getAdventuresForDate = (date: Date): SavedAdventure[] => {
-      return scheduledAdventures.filter(adventure => {
-        if (!adventure.scheduled_for) return false;
-        const adventureDate = new Date(adventure.scheduled_for);
-        return adventureDate.toDateString() === date.toDateString();
-      });
-    };
-
-    const selectedDateAdventures = selectedDate ? getAdventuresForDate(selectedDate) : [];
+    const scheduledDates = scheduledAdventures
+      .filter(a => a.scheduled_for)
+      .map(a => new Date(a.scheduled_for as string));
 
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Calendar */}
-        <Card className="bg-white/90 backdrop-blur-xl border border-white/40 shadow-md">
+        <Card className="bg-white/95 backdrop-blur-xl border-2 border-gray-100 shadow-2xl">
           <CardContent className="p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <CalendarDays className="w-5 h-5 text-[#3c7660]" />
-              Your Adventure Schedule
+              <CalendarIcon className="w-5 h-5 text-[#3c7660]" />
+              Schedule
             </h3>
             <Calendar
               mode="single"
               selected={selectedDate}
               onSelect={handleDateSelect}
-              className="rounded-md border-0"
+              className="rounded-xl"
               modifiers={{
-                scheduled: scheduledAdventures
-                  .filter(a => a.scheduled_for)
-                  .map(a => new Date(a.scheduled_for as string))
+                scheduled: scheduledDates
               }}
-              modifiersStyles={{
-                scheduled: {
-                  backgroundColor: '#3c7660',
-                  color: 'white',
-                  fontWeight: 'bold'
+              components={{
+                DayContent: ({ date }) => {
+                  const hasEvent = scheduledDates.some(
+                    d => d.toDateString() === date.toDateString()
+                  );
+                  return (
+                    <div className="relative w-full h-full flex items-center justify-center">
+                      <span>{date.getDate()}</span>
+                      {hasEvent && (
+                        <div className="absolute bottom-0.5 w-1 h-1 bg-[#3c7660] rounded-full shadow-sm" />
+                      )}
+                    </div>
+                  );
                 }
               }}
+              classNames={{
+                months: "flex flex-col space-y-4",
+                month: "space-y-4",
+                caption: "flex justify-center pt-1 relative items-center mb-2",
+                caption_label: "text-base font-bold text-gray-900",
+                nav: "space-x-1 flex items-center",
+                nav_button: "h-8 w-8 bg-white/60 backdrop-blur-sm hover:bg-[#3c7660]/10 rounded-xl transition-all border border-gray-200 hover:border-[#3c7660]/30",
+                nav_button_previous: "absolute left-1",
+                nav_button_next: "absolute right-1",
+                table: "w-full border-collapse space-y-1",
+                head_row: "flex",
+                head_cell: "text-gray-600 rounded-lg w-10 font-semibold text-sm",
+                row: "flex w-full mt-2",
+                cell: "relative p-0 text-center text-sm focus-within:relative focus-within:z-20",
+                day: "h-10 w-10 p-0 font-medium hover:bg-[#3c7660]/10 rounded-xl transition-all inline-flex items-center justify-center backdrop-blur-sm",
+                day_selected: "bg-gradient-to-br from-[#3c7660]/20 to-[#4d987b]/20 text-[#3c7660] font-bold rounded-xl ring-2 ring-[#3c7660]/40 ring-offset-1 backdrop-blur-md",
+                day_today: "bg-[#f2cc6c]/30 text-[#3c7660] font-bold rounded-xl ring-2 ring-[#f2cc6c]/50 ring-offset-1",
+                day_outside: "text-gray-300 opacity-40",
+                day_disabled: "text-gray-200 opacity-30 cursor-not-allowed hover:bg-transparent",
+                day_hidden: "invisible",
+              }}
             />
-            {scheduledAdventures.length === 0 && (
-              <div className="mt-4 p-4 bg-gray-50 rounded-lg text-center">
-                <p className="text-sm text-gray-600">
-                  No adventures scheduled yet. Schedule an adventure to see it on the calendar!
-                </p>
-              </div>
-            )}
           </CardContent>
         </Card>
 
         {/* Selected Date Adventures */}
-        <Card className="bg-white/90 backdrop-blur-xl border border-white/40 shadow-md">
+        <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-md">
           <CardContent className="p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              {selectedDate ?
-                `${selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}` :
+              {selectedDate ? 
+                `Adventures for ${selectedDate.toLocaleDateString()}` : 
                 'Select a date to view adventures'
               }
             </h3>
-
+            
             {selectedDate ? (
               <div className="space-y-3">
-                {selectedDateAdventures.length > 0 ? (
-                  selectedDateAdventures.map(adventure => (
-                    <div
-                      key={adventure.id}
-                      className="p-4 bg-gradient-to-br from-[#f8f2d5] to-white rounded-xl border border-[#3c7660]/20 hover:border-[#3c7660]/40 transition-all cursor-pointer hover:shadow-md"
-                      onClick={() => openAdventureModal(adventure)}
+                {mockCalendarEvents
+                  .filter(event => 
+                    event.date.toDateString() === selectedDate.toDateString()
+                  )
+                  .map(event => (
+                    <div 
+                      key={event.id}
+                      className="p-3 bg-[#f8f2d5] rounded-lg border border-[#3c7660]/20"
                     >
-                      <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <h4 className="font-bold text-gray-900 mb-1 flex items-center gap-2">
-                            {adventure.custom_title}
-                            {adventure.is_completed && (
-                              <Badge className="bg-emerald-500 text-white text-xs">
-                                <CheckCircle2 className="w-3 h-3 mr-1" />
-                                Completed
-                              </Badge>
-                            )}
-                          </h4>
-                          <div className="flex items-center text-sm text-gray-600 mb-2">
-                            <MapPin className="w-4 h-4 mr-1 text-[#3c7660]" />
-                            <span>{adventure.location}</span>
+                          <h4 className="font-medium text-gray-900">{event.title}</h4>
+                          <div className="flex items-center text-sm text-gray-600 mt-1">
+                            <Clock className="mr-1 h-3 w-3" />
+                            <span>{event.startTime} - {event.endTime}</span>
                           </div>
-                          <div className="flex items-center gap-3 text-xs text-gray-500">
-                            <div className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              <span>{adventure.duration_hours}h</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <DollarSign className="w-3 h-3" />
-                              <span>{adventure.estimated_cost}</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <TrendingUp className="w-3 h-3" />
-                              <span>{adventure.adventure_steps.filter((s: any) => s.completed).length}/{adventure.adventure_steps.length} steps</span>
-                            </div>
+                          <div className="flex items-center text-sm text-gray-600 mt-1">
+                            <MapPin className="mr-1 h-3 w-3" />
+                            <span>{event.location}</span>
                           </div>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openAdventureModal(adventure);
-                          }}
-                          className="shrink-0 hover:bg-[#3c7660]/10"
+                        <Badge 
+                          className={`${
+                            event.status === 'completed' 
+                              ? 'bg-green-500' 
+                              : 'bg-[#3c7660]'
+                          } text-white border-0`}
                         >
-                          <Eye className="w-4 h-4 text-[#3c7660]" />
-                        </Button>
+                          {event.status === 'completed' ? 'Completed' : 'Planned'}
+                        </Badge>
                       </div>
                     </div>
                   ))
-                ) : (
-                  <div className="text-center py-8">
-                    <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-3">
-                      <CalendarDays className="h-8 w-8 text-gray-400" />
-                    </div>
-                    <p className="text-gray-500 text-sm">
-                      No adventures scheduled for this date
-                    </p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-3 border-[#3c7660] text-[#3c7660] hover:bg-[#3c7660]/10"
-                      onClick={() => setViewMode('grid')}
-                    >
-                      View All Adventures
-                    </Button>
-                  </div>
+                }
+                
+                {mockCalendarEvents
+                  .filter(event => 
+                    event.date.toDateString() === selectedDate.toDateString()
+                  ).length === 0 && (
+                  <p className="text-gray-500 text-center py-4">
+                    No adventures scheduled for this date
+                  </p>
                 )}
               </div>
             ) : (
-              <div className="text-center py-12">
-                <div className="mx-auto w-20 h-20 bg-gradient-to-br from-[#3c7660]/10 to-[#f2cc6c]/10 rounded-full flex items-center justify-center mb-4">
-                  <CalendarIcon className="h-10 w-10 text-[#3c7660]" />
-                </div>
-                <p className="text-gray-600 mb-2 font-medium">
-                  Click on a date in the calendar
-                </p>
-                <p className="text-sm text-gray-500">
-                  Dates with scheduled adventures appear in green
-                </p>
-              </div>
+              <p className="text-gray-500 text-center py-8">
+                Click on a date in the calendar to see scheduled adventures
+              </p>
             )}
           </CardContent>
         </Card>
@@ -1346,18 +1014,30 @@ function PlansContent() {
     );
   };
 
-  // Show loading only if initial load is not complete
-  if (loading && !initialLoadComplete) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-[#f8f2d5]/20 relative">
         <Navigation />
-        <div className="pt-20 px-4">
-          <div className="max-w-6xl mx-auto">
-            <div className="flex items-center justify-center py-20">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#3c7660] mx-auto mb-4"></div>
-                <p className="text-[#3c7660] font-medium">Loading your adventures...</p>
+        <div className="pt-20 px-4 pb-12">
+          <div className="max-w-7xl mx-auto">
+            {/* Header skeleton */}
+            <div className="mb-10">
+              <div className="h-10 bg-gray-200 rounded w-1/3 mb-3 animate-pulse" />
+              <div className="h-6 bg-gray-100 rounded w-1/4 mb-6 animate-pulse" />
+
+              {/* Stats skeleton */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="bg-white/80 rounded-2xl p-5 h-32 animate-pulse" />
+                ))}
               </div>
+            </div>
+
+            {/* Grid skeleton */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <AdventureCardSkeleton key={i} />
+              ))}
             </div>
           </div>
         </div>
@@ -1464,7 +1144,7 @@ function PlansContent() {
             {savedAdventures.length > 0 && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Total Adventures */}
-                <div className="bg-white/90 backdrop-blur-xl rounded-2xl p-5 border border-white/40 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-100 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                   <div className="flex items-center justify-between mb-3">
                     <div className="p-3 bg-gradient-to-br from-[#3c7660]/10 to-[#4d987b]/10 rounded-xl">
                       <Compass className="w-6 h-6 text-[#3c7660]" />
@@ -1476,7 +1156,7 @@ function PlansContent() {
                 </div>
 
                 {/* Completed */}
-                <div className="bg-white/90 backdrop-blur-xl rounded-2xl p-5 border border-white/40 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-100 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                   <div className="flex items-center justify-between mb-3">
                     <div className="p-3 bg-gradient-to-br from-emerald-500/10 to-green-500/10 rounded-xl">
                       <Award className="w-6 h-6 text-emerald-600" />
@@ -1488,7 +1168,7 @@ function PlansContent() {
                 </div>
 
                 {/* Scheduled */}
-                <div className="bg-white/90 backdrop-blur-xl rounded-2xl p-5 border border-white/40 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-100 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                   <div className="flex items-center justify-between mb-3">
                     <div className="p-3 bg-gradient-to-br from-[#f2cc6c]/20 to-[#f2cc6c]/10 rounded-xl">
                       <CalendarDays className="w-6 h-6 text-[#3c7660]" />
@@ -1499,7 +1179,7 @@ function PlansContent() {
                 </div>
 
                 {/* Total Hours */}
-                <div className="bg-white/90 backdrop-blur-xl rounded-2xl p-5 border border-white/40 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-100 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                   <div className="flex items-center justify-between mb-3">
                     <div className="p-3 bg-gradient-to-br from-blue-500/10 to-indigo-500/10 rounded-xl">
                       <Clock className="w-6 h-6 text-blue-600" />
@@ -1519,7 +1199,7 @@ function PlansContent() {
             <>
               {/* Tabs */}
               <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-                <TabsList className="bg-white/80 backdrop-blur-xl border border-white/40 shadow-lg">
+                <TabsList className="bg-white/70 backdrop-blur-sm border-0 shadow-sm">
                   <TabsTrigger 
                     value="all" 
                     className="data-[state=active]:bg-[#3c7660] data-[state=active]:text-white"
@@ -1565,7 +1245,7 @@ function PlansContent() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {filteredAdventures.map((adventure, index) => renderAdventureCard(adventure, index))}
+                      {filteredAdventures.map(renderAdventureCard)}
                     </div>
                   )}
                 </TabsContent>
@@ -1584,7 +1264,6 @@ function PlansContent() {
             description: selectedAdventure.custom_description || '',
             duration: `${selectedAdventure.duration_hours} hours`,
             difficulty: 'Easy',
-            estimated_cost: selectedAdventure.estimated_cost,
             tags: [],
             steps: selectedAdventure.adventure_steps.map((s: any, idx: number) => ({
               id: s.id || `step-${idx}`,
@@ -1635,9 +1314,12 @@ function PlansContent() {
 
       {/* Schedule Modal */}
       <Dialog open={showScheduleModal} onOpenChange={setShowScheduleModal}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md bg-white/95 backdrop-blur-xl border-2 border-gray-100">
           <DialogHeader>
-            <DialogTitle>Schedule Adventure</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarIcon className="w-5 h-5 text-[#3c7660]" />
+              Schedule Adventure
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-gray-600">
@@ -1647,38 +1329,196 @@ function PlansContent() {
               mode="single"
               selected={selectedDate}
               onSelect={setSelectedDate}
-              disabled={(date) => date < new Date()}
-              className="rounded-md border"
+              disabled={(date) => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                return date < today;
+              }}
+              className="rounded-xl mx-auto"
+              classNames={{
+                months: "flex flex-col space-y-4",
+                month: "space-y-4",
+                caption: "flex justify-center pt-1 relative items-center mb-2",
+                caption_label: "text-base font-bold text-gray-900",
+                nav: "space-x-1 flex items-center",
+                nav_button: "h-8 w-8 bg-white/60 backdrop-blur-sm hover:bg-[#3c7660]/10 rounded-xl transition-all border border-gray-200 hover:border-[#3c7660]/30",
+                nav_button_previous: "absolute left-1",
+                nav_button_next: "absolute right-1",
+                table: "w-full border-collapse space-y-1",
+                head_row: "flex",
+                head_cell: "text-gray-600 rounded-lg w-10 font-semibold text-sm",
+                row: "flex w-full mt-2",
+                cell: "relative p-0 text-center text-sm focus-within:relative focus-within:z-20",
+                day: "h-10 w-10 p-0 font-medium hover:bg-[#3c7660]/10 rounded-xl transition-all inline-flex items-center justify-center backdrop-blur-sm",
+                day_selected: "bg-gradient-to-br from-[#3c7660]/90 to-[#4d987b]/90 text-white hover:from-[#3c7660] hover:to-[#4d987b] shadow-lg backdrop-blur-md rounded-xl scale-105",
+                day_today: "bg-[#f2cc6c]/30 text-[#3c7660] font-bold rounded-xl ring-2 ring-[#f2cc6c]/50 ring-offset-1",
+                day_outside: "text-gray-300 opacity-40",
+                day_disabled: "text-gray-200 opacity-30 cursor-not-allowed hover:bg-transparent",
+                day_hidden: "invisible",
+              }}
             />
-            <div className="flex gap-2 justify-end">
+            <div className="flex gap-2 justify-end pt-2">
               <Button
                 variant="outline"
                 onClick={() => {
                   setShowScheduleModal(false);
                   setSelectedDate(undefined);
                 }}
-                disabled={isScheduling}
+                className="border-gray-300 hover:bg-gray-50"
               >
                 Cancel
               </Button>
               <Button
                 onClick={() => {
-                  if (selectedDate && !isScheduling) {
+                  if (selectedDate) {
                     handleSchedule(selectedDate);
                     setShowScheduleModal(false);
                     setSelectedDate(undefined);
                   }
                 }}
-                disabled={!selectedDate || isScheduling}
-                className="bg-[#3c7660] hover:bg-[#2a5444] text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!selectedDate}
+                className="bg-gradient-to-r from-[#3c7660] to-[#4d987b] hover:shadow-lg text-white disabled:opacity-50"
               >
-                {isScheduling ? (
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+                Schedule
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Share to Discover Modal */}
+      <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
+        <DialogContent className="max-w-2xl bg-white/95 backdrop-blur-xl border-2 border-gray-100">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-2xl">
+              <Share2 className="w-6 h-6 text-emerald-600" />
+              Share Adventure to Discover
+            </DialogTitle>
+            <p className="text-sm text-gray-600 mt-2">
+              Share your completed adventure with the community and inspire others!
+            </p>
+          </DialogHeader>
+          <div className="space-y-6 mt-4">
+            {/* Title */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-800 mb-2">
+                Adventure Title
+              </label>
+              <input
+                type="text"
+                value={shareTitle}
+                onChange={(e) => setShareTitle(e.target.value)}
+                placeholder="Give your adventure a memorable title..."
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-base text-gray-800 focus:border-[#3c7660] focus:ring-2 focus:ring-[#3c7660]/20 outline-none transition-all"
+              />
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-800 mb-2">
+                Share Your Experience
+              </label>
+              <textarea
+                value={shareDescription}
+                onChange={(e) => setShareDescription(e.target.value)}
+                placeholder="Share highlights, tips, or memorable moments from your adventure..."
+                rows={4}
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-base text-gray-800 focus:border-[#3c7660] focus:ring-2 focus:ring-[#3c7660]/20 outline-none transition-all resize-none"
+              />
+            </div>
+
+            {/* Rating */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-800 mb-3">
+                Rate Your Adventure
+              </label>
+              <div className="flex items-center gap-2">
+                {[1, 2, 3, 4, 5].map((rating) => (
+                  <button
+                    key={rating}
+                    onClick={() => setShareRating(rating)}
+                    className="transition-all duration-200 hover:scale-110"
+                  >
+                    <Star
+                      className={`w-10 h-10 transition-all ${
+                        rating <= shareRating
+                          ? 'fill-[#f2cc6c] text-[#f2cc6c]'
+                          : 'text-gray-300'
+                      }`}
+                    />
+                  </button>
+                ))}
+                <span className="ml-3 text-lg font-semibold text-gray-700">
+                  {shareRating} {shareRating === 1 ? 'star' : 'stars'}
+                </span>
+              </div>
+            </div>
+
+            {/* Preview */}
+            {selectedAdventure && (
+              <div className="bg-gradient-to-br from-gray-50 to-[#f8f2d5]/20 rounded-xl p-4 border border-gray-100">
+                <p className="text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Preview</p>
+                <div className="flex items-center gap-3">
+                  <MapPin className="w-4 h-4 text-[#3c7660]" />
+                  <span className="text-sm text-gray-700">{selectedAdventure.location}</span>
+                </div>
+                <div className="flex items-center gap-3 mt-1">
+                  <Clock className="w-4 h-4 text-[#3c7660]" />
+                  <span className="text-sm text-gray-700">{selectedAdventure.duration_hours}h</span>
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowShareModal(false);
+                  setShareTitle('');
+                  setShareDescription('');
+                  setShareRating(5);
+                }}
+                disabled={isSharing}
+                className="flex-1 border-gray-300 hover:bg-gray-50"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (!shareTitle.trim()) {
+                    toast.error('Please add a title for your adventure');
+                    return;
+                  }
+                  if (!selectedAdventure) return;
+
+                  setIsSharing(true);
+                  try {
+                    await handleShare(shareRating, shareDescription);
+                    setShowShareModal(false);
+                    setShareTitle('');
+                    setShareDescription('');
+                    setShareRating(5);
+                  } catch (error) {
+                    console.error('Share error:', error);
+                  } finally {
+                    setIsSharing(false);
+                  }
+                }}
+                disabled={isSharing || !shareTitle.trim()}
+                className="flex-1 bg-gradient-to-r from-emerald-500 to-green-600 hover:shadow-lg text-white disabled:opacity-50"
+              >
+                {isSharing ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                    Scheduling...
+                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
+                    Sharing...
                   </>
                 ) : (
-                  'Schedule'
+                  <>
+                    <Share2 className="w-4 h-4 mr-2" />
+                    Share to Discover
+                  </>
                 )}
               </Button>
             </div>

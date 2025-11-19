@@ -12,7 +12,6 @@ const supabase = createClient(
 function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -102,8 +101,6 @@ function AuthCallbackContent() {
         setTimeout(() => {
           router.push('/auth/signin?error=Authentication failed');
         }, 3000);
-      } finally {
-        setLoading(false);
       }
     };
 

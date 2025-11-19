@@ -579,53 +579,77 @@ export default function EnhancedPlansModal({
                     )}
                   </div>
 
-                  {/* Compact Calendar */}
-                  <div className="bg-white rounded-xl p-4 border border-gray-100 mb-4">
-                    <Calendar
-                      mode="single"
-                      selected={tempSelectedDate}
-                      onSelect={handleDateSelect}
-                      disabled={(date) => {
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0);
-                        return date < today;
-                      }}
-                      className="rounded-lg border-0"
-                      classNames={{
-                        months: "flex flex-col space-y-3",
-                        month: "space-y-3",
-                        caption: "flex justify-center pt-1 relative items-center",
-                        caption_label: "text-sm font-bold text-gray-900",
-                        nav: "space-x-1 flex items-center",
-                        nav_button: "h-7 w-7 bg-transparent hover:bg-[#3c7660]/10 rounded-lg transition-all p-0 inline-flex items-center justify-center",
-                        nav_button_previous: "absolute left-1",
-                        nav_button_next: "absolute right-1",
-                        table: "w-full border-collapse space-y-1",
-                        head_row: "flex",
-                        head_cell: "text-gray-500 rounded-md w-9 font-medium text-xs",
-                        row: "flex w-full mt-1.5",
-                        cell: "relative p-0 text-center text-xs focus-within:relative focus-within:z-20",
-                        day: "h-9 w-9 p-0 font-medium hover:bg-[#3c7660]/10 hover:text-[#3c7660] rounded-lg transition-all inline-flex items-center justify-center",
-                        day_selected: "bg-gradient-to-br from-[#3c7660] to-[#4d987b] text-white hover:from-[#3c7660] hover:to-[#4d987b] focus:from-[#3c7660] focus:to-[#4d987b] shadow-md rounded-lg",
-                        day_today: "bg-[#f2cc6c]/20 text-[#3c7660] font-bold border border-[#f2cc6c]/50 rounded-lg",
-                        day_outside: "text-gray-300 opacity-50",
-                        day_disabled: "text-gray-300 opacity-30 cursor-not-allowed hover:bg-transparent",
-                        day_hidden: "invisible",
-                      }}
-                    />
-                  </div>
+                  {/* Schedule/Reschedule Button with Calendar Popover */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal bg-white/60 backdrop-blur-md border-2 border-[#3c7660]/30 hover:bg-[#3c7660]/5 hover:border-[#3c7660] transition-all"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4 text-[#3c7660]" />
+                        {scheduledDate ? (
+                          <span className="text-gray-900 font-medium">
+                            {format(scheduledDate, 'PPP')}
+                          </span>
+                        ) : (
+                          <span className="text-gray-500">Pick a date</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 bg-white/95 backdrop-blur-xl border-2 border-gray-100 shadow-2xl" align="start">
+                      <div className="p-4">
+                        {/* Glassmorphism Calendar */}
+                        <Calendar
+                          mode="single"
+                          selected={tempSelectedDate}
+                          onSelect={handleDateSelect}
+                          disabled={(date) => {
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            return date < today;
+                          }}
+                          className="rounded-xl"
+                          classNames={{
+                            months: "flex flex-col space-y-4",
+                            month: "space-y-4",
+                            caption: "flex justify-center pt-1 relative items-center mb-2",
+                            caption_label: "text-base font-bold text-gray-900",
+                            nav: "space-x-1 flex items-center",
+                            nav_button: "h-8 w-8 bg-white/60 backdrop-blur-sm hover:bg-[#3c7660]/10 rounded-xl transition-all border border-gray-200 hover:border-[#3c7660]/30",
+                            nav_button_previous: "absolute left-1",
+                            nav_button_next: "absolute right-1",
+                            table: "w-full border-collapse space-y-1",
+                            head_row: "flex",
+                            head_cell: "text-gray-600 rounded-lg w-10 font-semibold text-sm",
+                            row: "flex w-full mt-2",
+                            cell: "relative p-0 text-center text-sm focus-within:relative focus-within:z-20",
+                            day: "h-10 w-10 p-0 font-medium hover:bg-[#3c7660]/10 rounded-xl transition-all inline-flex items-center justify-center backdrop-blur-sm",
+                            day_selected: "bg-gradient-to-br from-[#3c7660]/90 to-[#4d987b]/90 text-white hover:from-[#3c7660] hover:to-[#4d987b] shadow-lg backdrop-blur-md rounded-xl scale-105",
+                            day_today: "bg-[#f2cc6c]/30 text-[#3c7660] font-bold rounded-xl ring-2 ring-[#f2cc6c]/50 ring-offset-1",
+                            day_outside: "text-gray-300 opacity-40",
+                            day_disabled: "text-gray-200 opacity-30 cursor-not-allowed hover:bg-transparent",
+                            day_hidden: "invisible",
+                          }}
+                        />
 
-                  {/* Reschedule Button */}
-                  {tempSelectedDate && (
-                    <Button
-                      onClick={handleScheduleSubmit}
-                      className="w-full bg-gradient-to-r from-[#3c7660] to-[#4d987b] text-white hover:shadow-lg transition-all"
-                      size="sm"
-                    >
-                      <CheckCircle2 className="w-4 h-4 mr-2" />
-                      {scheduledDate ? 'Reschedule' : 'Confirm Schedule'}
-                    </Button>
-                  )}
+                        {/* Confirm Button */}
+                        {tempSelectedDate && tempSelectedDate !== scheduledDate && (
+                          <div className="mt-4 pt-4 border-t border-gray-100">
+                            <Button
+                              onClick={() => {
+                                handleScheduleSubmit();
+                              }}
+                              className="w-full bg-gradient-to-r from-[#3c7660] to-[#4d987b] text-white hover:shadow-lg transition-all"
+                              size="sm"
+                            >
+                              <CheckCircle2 className="w-4 h-4 mr-2" />
+                              {scheduledDate ? 'Reschedule' : 'Confirm Schedule'}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               )}
 
