@@ -391,31 +391,39 @@ export default function EnhancedPlansModal({
       return;
     }
 
-    // Swap the steps
-    const sortedSteps = [...adventure.steps].sort((a, b) => a.step_order - b.step_order);
-    const draggedStep = sortedSteps[draggedStepIndex];
-    const droppedStep = sortedSteps[dropIndex];
-
-    // Swap step_order values
-    const tempOrder = draggedStep.step_order;
-    draggedStep.step_order = droppedStep.step_order;
-    droppedStep.step_order = tempOrder;
-
     try {
-      // TODO: Add API call to update step orders in database
-      // await updateStepOrders(adventure.id, [draggedStep, droppedStep]);
+      // Call API to update step orders in database
+      const response = await fetch(`/api/adventures/${adventure.id}/steps/reorder`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fromIndex: draggedStepIndex,
+          toIndex: dropIndex,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to reorder steps');
+      }
+
+      const result = await response.json();
 
       toast.success('Steps reordered!', {
         description: `Moved step ${draggedStepIndex + 1} to position ${dropIndex + 1}`
       });
 
-      // Trigger parent update if available
+      // Trigger parent update to refresh the adventure data
       if (onUpdate) {
         onUpdate();
       }
     } catch (error) {
       console.error('Error reordering steps:', error);
-      toast.error('Failed to reorder steps');
+      toast.error('Failed to reorder steps', {
+        description: error instanceof Error ? error.message : 'An unexpected error occurred'
+      });
     }
 
     setDraggedStepIndex(null);
@@ -525,31 +533,12 @@ export default function EnhancedPlansModal({
 
         {/* Scrollable Content */}
         <div className="overflow-y-auto max-h-[calc(92vh-120px)] px-8 py-6 bg-gradient-to-br from-gray-50/50 via-white to-[#f8f2d5]/20">
-          {/* Premium Progress Section */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-[#3c7660]" />
-                Quest Progress
-              </span>
-              <span className="text-sm font-bold text-[#3c7660]">{completedSteps}/{totalSteps} steps</span>
-            </div>
-            <div className="relative w-full bg-gray-100 rounded-full h-3 overflow-hidden border border-gray-200 shadow-inner">
-              <div 
-                className="absolute inset-y-0 left-0 bg-gradient-to-r from-[#3c7660] to-[#4d987b] rounded-full transition-all duration-700 shadow-sm" 
-                style={{ width: `${progressPercentage}%` }}
-              />
-              {/* Shimmer effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
-            </div>
-          </div>
-
           {/* Unified Status & Schedule Box */}
-          <div className="mb-8 relative overflow-hidden rounded-2xl bg-gradient-to-br from-white via-white to-[#f8f2d5]/20 border-2 border-gray-100 shadow-xl">
+          <div className="mb-6 relative overflow-hidden rounded-2xl bg-gradient-to-br from-white via-white to-[#f8f2d5]/20 border-2 border-gray-100 shadow-xl">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
               {/* LEFT: Schedule Section */}
               {!adventure.is_completed && (
-                <div className="p-6 border-r border-gray-100">
+                <div className="p-4 border-r border-gray-100">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="p-3 bg-gradient-to-br from-[#3c7660] to-[#4d987b] rounded-xl shadow-md">
                       <CalendarIcon className="w-5 h-5 text-white" />
@@ -655,7 +644,7 @@ export default function EnhancedPlansModal({
 
               {/* If completed, show completion status instead */}
               {adventure.is_completed && (
-                <div className="p-6 border-r border-gray-100 flex items-center justify-center">
+                <div className="p-4 border-r border-gray-100 flex items-center justify-center">
                   <div className="text-center">
                     <div className="p-4 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl shadow-lg mb-3 inline-block">
                       <Award className="w-8 h-8 text-white" />
@@ -667,7 +656,7 @@ export default function EnhancedPlansModal({
               )}
 
               {/* RIGHT: Progress Section */}
-              <div className="p-6 flex flex-col justify-center">
+              <div className="p-4 flex flex-col justify-center">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="p-3 bg-gradient-to-br from-[#f2cc6c]/30 to-[#f2cc6c]/10 rounded-xl">
                     <TrendingUp className="w-5 h-5 text-[#3c7660]" />
@@ -720,11 +709,11 @@ export default function EnhancedPlansModal({
             </div>
           </div>
 
-          {/* Step Navigation - Thinner with Arrows */}
-          <div className="mb-6 bg-white/80 backdrop-blur-sm rounded-2xl p-4 border border-gray-100 shadow-lg">
-            <div className="text-center mb-3">
-              <h3 className="text-xs font-bold text-gray-700 inline-flex items-center gap-2 mb-1">
-                <Navigation className="w-3.5 h-3.5 text-[#3c7660]" />
+          {/* Step Navigation - Thinner with Dynamic Arrows */}
+          <div className="mb-6 bg-white/80 backdrop-blur-sm rounded-2xl p-3 border border-gray-100 shadow-lg">
+            <div className="text-center mb-2">
+              <h3 className="text-xs font-bold text-gray-700 inline-flex items-center gap-1.5 mb-0.5">
+                <Navigation className="w-3 h-3 text-[#3c7660]" />
                 Quick Navigation
               </h3>
               <p className="text-xs text-gray-500">
@@ -742,7 +731,7 @@ export default function EnhancedPlansModal({
                     onDragLeave={handleDragLeave}
                     onDrop={(e) => handleDrop(e, index)}
                     onDragEnd={handleDragEnd}
-                    className={`flex-shrink-0 w-10 h-10 rounded-lg font-bold text-sm transition-all duration-300 border ${
+                    className={`flex-shrink-0 w-8 h-8 rounded-lg font-bold text-xs transition-all duration-300 border ${
                       index === currentStepIndex
                         ? 'bg-gradient-to-br from-[#3c7660] to-[#4d987b] text-white border-[#3c7660] scale-110 shadow-md cursor-pointer z-10'
                         : step.completed
@@ -755,17 +744,17 @@ export default function EnhancedPlansModal({
                     }`}
                     title={draggedStepIndex !== null ? 'Drop to swap positions' : `Click to view • Drag to reorder: ${step.title}`}
                   >
-                    {step.completed ? <CheckCircle2 className="w-4 h-4 mx-auto" /> : index + 1}
+                    {step.completed ? <CheckCircle2 className="w-3.5 h-3.5 mx-auto" /> : index + 1}
                   </button>
                   {index < adventure.steps.length - 1 && (
-                    <div className="flex-1 flex items-center justify-center min-w-[12px]">
-                      <ChevronDown className="w-4 h-4 text-gray-300 rotate-[-90deg]" />
+                    <div className="flex-1 flex items-center justify-center">
+                      <ChevronDown className="w-3.5 h-3.5 text-gray-300 rotate-[-90deg]" />
                     </div>
                   )}
                 </React.Fragment>
               ))}
             </div>
-            <p className="text-xs text-center text-gray-500 mt-2 italic">
+            <p className="text-xs text-center text-gray-500 mt-1.5 italic">
               Drag to reorder • Click to navigate
             </p>
           </div>
