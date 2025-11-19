@@ -108,12 +108,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const initializeAuth = async () => {
     try {
       setLoading(true);
-      
-      // Check if user is authenticated
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session?.user) {
-        await fetchUserProfile(session.user.id);
+
+      // Use getUser() instead of getSession() to verify the session is valid
+      // This contacts the auth server to authenticate the session
+      const { data: { user: authUser }, error } = await supabase.auth.getUser();
+
+      if (error) {
+        console.log('🔐 No valid session:', error.message);
+        setUser(null);
+        return;
+      }
+
+      if (authUser) {
+        console.log('🔐 Valid session found for:', authUser.email);
+        await fetchUserProfile(authUser.id);
       } else {
         setUser(null);
       }
