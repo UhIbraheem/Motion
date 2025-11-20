@@ -11,6 +11,12 @@ const {
   createCachableSystemPrompt,
   usageTracker
 } = require("../utils/openaiHelpers");
+const {
+  retryOpenAI,
+  retryGooglePlaces,
+  withTimeout
+} = require("../utils/retryUtils");
+const { asyncHandler } = require("../middleware/errorHandler");
 require("dotenv").config();
 
 const openai = new OpenAI({
@@ -103,27 +109,44 @@ async function enhanceAdventureWithGooglePlaces(adventure, location) {
         const searchQuery = step.business_name;
         const biasLocation = step.location || location;
 
-        // Geocode the location to get coordinates
-        const coords = await geocoding.geocode(biasLocation);
-
-        // First attempt: Search with specific location
-        let places = await googlePlaces.textSearch({
-          textQuery: `${searchQuery} ${biasLocation}`,
-          biasCenter: { latitude: coords.latitude, longitude: coords.longitude },
-          biasRadiusMeters: 10000, // 10km radius
-          pageSize: 3 // Get more results to filter
+        // Geocode the location to get coordinates with retry
+        const coords = await retryGooglePlaces(async () => {
+          return await geocoding.geocode(biasLocation);
         });
+
+        // First attempt: Search with specific location (with retry and timeout)
+        let places = await withTimeout(
+          retryGooglePlaces(async () => {
+            return await googlePlaces.textSearch({
+              textQuery: `${searchQuery} ${biasLocation}`,
+              biasCenter: { latitude: coords.latitude, longitude: coords.longitude },
+              biasRadiusMeters: 10000, // 10km radius
+              pageSize: 3 // Get more results to filter
+            });
+          }),
+          10000, // 10 second timeout
+          'Google Places search timed out'
+        );
 
         // If no results, try broader search with just city name
         if (!places || places.length === 0) {
           console.log(`   🔄 Retrying with broader search...`);
-          const cityCoords = await geocoding.geocode(location); // Use main location instead
-          places = await googlePlaces.textSearch({
-            textQuery: searchQuery,
-            biasCenter: { latitude: cityCoords.latitude, longitude: cityCoords.longitude },
-            biasRadiusMeters: 16000, // Wider radius
-            pageSize: 3
+          const cityCoords = await retryGooglePlaces(async () => {
+            return await geocoding.geocode(location);
           });
+
+          places = await withTimeout(
+            retryGooglePlaces(async () => {
+              return await googlePlaces.textSearch({
+                textQuery: searchQuery,
+                biasCenter: { latitude: cityCoords.latitude, longitude: cityCoords.longitude },
+                biasRadiusMeters: 16000, // Wider radius
+                pageSize: 3
+              });
+            }),
+            10000,
+            'Google Places broader search timed out'
+          );
         }
 
         if (places && places.length > 0) {
@@ -385,28 +408,34 @@ Make this adventure unique and engaging!`;
       // PRIMARY: Use Structured Outputs for guaranteed JSON
       console.log("🤖 Attempting Structured Outputs with gpt-4o...");
 
-      // Wrap in rate limiter
-      const completion = await rateLimiters.openai.execute(async () => {
-        return await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: systemPrompt
-            },
-            {
-              role: "user",
-              content: userPrompt
-            }
-          ],
-          response_format: {
-            type: "json_schema",
-            json_schema: adventureSchema
-          },
-          temperature: 0.3,
-          // Enable prompt caching (automatically done by OpenAI for prompts >1024 tokens)
-        });
-      });
+      // Wrap in rate limiter AND retry logic with timeout
+      const completion = await withTimeout(
+        retryOpenAI(async () => {
+          return await rateLimiters.openai.execute(async () => {
+            return await openai.chat.completions.create({
+              model: "gpt-4o",
+              messages: [
+                {
+                  role: "system",
+                  content: systemPrompt
+                },
+                {
+                  role: "user",
+                  content: userPrompt
+                }
+              ],
+              response_format: {
+                type: "json_schema",
+                json_schema: adventureSchema
+              },
+              temperature: 0.3,
+              // Enable prompt caching (automatically done by OpenAI for prompts >1024 tokens)
+            });
+          });
+        }),
+        60000, // 60 second timeout for AI generation
+        'AI generation timed out after 60 seconds'
+      );
 
       // Log usage and cost
       if (completion.usage) {
