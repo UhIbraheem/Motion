@@ -3,6 +3,14 @@ const router = express.Router();
 const { OpenAI } = require("openai");
 const { extractFirstJsonBlock } = require("../utils/jsonExtractor");
 const GooglePlacesService = require("../services/GooglePlacesService");
+const GeocodingService = require("../services/GeocodingService");
+const { rateLimiters } = require("../utils/rateLimiter");
+const {
+  countMessagesTokens,
+  estimateCost,
+  createCachableSystemPrompt,
+  usageTracker
+} = require("../utils/openaiHelpers");
 require("dotenv").config();
 
 const openai = new OpenAI({
@@ -10,21 +18,25 @@ const openai = new OpenAI({
 });
 
 const googlePlaces = require("../services/GooglePlacesService");
+const geocoding = GeocodingService;
 
 // Endpoint to get Google Places data for frontend
 router.post("/google-places", async (req, res) => {
   try {
     const { businessName, location } = req.body;
-    
+
     if (!businessName) {
       return res.status(400).json({ error: "Business name is required" });
     }
 
     console.log(`🔍 Frontend request: Looking up "${businessName}" in "${location}"`);
-    
+
+    // Geocode the location to get coordinates
+    const coords = await geocoding.geocode(location || 'San Francisco, CA');
+
     const places = await googlePlaces.textSearch({
       textQuery: businessName,
-      biasCenter: { latitude: 37.7749, longitude: -122.4194 }, // Default to SF
+      biasCenter: { latitude: coords.latitude, longitude: coords.longitude },
       biasRadiusMeters: 10000,
       pageSize: 1
     });
@@ -86,14 +98,17 @@ async function enhanceAdventureWithGooglePlaces(adventure, location) {
         }
 
         console.log(`🔍 Looking up: "${step.business_name}" near "${step.location || location}"`);
-        
+
         // Search for the business
         const searchQuery = step.business_name;
         const biasLocation = step.location || location;
-        
+
+        // Geocode the location to get coordinates
+        const coords = await geocoding.geocode(biasLocation);
+
         const places = await googlePlaces.textSearch({
           textQuery: searchQuery,
-          biasCenter: { latitude: 37.7749, longitude: -122.4194 }, // Default to SF, should be enhanced with geocoding
+          biasCenter: { latitude: coords.latitude, longitude: coords.longitude },
           biasRadiusMeters: 10000, // 10km radius
           pageSize: 1
         });
@@ -244,117 +259,175 @@ const adventureSchema = {
 
 // Test route to verify API is working
 router.get("/test", (req, res) => {
-  res.json({ 
+  res.json({
     message: "AI routes working! 🤖",
     timestamp: new Date().toISOString()
   });
 });
 
+// Get usage statistics
+router.get("/usage-stats/:sessionId?", (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    if (sessionId) {
+      // Get specific session stats
+      const stats = usageTracker.getSessionStats(sessionId);
+
+      if (!stats) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      return res.json({
+        sessionId,
+        stats
+      });
+    } else {
+      // Get all stats
+      const allStats = usageTracker.getAllStats();
+      return res.json(allStats);
+    }
+  } catch (error) {
+    console.error("💥 Error fetching usage stats:", error);
+    res.status(500).json({
+      error: "Failed to fetch usage stats",
+      details: error.message
+    });
+  }
+});
+
 // Generate adventure plan
 router.post("/generate-plan", async (req, res) => {
   try {
-    const { app_filter, radius } = req.body;
+    const { app_filter, radius, userId } = req.body;
+    const sessionId = userId || `session_${Date.now()}`;
 
-    console.log("📝 Received request:", { app_filter, radius });
+    console.log("📝 Received request:", { app_filter, radius, sessionId });
 
-    const systemPrompt = `You are an AI concierge planning adventures. Create detailed, personalized adventure plans with real businesses and locations. Follow all user preferences and constraints exactly.
+    // Create optimized cachable system prompt
+    const systemPrompt = createCachableSystemPrompt(null, {
+      radius: radius || 10,
+      budget: app_filter?.budget,
+      includeOpenTable: true
+    });
 
-RULES:
-- Keep all locations within ${radius} miles of each other and of the user's starting point
-- Use realistic time windows (e.g., 14:30, 16:00) to pace the plan realistically
-- When suggesting restaurants/cafés: prioritize OpenTable listings with reservation links
-- Ensure the plan flows smoothly between locations (minimize backtracking)
-- Make sure all recommendations are REAL businesses/locations that are currently open
-- Do NOT make up fictional places or businesses
-- Make sure all filters are coherent with each other
-- Be diverse with locations and always explore new combinations
-- URLs must NOT have semicolons after them - use proper JSON format
+    // Enhanced user prompt with diversity instructions
+    const diversityHints = [
+      'Explore hidden gems and lesser-known spots',
+      'Mix popular attractions with local favorites',
+      'Include diverse experiences across different neighborhoods',
+      'Suggest unique, memorable activities',
+      'Avoid repeating the same type of venue twice'
+    ];
 
-DURATION CONSTRAINTS - CRITICAL:
-${app_filter?.duration ? `
-User selected "${app_filter.duration}" duration. Follow these EXACT step limits and time ranges:
-- "quick" (Quick): 2-3 steps maximum, 2-3 hours total (e.g., 10:00 AM - 1:00 PM)
-- "half-day" (Half Day): 3-5 steps maximum, 4-5 hours total (e.g., 10:00 AM - 3:00 PM)
-- "full-day" (Full Day): 5-8 steps maximum, 8-10 hours total (e.g., 9:00 AM - 7:00 PM)
-DO NOT exceed these step counts or time ranges. Half-day adventures should NOT run past mid-afternoon.
-` : '- Default to 4-5 steps for moderate duration'}
+    const randomHint = diversityHints[Math.floor(Math.random() * diversityHints.length)];
 
-BUDGET GUIDELINES - CRITICAL:
-${app_filter?.budget ? `
-User selected ${app_filter.budget} budget tier. Follow these EXACT cost ranges:
-- $ (Budget): Total cost should be $25-50 per person, display as "$"
-- $$ (Premium): Total cost should be $50-100 per person, display as "$$" 
-- $$$ (Luxury): Total cost should be $75+ per person, display as "$$$"
-Use the budget symbol (e.g., "$$") as the estimatedCost, NOT dollar ranges like "$140-200".
-` : '- Consider moderate budget when no specific budget provided'}
+    const userPrompt = `Create an adventure plan based on these filters: ${JSON.stringify(app_filter)}
 
-CRITICAL BUSINESS NAME REQUIREMENTS:
-- ALWAYS include the exact business name in the "business_name" field
-- Use the official business name (e.g., "Starbucks", "The Metropolitan Museum of Art", "Central Park")
-- For restaurants: use the exact restaurant name (e.g., "Joe's Pizza", "Le Bernardin")
-- For attractions: use the official name (e.g., "Empire State Building", "Brooklyn Bridge")
-- For parks/outdoor spaces: use the official park name (e.g., "Central Park", "Prospect Park")
-- Business names should be searchable in Google Places API
-- If unsure of exact name, use the most commonly known official name
+DIVERSITY INSTRUCTION: ${randomHint}
 
-QUALITY STANDARDS:
-- ONLY recommend businesses/venues with 3.5+ star ratings on Google
-- Prioritize highly-rated, popular, and well-reviewed locations
-- Avoid places with poor reviews or ratings below 3.5 stars
-- For restaurants, cafes, and venues: verify they have good ratings before including them`;
-
-    const userPrompt = `Create an adventure plan based on these filters: ${app_filter}`;
+Make this adventure unique and engaging!`;
 
     console.log("🤖 Sending to OpenAI with Structured Outputs...");
+
+    // Estimate token count before API call
+    const messages = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt }
+    ];
+
+    const estimatedTokens = countMessagesTokens(messages);
+    console.log(`📊 Estimated input tokens: ${estimatedTokens}`);
 
     try {
       // PRIMARY: Use Structured Outputs for guaranteed JSON
       console.log("🤖 Attempting Structured Outputs with gpt-4o...");
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o", // Use gpt-4o instead of gpt-4o-mini
-        messages: [
-          {
-            role: "system",
-            content: systemPrompt
+
+      // Wrap in rate limiter
+      const completion = await rateLimiters.openai.execute(async () => {
+        return await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: systemPrompt
+            },
+            {
+              role: "user",
+              content: userPrompt
+            }
+          ],
+          response_format: {
+            type: "json_schema",
+            json_schema: adventureSchema
           },
-          {
-            role: "user", 
-            content: userPrompt
-          }
-        ],
-        response_format: {
-          type: "json_schema",
-          json_schema: adventureSchema
-        },
-        temperature: 0.3,
+          temperature: 0.3,
+          // Enable prompt caching (automatically done by OpenAI for prompts >1024 tokens)
+        });
       });
+
+      // Log usage and cost
+      if (completion.usage) {
+        const cost = estimateCost(
+          completion.usage.prompt_tokens,
+          completion.usage.completion_tokens,
+          'gpt-4o'
+        );
+
+        console.log(`💰 Cost: $${cost.totalCost} (${cost.promptTokens} in + ${cost.completionTokens} out)`);
+        console.log(`💾 Potential savings with caching: $${cost.cacheSavings} (${cost.savingsPercentage}%)`);
+
+        // Track usage
+        usageTracker.logUsage(sessionId, completion.usage, 'gpt-4o');
+      }
 
       const rawContent = completion.choices[0].message.content;
       console.log("✅ Received structured output from OpenAI");
-      
+
       try {
         const parsed = JSON.parse(rawContent);
         console.log("✅ Successfully parsed structured JSON:", parsed.title);
         console.log("📊 Adventure has", parsed?.steps?.length || 0, "steps");
-        
+
+        // Validate step quality
+        if (!parsed.steps || parsed.steps.length === 0) {
+          throw new Error("No steps generated in adventure");
+        }
+
         // Enhance with Google Places data
         const enhancedAdventure = await enhanceAdventureWithGooglePlaces(parsed, app_filter?.location || 'San Francisco, CA');
         console.log("🎯 Enhanced adventure with Google Places data");
-        
+
+        // Add cost metadata to response
+        if (completion.usage) {
+          const cost = estimateCost(
+            completion.usage.prompt_tokens,
+            completion.usage.completion_tokens,
+            'gpt-4o'
+          );
+
+          enhancedAdventure._meta = {
+            tokenUsage: completion.usage,
+            cost: cost,
+            model: 'gpt-4o',
+            timestamp: new Date().toISOString()
+          };
+        }
+
         return res.json(enhancedAdventure);
       } catch (parseError) {
         console.log("⚠️ Structured output parse failed, trying fallback extractor...");
-        
+
         // FALLBACK: Use robust JSON extraction
         const extractedJson = extractFirstJsonBlock(rawContent);
         if (extractedJson) {
           const fallbackParsed = JSON.parse(extractedJson);
           console.log("✅ Fallback extraction successful:", fallbackParsed.title);
-          
+
           // Enhance with Google Places data
           const enhancedFallback = await enhanceAdventureWithGooglePlaces(fallbackParsed, app_filter?.location || 'San Francisco, CA');
           console.log("🎯 Enhanced fallback adventure with Google Places data");
-          
+
           return res.json(enhancedFallback);
         } else {
           throw new Error("No valid JSON found in response");

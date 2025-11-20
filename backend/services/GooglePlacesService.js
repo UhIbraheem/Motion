@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { rateLimiters } = require('../utils/rateLimiter');
 
 class GooglePlacesService {
   constructor() {
@@ -7,221 +8,17 @@ class GooglePlacesService {
       || process.env.GOOGLE_API_KEY
       || process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY;
     this.baseUrl = 'https://places.googleapis.com/v1';
-
-    // In-memory cache for geocoding results (prevents redundant API calls)
-    this.geocodeCache = new Map();
-    this.GEOCODE_CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
+    this.rateLimiter = rateLimiters.googlePlaces;
 
     if (!this.apiKey) {
       console.log('⚠️ Google Places API key not configured');
     } else {
-      console.log('✅ Google Places API v1 initialized');
+      console.log('✅ Google Places API v1 initialized with rate limiting');
     }
   }
 
   // Small helpers
   async delay(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-  /**
-   * Geocode a location string to coordinates using Google Geocoding API
-   * Includes caching and fallback coordinates for common cities
-   */
-  async geocodeLocation(locationString) {
-    if (!locationString?.trim()) return null;
-
-    const cleanLocation = locationString.trim().toLowerCase();
-
-    // Check cache first
-    const cached = this.geocodeCache.get(cleanLocation);
-    if (cached && (Date.now() - cached.cachedAt) < this.GEOCODE_CACHE_TTL) {
-      console.log(`📍 [Geocode] Cache hit for: ${locationString}`);
-      return { lat: cached.lat, lng: cached.lng };
-    }
-
-    // Fallback coordinates for top 50 US cities + top 20 international destinations
-    const fallbackCoordinates = {
-      // US Cities
-      'new york, ny': { lat: 40.7128, lng: -74.0060 },
-      'new york': { lat: 40.7128, lng: -74.0060 },
-      'los angeles, ca': { lat: 34.0522, lng: -118.2437 },
-      'los angeles': { lat: 34.0522, lng: -118.2437 },
-      'chicago, il': { lat: 41.8781, lng: -87.6298 },
-      'chicago': { lat: 41.8781, lng: -87.6298 },
-      'houston, tx': { lat: 29.7604, lng: -95.3698 },
-      'houston': { lat: 29.7604, lng: -95.3698 },
-      'phoenix, az': { lat: 33.4484, lng: -112.0740 },
-      'phoenix': { lat: 33.4484, lng: -112.0740 },
-      'philadelphia, pa': { lat: 39.9526, lng: -75.1652 },
-      'philadelphia': { lat: 39.9526, lng: -75.1652 },
-      'san antonio, tx': { lat: 29.4241, lng: -98.4936 },
-      'san antonio': { lat: 29.4241, lng: -98.4936 },
-      'san diego, ca': { lat: 32.7157, lng: -117.1611 },
-      'san diego': { lat: 32.7157, lng: -117.1611 },
-      'dallas, tx': { lat: 32.7767, lng: -96.7970 },
-      'dallas': { lat: 32.7767, lng: -96.7970 },
-      'san jose, ca': { lat: 37.3382, lng: -121.8863 },
-      'san jose': { lat: 37.3382, lng: -121.8863 },
-      'austin, tx': { lat: 30.2672, lng: -97.7431 },
-      'austin': { lat: 30.2672, lng: -97.7431 },
-      'fort worth, tx': { lat: 32.7555, lng: -97.3308 },
-      'fort worth': { lat: 32.7555, lng: -97.3308 },
-      'columbus, oh': { lat: 39.9612, lng: -82.9988 },
-      'columbus': { lat: 39.9612, lng: -82.9988 },
-      'charlotte, nc': { lat: 35.2271, lng: -80.8431 },
-      'charlotte': { lat: 35.2271, lng: -80.8431 },
-      'san francisco, ca': { lat: 37.7749, lng: -122.4194 },
-      'san francisco': { lat: 37.7749, lng: -122.4194 },
-      'seattle, wa': { lat: 47.6062, lng: -122.3321 },
-      'seattle': { lat: 47.6062, lng: -122.3321 },
-      'denver, co': { lat: 39.7392, lng: -104.9903 },
-      'denver': { lat: 39.7392, lng: -104.9903 },
-      'washington, dc': { lat: 38.9072, lng: -77.0369 },
-      'washington': { lat: 38.9072, lng: -77.0369 },
-      'boston, ma': { lat: 42.3601, lng: -71.0589 },
-      'boston': { lat: 42.3601, lng: -71.0589 },
-      'nashville, tn': { lat: 36.1627, lng: -86.7816 },
-      'nashville': { lat: 36.1627, lng: -86.7816 },
-      'detroit, mi': { lat: 42.3314, lng: -83.0458 },
-      'detroit': { lat: 42.3314, lng: -83.0458 },
-      'portland, or': { lat: 45.5155, lng: -122.6789 },
-      'portland': { lat: 45.5155, lng: -122.6789 },
-      'las vegas, nv': { lat: 36.1699, lng: -115.1398 },
-      'las vegas': { lat: 36.1699, lng: -115.1398 },
-      'miami, fl': { lat: 25.7617, lng: -80.1918 },
-      'miami': { lat: 25.7617, lng: -80.1918 },
-      'fort lauderdale, fl': { lat: 26.1224, lng: -80.1373 },
-      'fort lauderdale': { lat: 26.1224, lng: -80.1373 },
-      'atlanta, ga': { lat: 33.7490, lng: -84.3880 },
-      'atlanta': { lat: 33.7490, lng: -84.3880 },
-
-      // International Cities
-      'london, uk': { lat: 51.5074, lng: -0.1278 },
-      'london': { lat: 51.5074, lng: -0.1278 },
-      'paris, france': { lat: 48.8566, lng: 2.3522 },
-      'paris': { lat: 48.8566, lng: 2.3522 },
-      'tokyo, japan': { lat: 35.6762, lng: 139.6503 },
-      'tokyo': { lat: 35.6762, lng: 139.6503 },
-      'sydney, australia': { lat: -33.8688, lng: 151.2093 },
-      'sydney': { lat: -33.8688, lng: 151.2093 },
-      'toronto, canada': { lat: 43.6532, lng: -79.3832 },
-      'toronto': { lat: 43.6532, lng: -79.3832 },
-      'dubai, uae': { lat: 25.2048, lng: 55.2708 },
-      'dubai': { lat: 25.2048, lng: 55.2708 },
-      'singapore': { lat: 1.3521, lng: 103.8198 },
-      'hong kong': { lat: 22.3193, lng: 114.1694 },
-      'barcelona, spain': { lat: 41.3851, lng: 2.1734 },
-      'barcelona': { lat: 41.3851, lng: 2.1734 },
-      'rome, italy': { lat: 41.9028, lng: 12.4964 },
-      'rome': { lat: 41.9028, lng: 12.4964 },
-      'amsterdam, netherlands': { lat: 52.3676, lng: 4.9041 },
-      'amsterdam': { lat: 52.3676, lng: 4.9041 },
-      'berlin, germany': { lat: 52.5200, lng: 13.4050 },
-      'berlin': { lat: 52.5200, lng: 13.4050 },
-      'bangkok, thailand': { lat: 13.7563, lng: 100.5018 },
-      'bangkok': { lat: 13.7563, lng: 100.5018 },
-      'mexico city, mexico': { lat: 19.4326, lng: -99.1332 },
-      'mexico city': { lat: 19.4326, lng: -99.1332 },
-      'nassau, bahamas': { lat: 25.0443, lng: -77.3504 },
-      'nassau': { lat: 25.0443, lng: -77.3504 },
-      'bahamas': { lat: 25.0343, lng: -77.3963 },
-      'cancun, mexico': { lat: 21.1619, lng: -86.8515 },
-      'cancun': { lat: 21.1619, lng: -86.8515 },
-      'vancouver, canada': { lat: 49.2827, lng: -123.1207 },
-      'vancouver': { lat: 49.2827, lng: -123.1207 },
-      'montreal, canada': { lat: 45.5017, lng: -73.5673 },
-      'montreal': { lat: 45.5017, lng: -73.5673 },
-    };
-
-    // Check fallback coordinates
-    if (fallbackCoordinates[cleanLocation]) {
-      console.log(`📍 [Geocode] Using fallback coordinates for: ${locationString}`);
-      const coords = fallbackCoordinates[cleanLocation];
-      // Cache the fallback
-      this.geocodeCache.set(cleanLocation, {
-        lat: coords.lat,
-        lng: coords.lng,
-        cachedAt: Date.now()
-      });
-      return coords;
-    }
-
-    // Call Google Geocoding API
-    try {
-      console.log(`📍 [Geocode] Calling Geocoding API for: ${locationString}`);
-      const response = await axios.get('https://maps.googleapis.com/maps/api/geocode/json', {
-        params: {
-          address: locationString,
-          key: this.apiKey
-        },
-        timeout: 8000
-      });
-
-      if (response.data?.status === 'OK' && response.data.results?.length > 0) {
-        const location = response.data.results[0].geometry.location;
-        const coords = { lat: location.lat, lng: location.lng };
-
-        // Cache the result
-        this.geocodeCache.set(cleanLocation, {
-          ...coords,
-          cachedAt: Date.now()
-        });
-
-        console.log(`📍 [Geocode] ✅ Found: ${locationString} → ${coords.lat}, ${coords.lng}`);
-        return coords;
-      }
-
-      console.warn(`📍 [Geocode] ⚠️ No results for: ${locationString}`);
-      return null;
-
-    } catch (error) {
-      console.error(`📍 [Geocode] ❌ Error for ${locationString}:`, error.message);
-      return null;
-    }
-  }
-
-  /**
-   * Calculate distance between two coordinates using Haversine formula
-   * Returns distance in miles
-   */
-  calculateDistance(lat1, lng1, lat2, lng2) {
-    const R = 3959; // Earth radius in miles
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lng2 - lng1) * Math.PI / 180;
-
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLon / 2) * Math.sin(dLon / 2);
-
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const distance = R * c;
-
-    return distance;
-  }
-
-  /**
-   * Validate that a place is within the specified distance from target coordinates
-   */
-  validateDistance(place, targetCoords, maxRadiusMiles) {
-    if (!place?.location || !targetCoords || !maxRadiusMiles) {
-      return true; // If we can't validate, allow it through
-    }
-
-    const placeLat = place.location.latitude;
-    const placeLng = place.location.longitude;
-    const targetLat = targetCoords.lat;
-    const targetLng = targetCoords.lng;
-
-    const distance = this.calculateDistance(targetLat, targetLng, placeLat, placeLng);
-
-    console.log(`📏 [Distance] ${place.displayName?.text || place.name}: ${distance.toFixed(1)} miles from target`);
-
-    if (distance > maxRadiusMiles) {
-      console.log(`🚫 [Distance] Rejected: ${place.displayName?.text} (${distance.toFixed(1)} miles > ${maxRadiusMiles} miles limit)`);
-      return false;
-    }
-
-    return true;
-  }
 
   cleanBusinessName(raw) {
     if (!raw) return '';
@@ -237,61 +34,65 @@ class GooglePlacesService {
   /**
    * Text Search using Google Places API v1 (New)
    * Finds places by business name with optional location bias
+   * Now with rate limiting
    */
   async textSearch({ textQuery, biasCenter, biasRadiusMeters, pageSize = 1 }) {
     if (!this.apiKey) return [];
 
-    const body = { textQuery, pageSize };
+    // Wrap in rate limiter
+    return this.rateLimiter.execute(async () => {
+      const body = { textQuery, pageSize };
 
-    // Add location bias if provided
-    if (biasCenter && biasRadiusMeters) {
-      body.locationBias = {
-        circle: { 
-          center: biasCenter, 
-          radius: biasRadiusMeters 
-        }
-      };
-    }
-
-    const fieldMask = [
-      'places.id',
-      'places.name',
-      'places.displayName',
-      'places.formattedAddress',
-      'places.location',
-      'places.types',
-      'places.photos',
-      'places.rating',
-      'places.userRatingCount',
-      'places.priceLevel'
-    ].join(',');
-
-    try {
-      const response = await axios.post(
-        `${this.baseUrl}/places:searchText`,
-        body,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Goog-Api-Key': this.apiKey,
-            'X-Goog-FieldMask': fieldMask
-          },
-          timeout: 8000
-        }
-      );
-
-      return response.data?.places || [];
-    } catch (error) {
-  const status = error.response?.status;
-  const details = error.response?.data || error.message;
-  console.error('❌ Text search error:', status, details);
-      // Fallback: legacy Text Search API if v1 is restricted (403)
-      if (status === 403) {
-        const legacy = await this.legacyTextSearch(textQuery, pageSize);
-        if (legacy.length) return legacy;
+      // Add location bias if provided
+      if (biasCenter && biasRadiusMeters) {
+        body.locationBias = {
+          circle: {
+            center: biasCenter,
+            radius: biasRadiusMeters
+          }
+        };
       }
-      return [];
-    }
+
+      const fieldMask = [
+        'places.id',
+        'places.name',
+        'places.displayName',
+        'places.formattedAddress',
+        'places.location',
+        'places.types',
+        'places.photos',
+        'places.rating',
+        'places.userRatingCount',
+        'places.priceLevel'
+      ].join(',');
+
+      try {
+        const response = await axios.post(
+          `${this.baseUrl}/places:searchText`,
+          body,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Goog-Api-Key': this.apiKey,
+              'X-Goog-FieldMask': fieldMask
+            },
+            timeout: 8000
+          }
+        );
+
+        return response.data?.places || [];
+      } catch (error) {
+        const status = error.response?.status;
+        const details = error.response?.data || error.message;
+        console.error('❌ Text search error:', status, details);
+        // Fallback: legacy Text Search API if v1 is restricted (403)
+        if (status === 403) {
+          const legacy = await this.legacyTextSearch(textQuery, pageSize);
+          if (legacy.length) return legacy;
+        }
+        return [];
+      }
+    });
   }
 
   // Legacy Text Search fallback (Places API - Text Search)
@@ -518,226 +319,96 @@ class GooglePlacesService {
   }
 
   /**
-   * Enhanced filter: places by location relevance with scoring system
-   * Score based on country, state/province, and city matches
+   * Filter places by location relevance to avoid wrong city matches
    */
-  filterByLocationRelevance(places, targetLocation, targetCoords = null, maxRadiusMiles = null) {
-    if (!targetLocation || places.length === 0) return places;
+  filterByLocationRelevance(places, targetLocation) {
+    if (!targetLocation || places.length <= 1) return places;
 
-    console.log(`🎯 [Filter] Filtering ${places.length} places for relevance to: ${targetLocation}`);
+    // Extract key location terms from target
+    const locationTerms = targetLocation.toLowerCase()
+      .split(/[,\s]+/)
+      .filter(term => term.length > 2);
 
-    // Extract country from target location
-    const locationParts = targetLocation.split(',').map(p => p.trim().toLowerCase());
-    const targetCountry = this.extractCountry(targetLocation);
-    const targetState = locationParts.length > 1 ? locationParts[1] : null;
-    const targetCity = locationParts[0].toLowerCase();
-
-    console.log(`🎯 [Filter] Target - City: ${targetCity}, State: ${targetState}, Country: ${targetCountry}`);
-
-    // Score each place
-    const scoredPlaces = places.map(place => {
+    return places.filter(place => {
       const address = (place.formattedAddress || '').toLowerCase();
-      let score = 0;
-      let reasons = [];
+      
+      // Check if the place address contains location terms
+      const relevanceScore = locationTerms.reduce((score, term) => {
+        return address.includes(term) ? score + 1 : score;
+      }, 0);
 
-      // Country match (40 points)
-      if (targetCountry && address.includes(targetCountry.toLowerCase())) {
-        score += 40;
-        reasons.push(`country:${targetCountry}`);
+      const isRelevant = relevanceScore > 0;
+      
+      if (!isRelevant) {
+        console.log(`🚫 Filtered out: ${place.displayName?.text} at ${place.formattedAddress} (wrong location)`);
       }
-
-      // State/Province match (30 points)
-      if (targetState && address.includes(targetState.toLowerCase())) {
-        score += 30;
-        reasons.push(`state:${targetState}`);
-      }
-
-      // City mentioned in address (30 points)
-      if (address.includes(targetCity)) {
-        score += 30;
-        reasons.push(`city:${targetCity}`);
-      }
-
-      // Distance validation (bonus points for proximity)
-      if (targetCoords && maxRadiusMiles && place.location) {
-        const distance = this.calculateDistance(
-          targetCoords.lat,
-          targetCoords.lng,
-          place.location.latitude,
-          place.location.longitude
-        );
-
-        if (distance <= maxRadiusMiles) {
-          // Bonus points based on proximity
-          const proximityBonus = Math.max(0, 20 - (distance / maxRadiusMiles) * 20);
-          score += proximityBonus;
-          reasons.push(`distance:${distance.toFixed(1)}mi`);
-        } else {
-          // Penalize places outside radius
-          score = Math.max(0, score - 50);
-          reasons.push(`TOO_FAR:${distance.toFixed(1)}mi`);
-        }
-      }
-
-      const placeName = place.displayName?.text || place.name || 'Unknown';
-      console.log(`🎯 [Filter] ${placeName}: score=${score}, reasons=[${reasons.join(', ')}]`);
-
-      return {
-        place,
-        score,
-        reasons: reasons.join(', ')
-      };
+      
+      return isRelevant;
+    }).sort((a, b) => {
+      // Sort by relevance score (more location matches = higher priority)
+      const scoreA = locationTerms.reduce((score, term) => 
+        (a.formattedAddress || '').toLowerCase().includes(term) ? score + 1 : score, 0);
+      const scoreB = locationTerms.reduce((score, term) => 
+        (b.formattedAddress || '').toLowerCase().includes(term) ? score + 1 : score, 0);
+      return scoreB - scoreA;
     });
-
-    // Filter places with score >= 70 (or >= 40 for international to be more lenient)
-    const minScore = targetCountry && targetCountry !== 'usa' && targetCountry !== 'united states' ? 40 : 70;
-    const filteredPlaces = scoredPlaces.filter(scored => {
-      if (scored.score < minScore) {
-        console.log(`🚫 [Filter] Rejected: ${scored.place.displayName?.text} (score ${scored.score} < ${minScore})`);
-        return false;
-      }
-      return true;
-    });
-
-    // Sort by score descending
-    filteredPlaces.sort((a, b) => b.score - a.score);
-
-    console.log(`🎯 [Filter] ✅ Kept ${filteredPlaces.length}/${places.length} places`);
-
-    return filteredPlaces.map(scored => scored.place);
-  }
-
-  /**
-   * Extract country from location string
-   */
-  extractCountry(locationString) {
-    const lower = locationString.toLowerCase();
-
-    // Common country patterns
-    const countryPatterns = {
-      'usa': ['usa', 'united states', 'us', ', fl', ', ca', ', ny', ', tx'],
-      'uk': ['uk', 'united kingdom', 'england', 'scotland', 'wales'],
-      'canada': ['canada', 'ca'],
-      'bahamas': ['bahamas'],
-      'mexico': ['mexico'],
-      'france': ['france'],
-      'germany': ['germany'],
-      'italy': ['italy'],
-      'spain': ['spain'],
-      'japan': ['japan'],
-      'australia': ['australia'],
-      'thailand': ['thailand'],
-      'singapore': ['singapore'],
-    };
-
-    for (const [country, patterns] of Object.entries(countryPatterns)) {
-      for (const pattern of patterns) {
-        if (lower.includes(pattern)) {
-          return country;
-        }
-      }
-    }
-
-    // Default to USA if no country specified and looks like US format
-    if (locationString.match(/,\s*[A-Z]{2}$/)) {
-      return 'usa';
-    }
-
-    return null;
   }
 
   /**
    * Main function: Find and enrich business with full Google Places data
-   * Now uses geocoding for accurate location targeting
+   * This replaces all the old validation services
    */
-  async lookupBusiness(businessName, localityHint, bias, userRadiusMiles = 10) {
+  async lookupBusiness(businessName, localityHint, bias) {
     if (!businessName?.trim()) return null;
 
     // Process and enhance location context
     const enhancedLocation = this.processLocationContext(localityHint);
-    const cleanedName = this.cleanBusinessName(businessName);
-    const textQuery = `${cleanedName} in ${enhancedLocation}`;
+  const cleanedName = this.cleanBusinessName(businessName);
+  const textQuery = `${cleanedName} in ${enhancedLocation}`;
 
-    console.log(`🔍 [Lookup] Starting: "${textQuery}"`);
-    console.log(`🔍 [Lookup] Radius: ${userRadiusMiles} miles`);
+  console.log(`🔍 Looking up: "${textQuery}"`);
 
     try {
-      // Step 1: Geocode the location to get real coordinates
-      const targetCoords = await this.geocodeLocation(enhancedLocation);
-      if (!targetCoords) {
-        console.warn(`📍 [Lookup] Could not geocode location: ${enhancedLocation}`);
-        // Continue without coordinates - will rely on text matching only
-      } else {
-        console.log(`📍 [Lookup] Target coordinates: ${targetCoords.lat}, ${targetCoords.lng}`);
-      }
-
-      // Step 2: Determine bias radius based on location type
-      let biasRadiusMeters;
-      if (targetCoords) {
-        // For international cities, cap at 8000m (5 miles)
-        const targetCountry = this.extractCountry(enhancedLocation);
-        const isInternational = targetCountry && targetCountry !== 'usa' && targetCountry !== 'united states';
-
-        if (isInternational) {
-          biasRadiusMeters = Math.min(8000, userRadiusMiles * 1609.34); // Convert miles to meters
-          console.log(`🌍 [Lookup] International location detected: ${targetCountry}, using ${biasRadiusMeters}m radius`);
-        } else {
-          // US cities: use user's radius * 1.5 in meters
-          biasRadiusMeters = userRadiusMiles * 1.5 * 1609.34;
-          console.log(`🇺🇸 [Lookup] US location, using ${biasRadiusMeters}m radius`);
-        }
-      } else {
-        biasRadiusMeters = 16000; // 10 miles default fallback
-      }
-
-      // Step 3: Text Search with geocoded coordinates
+      // Step 1: Text Search with simple retry logic
       const attempt = async () => this.textSearch({
         textQuery,
-        biasCenter: targetCoords ? { latitude: targetCoords.lat, longitude: targetCoords.lng } : bias?.center,
-        biasRadiusMeters,
-        pageSize: 5 // Get more results for better filtering
+        biasCenter: bias?.center,
+        biasRadiusMeters: bias?.radiusMeters || 16000, // 10 mile radius default
+        pageSize: 3 // Get more results to find best match
       });
 
       let places = await attempt();
       if (!places?.length) {
-        console.log(`🔄 [Lookup] No results, retrying...`);
         await this.delay(200);
         places = await attempt();
       }
 
       if (!places.length) {
-        console.log(`⚠️ [Lookup] No places found for: ${businessName} in ${enhancedLocation}`);
+        console.log(`⚠️ No places found for: ${businessName} in ${enhancedLocation}`);
         return null;
       }
 
-      console.log(`🔍 [Lookup] Found ${places.length} candidates before filtering`);
-
-      // Step 4: Filter results by location relevance with scoring
-      const filteredPlaces = this.filterByLocationRelevance(
-        places,
-        enhancedLocation,
-        targetCoords,
-        userRadiusMiles
-      );
-
+      // Filter results by location proximity
+      const filteredPlaces = this.filterByLocationRelevance(places, enhancedLocation);
+      
       if (!filteredPlaces.length) {
-        console.log(`⚠️ [Lookup] No location-relevant places found for: ${businessName} in ${enhancedLocation}`);
+        console.log(`⚠️ No location-relevant places found for: ${businessName} in ${enhancedLocation}`);
         return null;
       }
 
       const candidate = filteredPlaces[0];
       const placeId = candidate.id;
 
-      console.log(`📍 [Lookup] ✅ Selected: ${candidate.displayName?.text} at ${candidate.formattedAddress}`);
+      console.log(`📍 Found candidate: ${candidate.displayName?.text} at ${candidate.formattedAddress}`);
 
-      // Step 5: Get detailed information
+      // Step 2: Get detailed information
       const details = await this.getPlaceDetailsById(placeId);
       if (!details) {
         console.log(`⚠️ No details found for place: ${placeId}`);
         return null;
       }
 
-      // Step 6: Get first photo URL (v1 or legacy)
+      // Step 3: Get first photo URL (v1 or legacy)
       let photoUrl = null;
       if (details?.photos?.length > 0) {
         const p0 = details.photos[0];
