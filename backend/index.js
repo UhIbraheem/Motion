@@ -8,6 +8,11 @@ const placesRouter = require("./routes/places");
 const photosRouter = require("./routes/photos");
 const adventuresRouter = require("./routes/adventures");
 
+// Import middleware
+const { requestLogger, slowRequestLogger } = require("./middleware/logger");
+const { errorHandler, notFoundHandler, timeoutHandler } = require("./middleware/errorHandler");
+const { createPerformanceMiddleware, performanceMonitor } = require("./utils/performanceMonitor");
+
 const app = express();
 
 // Smart port detection - tries multiple ports until one works
@@ -137,14 +142,14 @@ app.use(cors({
   preflightContinue: false,
   optionsSuccessStatus: 200
 }));
-app.use(express.json());
 
-// Request logging middleware
-app.use((req, res, next) => {
-  const timestamp = new Date().toISOString();
-  console.log(`📝 ${timestamp} ${req.method} ${req.path} - Origin: ${req.get('Origin') || 'none'} - User-Agent: ${req.get('User-Agent') || 'none'}`);
-  next();
-});
+app.use(express.json({ limit: '10mb' })); // Increase payload limit
+
+// Security & Performance Middleware
+app.use(timeoutHandler(30000)); // 30 second timeout
+app.use(requestLogger({ logBody: true, logResponse: false }));
+app.use(slowRequestLogger(2000)); // Log requests >2s
+app.use(createPerformanceMiddleware(performanceMonitor));
 
 // Routes
 app.use("/api/ai", aiRouter);
@@ -231,13 +236,62 @@ app.get("/", (req, res) => {
 
 // Health check route
 app.get("/health", (req, res) => {
-  res.json({ 
+  res.json({
     status: "OK",
     uptime: process.uptime(),
     environment: process.env.NODE_ENV || "development",
-    version: "1.0.0"
+    version: "1.0.0",
+    timestamp: new Date().toISOString()
   });
 });
+
+// Performance metrics endpoint
+app.get("/api/metrics", (req, res) => {
+  const summary = performanceMonitor.getSummary();
+  res.json({
+    success: true,
+    metrics: summary
+  });
+});
+
+// Performance stats for specific operation
+app.get("/api/metrics/:operation", (req, res) => {
+  const { operation } = req.params;
+  const stats = performanceMonitor.getStats(operation);
+
+  if (!stats) {
+    return res.status(404).json({
+      success: false,
+      error: `No metrics found for operation: ${operation}`
+    });
+  }
+
+  res.json({
+    success: true,
+    stats
+  });
+});
+
+// Slow requests endpoint
+app.get("/api/metrics/slow-requests", (req, res) => {
+  const threshold = parseInt(req.query.threshold) || 1000;
+  const limit = parseInt(req.query.limit) || 20;
+
+  const slowRequests = performanceMonitor.getSlowRequests(threshold, limit);
+
+  res.json({
+    success: true,
+    threshold,
+    count: slowRequests.length,
+    requests: slowRequests
+  });
+});
+
+// 404 handler - must be AFTER all routes
+app.use(notFoundHandler);
+
+// Global error handler - must be LAST
+app.use(errorHandler);
 
 // Start server with dynamic port detection
 const startServer = async () => {

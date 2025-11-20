@@ -11,6 +11,12 @@ const {
   createCachableSystemPrompt,
   usageTracker
 } = require("../utils/openaiHelpers");
+const {
+  retryOpenAI,
+  retryGooglePlaces,
+  withTimeout
+} = require("../utils/retryUtils");
+const { asyncHandler } = require("../middleware/errorHandler");
 require("dotenv").config();
 
 const openai = new OpenAI({
@@ -103,19 +109,52 @@ async function enhanceAdventureWithGooglePlaces(adventure, location) {
         const searchQuery = step.business_name;
         const biasLocation = step.location || location;
 
-        // Geocode the location to get coordinates
-        const coords = await geocoding.geocode(biasLocation);
-
-        const places = await googlePlaces.textSearch({
-          textQuery: searchQuery,
-          biasCenter: { latitude: coords.latitude, longitude: coords.longitude },
-          biasRadiusMeters: 10000, // 10km radius
-          pageSize: 1
+        // Geocode the location to get coordinates with retry
+        const coords = await retryGooglePlaces(async () => {
+          return await geocoding.geocode(biasLocation);
         });
+
+        // First attempt: Search with specific location (with retry and timeout)
+        let places = await withTimeout(
+          retryGooglePlaces(async () => {
+            return await googlePlaces.textSearch({
+              textQuery: `${searchQuery} ${biasLocation}`,
+              biasCenter: { latitude: coords.latitude, longitude: coords.longitude },
+              biasRadiusMeters: 10000, // 10km radius
+              pageSize: 3 // Get more results to filter
+            });
+          }),
+          10000, // 10 second timeout
+          'Google Places search timed out'
+        );
+
+        // If no results, try broader search with just city name
+        if (!places || places.length === 0) {
+          console.log(`   🔄 Retrying with broader search...`);
+          const cityCoords = await retryGooglePlaces(async () => {
+            return await geocoding.geocode(location);
+          });
+
+          places = await withTimeout(
+            retryGooglePlaces(async () => {
+              return await googlePlaces.textSearch({
+                textQuery: searchQuery,
+                biasCenter: { latitude: cityCoords.latitude, longitude: cityCoords.longitude },
+                biasRadiusMeters: 16000, // Wider radius
+                pageSize: 3
+              });
+            }),
+            10000,
+            'Google Places broader search timed out'
+          );
+        }
 
         if (places && places.length > 0) {
           const place = places[0];
-          console.log(`✅ Found place: ${place.displayName} (Rating: ${place.rating || 'N/A'})`);
+          const displayName = place.displayName?.text || place.displayName || place.name;
+          const businessStatus = place.businessStatus || 'UNKNOWN';
+
+          console.log(`✅ Found: "${displayName}" | Status: ${businessStatus} | Rating: ${place.rating || 'N/A'}`);
           
           // Get photo URL if available
           let photoUrl = null;
@@ -139,6 +178,7 @@ async function enhanceAdventureWithGooglePlaces(adventure, location) {
             google_maps_uri: place.googleMapsUri,
             google_photo_reference: place.photos && place.photos.length > 0 ? place.photos[0].name : null,
             google_photo_url: photoUrl,
+            google_business_status: businessStatus,
             google_places: {
               place_id: place.id || '',
               name: place.displayName?.text || place.displayName || '',
@@ -146,20 +186,24 @@ async function enhanceAdventureWithGooglePlaces(adventure, location) {
               rating: place.rating || 0,
               user_ratings_total: place.userRatingCount || 0,
               price_level: place.priceLevel || 0,
+              business_status: businessStatus,
               google_maps_uri: place.googleMapsUri || '',
               website_uri: place.websiteUri || '',
               national_phone_number: place.nationalPhoneNumber || '',
               opening_hours: place.regularOpeningHours || null,
+              current_opening_hours: place.currentOpeningHours || null,
               photo_url: photoUrl,
               last_updated: new Date().toISOString()
             },
             validated: true
           };
         } else {
-          console.log(`❌ No place found for: ${step.business_name}`);
+          console.log(`❌ VALIDATION FAILED: "${step.business_name}" - No matching business found in Google Places`);
+          console.log(`   This business may be closed, fictional, or the name is incorrect`);
           return {
             ...step,
-            validated: false
+            validated: false,
+            validation_error: 'Business not found in Google Places - may be closed or non-existent'
           };
         }
       } catch (error) {
@@ -172,10 +216,31 @@ async function enhanceAdventureWithGooglePlaces(adventure, location) {
     })
   );
 
+  // Quality validation: check if too many businesses failed validation
+  const validatedCount = enhancedSteps.filter(s => s.validated).length;
+  const validationRate = validatedCount / enhancedSteps.length;
+
+  console.log(`📊 Validation rate: ${validatedCount}/${enhancedSteps.length} (${Math.round(validationRate * 100)}%)`);
+
+  // If validation rate is too low, mark as low quality
+  const qualityThreshold = 0.6; // At least 60% should validate
+  const isLowQuality = validationRate < qualityThreshold;
+
+  if (isLowQuality) {
+    console.log(`⚠️ LOW QUALITY ADVENTURE: Only ${Math.round(validationRate * 100)}% of businesses validated`);
+  }
+
   return {
     ...adventure,
     steps: enhancedSteps,
-    google_places_enhanced: true
+    google_places_enhanced: true,
+    validation_stats: {
+      total_steps: enhancedSteps.length,
+      validated_steps: validatedCount,
+      validation_rate: validationRate,
+      is_low_quality: isLowQuality,
+      quality_threshold: qualityThreshold
+    }
   };
 }
 
@@ -208,47 +273,47 @@ const adventureSchema = {
           type: "object",
           additionalProperties: false,
           properties: {
-            time: { 
+            time: {
               type: "string",
-              description: "Time in HH:MM format (24-hour)" 
+              description: "Time in HH:MM format (24-hour)"
             },
-            title: { 
+            title: {
               type: "string",
-              description: "Activity name" 
+              description: "Activity name"
             },
-            location: { 
+            location: {
               type: "string",
-              description: "Specific address/location" 
+              description: "Specific address/location"
             },
-            business_name: { 
+            business_name: {
               type: "string",
-              description: "Exact business/venue name" 
+              description: "Exact business/venue name - MUST be a real, currently operating business"
             },
-            notes: { 
+            notes: {
               type: "string",
-              description: "Details and tips" 
+              description: "Details and tips"
             },
             booking: {
               type: "object",
               additionalProperties: false,
               properties: {
-                method: { 
+                method: {
                   type: "string",
-                  description: "How to book/access" 
+                  description: "How to book/access"
                 },
-                link: { 
+                link: {
                   type: "string",
-                  description: "Website URL if applicable" 
+                  description: "Website URL if applicable"
                 },
-                fallback: { 
+                fallback: {
                   type: "string",
-                  description: "Alternative if booking fails" 
+                  description: "Alternative if booking fails"
                 }
               },
               required: ["method", "link", "fallback"]
             }
           },
-          required: ["time", "title", "location"]
+          required: ["time", "title", "location", "business_name", "notes", "booking"]
         }
       }
     },
@@ -343,28 +408,34 @@ Make this adventure unique and engaging!`;
       // PRIMARY: Use Structured Outputs for guaranteed JSON
       console.log("🤖 Attempting Structured Outputs with gpt-4o...");
 
-      // Wrap in rate limiter
-      const completion = await rateLimiters.openai.execute(async () => {
-        return await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: systemPrompt
-            },
-            {
-              role: "user",
-              content: userPrompt
-            }
-          ],
-          response_format: {
-            type: "json_schema",
-            json_schema: adventureSchema
-          },
-          temperature: 0.3,
-          // Enable prompt caching (automatically done by OpenAI for prompts >1024 tokens)
-        });
-      });
+      // Wrap in rate limiter AND retry logic with timeout
+      const completion = await withTimeout(
+        retryOpenAI(async () => {
+          return await rateLimiters.openai.execute(async () => {
+            return await openai.chat.completions.create({
+              model: "gpt-4o",
+              messages: [
+                {
+                  role: "system",
+                  content: systemPrompt
+                },
+                {
+                  role: "user",
+                  content: userPrompt
+                }
+              ],
+              response_format: {
+                type: "json_schema",
+                json_schema: adventureSchema
+              },
+              temperature: 0.3,
+              // Enable prompt caching (automatically done by OpenAI for prompts >1024 tokens)
+            });
+          });
+        }),
+        60000, // 60 second timeout for AI generation
+        'AI generation timed out after 60 seconds'
+      );
 
       // Log usage and cost
       if (completion.usage) {

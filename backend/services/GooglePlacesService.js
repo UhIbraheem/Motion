@@ -63,7 +63,10 @@ class GooglePlacesService {
         'places.photos',
         'places.rating',
         'places.userRatingCount',
-        'places.priceLevel'
+        'places.priceLevel',
+        'places.businessStatus',
+        'places.currentOpeningHours',
+        'places.regularOpeningHours'
       ].join(',');
 
       try {
@@ -80,7 +83,26 @@ class GooglePlacesService {
           }
         );
 
-        return response.data?.places || [];
+        const places = response.data?.places || [];
+
+        // CRITICAL: Filter out permanently closed or non-operational businesses
+        const operationalPlaces = places.filter(place => {
+          const status = place.businessStatus;
+
+          // Only include OPERATIONAL businesses
+          if (status && status !== 'OPERATIONAL') {
+            console.log(`🚫 Filtered out ${place.displayName?.text || place.name}: Status = ${status}`);
+            return false;
+          }
+
+          return true;
+        });
+
+        if (operationalPlaces.length < places.length) {
+          console.log(`⚠️ Filtered out ${places.length - operationalPlaces.length} closed/non-operational businesses`);
+        }
+
+        return operationalPlaces;
       } catch (error) {
         const status = error.response?.status;
         const details = error.response?.data || error.message;
