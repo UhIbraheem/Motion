@@ -49,7 +49,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import AdventureService from '@/services/AdventureService';
 import GooglePlacesService from '@/services/GooglePlacesService';
-import { SavedAdventure } from '@/types/adventureTypes';
+import { SavedAdventure, AdventureStep } from '@/types/adventureTypes';
 import EnhancedPlansModal from '@/components/EnhancedPlansModal';
 
 // Mock calendar events data - this will be replaced with real data from backend
@@ -193,7 +193,7 @@ function PlansContent() {
         // Check steps for existing photo data
         if (adventure.adventure_steps?.length > 0) {
           for (const step of adventure.adventure_steps) {
-            const stepData = step as any;
+            const stepData = step as AdventureStep;
             if (stepData.google_photo_url) {
               setAdventurePhotos(prev => ({
                 ...prev,
@@ -212,7 +212,7 @@ function PlansContent() {
           
           // If still no photo, fetch from Google Places
           if (!adventurePhotos[adventure.id]) {
-            const firstStep = adventure.adventure_steps[0] as any;
+            const firstStep = adventure.adventure_steps[0] as AdventureStep;
             if (firstStep?.business_name) {
               console.log('🔍 Fetching photo for:', adventure.custom_title, firstStep.business_name);
               try {
@@ -300,9 +300,9 @@ function PlansContent() {
       await AdventureService.updateStepCompletion(selectedAdventure.id, stepId, completed);
       
       toast.success(completed ? 'Step completed!' : 'Step unchecked');
-      
+
       // Check if all steps are completed and it's scheduled for today or past
-      const allCompleted = updatedSteps.every((step: any) => step.completed);
+      const allCompleted = updatedSteps.every((step: AdventureStep) => step.completed);
       const scheduledDate = selectedAdventure.scheduled_for ? new Date(selectedAdventure.scheduled_for) : null;
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -350,10 +350,10 @@ function PlansContent() {
       
       // Reload to ensure complete sync
       await loadAdventures();
-      
-    } catch (error: any) {
+
+    } catch (error) {
       console.error('❌ Scheduling failed:', error);
-      toast.error(error?.message || 'Failed to schedule adventure. Please try again.');
+      toast.error((error as Error)?.message || 'Failed to schedule adventure. Please try again.');
     }
   };
 
@@ -361,8 +361,8 @@ function PlansContent() {
   const handleMarkCompleted = async () => {
     if (!selectedAdventure) return;
 
-    const allStepsCompleted = selectedAdventure.adventure_steps.every((step: any) => step.completed);
-    
+    const allStepsCompleted = selectedAdventure.adventure_steps.every((step: AdventureStep) => step.completed);
+
     if (!allStepsCompleted) {
       toast.error('Please complete all steps first');
       return;
@@ -384,10 +384,10 @@ function PlansContent() {
       
       // Reload to sync
       await loadAdventures();
-      
-    } catch (error: any) {
+
+    } catch (error) {
       console.error('❌ Completion failed:', error);
-      toast.error(error?.message || 'Failed to mark as completed');
+      toast.error((error as Error)?.message || 'Failed to mark as completed');
     }
   };
 
@@ -504,8 +504,8 @@ function PlansContent() {
     // Priority 2: Google Places data in steps
     if (adventure.adventure_steps?.length > 0) {
       for (const step of adventure.adventure_steps) {
-        const stepData = step as any;
-        
+        const stepData = step as AdventureStep;
+
         if (stepData.google_photo_url) return stepData.google_photo_url;
         if (stepData.google_places?.photo_url) return stepData.google_places.photo_url;
         if (stepData.photo_url) return stepData.photo_url;
@@ -537,7 +537,7 @@ function PlansContent() {
     // Get photos from all steps
     if (adventure.adventure_steps?.length > 0) {
       for (const step of adventure.adventure_steps) {
-        const stepData = step as any;
+        const stepData = step as AdventureStep;
         const photoUrl = stepData.google_photo_url || stepData.google_places?.photo_url || stepData.photo_url;
         if (photoUrl && !photos.includes(photoUrl)) {
           photos.push(photoUrl);
@@ -582,8 +582,8 @@ function PlansContent() {
     const photoIndex = currentPhotoIndex[adventure.id] || 0;
     const photo = allPhotos[photoIndex];
     const hasMultiplePhotos = allPhotos.length > 1;
-    
-    const completedSteps = adventure.adventure_steps.filter((step: any) => step.completed).length;
+
+    const completedSteps = adventure.adventure_steps.filter((step: AdventureStep) => step.completed).length;
     const totalSteps = adventure.adventure_steps.length;
     const progress = totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0;
     
@@ -1173,7 +1173,7 @@ function PlansContent() {
             duration: `${selectedAdventure.duration_hours} hours`,
             difficulty: 'Easy',
             tags: [],
-            steps: selectedAdventure.adventure_steps.map((s: any, idx: number) => ({
+            steps: selectedAdventure.adventure_steps.map((s: AdventureStep, idx: number) => ({
               id: s.id || `step-${idx}`,
               title: s.title || s.business_name || `Step ${idx + 1}`,
               description: s.notes || s.description || '',
@@ -1206,7 +1206,7 @@ function PlansContent() {
             created_at: selectedAdventure.saved_at,
             scheduled_for: selectedAdventure.scheduled_for,
             is_completed: !!selectedAdventure.is_completed,
-            google_places_validated: selectedAdventure.adventure_steps.some((s: any) => s.validated),
+            google_places_validated: selectedAdventure.adventure_steps.some((s: AdventureStep) => s.validated),
           }}
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
