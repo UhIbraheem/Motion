@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { type GeneratedAdventure } from '@/services/aiService';
 import { IoSparkles, IoArrowBack, IoPencil, IoSave, IoCalendarOutline } from 'react-icons/io5';
+import { TokenUsageBadge } from '@/components/TokenUsageBadge';
 
 export default function LocalAdventurePage() {
   const router = useRouter();
@@ -121,6 +122,10 @@ export default function LocalAdventurePage() {
             )}
           </h1>
           <div className="flex gap-2">
+            {/* Token Usage Badge */}
+            {adventure._meta && (
+              <TokenUsageBadge meta={adventure._meta} variant="compact" />
+            )}
             <Button 
               onClick={handleSaveAdventure}
               disabled={saving}
