@@ -1,17 +1,19 @@
 const axios = require('axios');
+const { rateLimiters } = require('../utils/rateLimiter');
 
 class GooglePlacesService {
   constructor() {
     // Prefer a dedicated Places key, but accept a generic GOOGLE_API_KEY as fallback
-    this.apiKey = process.env.GOOGLE_PLACES_API_KEY 
-      || process.env.GOOGLE_API_KEY 
+    this.apiKey = process.env.GOOGLE_PLACES_API_KEY
+      || process.env.GOOGLE_API_KEY
       || process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY;
     this.baseUrl = 'https://places.googleapis.com/v1';
-    
+    this.rateLimiter = rateLimiters.googlePlaces;
+
     if (!this.apiKey) {
       console.log('⚠️ Google Places API key not configured');
     } else {
-      console.log('✅ Google Places API v1 initialized');
+      console.log('✅ Google Places API v1 initialized with rate limiting');
     }
   }
 
@@ -32,61 +34,65 @@ class GooglePlacesService {
   /**
    * Text Search using Google Places API v1 (New)
    * Finds places by business name with optional location bias
+   * Now with rate limiting
    */
   async textSearch({ textQuery, biasCenter, biasRadiusMeters, pageSize = 1 }) {
     if (!this.apiKey) return [];
 
-    const body = { textQuery, pageSize };
+    // Wrap in rate limiter
+    return this.rateLimiter.execute(async () => {
+      const body = { textQuery, pageSize };
 
-    // Add location bias if provided
-    if (biasCenter && biasRadiusMeters) {
-      body.locationBias = {
-        circle: { 
-          center: biasCenter, 
-          radius: biasRadiusMeters 
-        }
-      };
-    }
-
-    const fieldMask = [
-      'places.id',
-      'places.name',
-      'places.displayName',
-      'places.formattedAddress',
-      'places.location',
-      'places.types',
-      'places.photos',
-      'places.rating',
-      'places.userRatingCount',
-      'places.priceLevel'
-    ].join(',');
-
-    try {
-      const response = await axios.post(
-        `${this.baseUrl}/places:searchText`,
-        body,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Goog-Api-Key': this.apiKey,
-            'X-Goog-FieldMask': fieldMask
-          },
-          timeout: 8000
-        }
-      );
-
-      return response.data?.places || [];
-    } catch (error) {
-  const status = error.response?.status;
-  const details = error.response?.data || error.message;
-  console.error('❌ Text search error:', status, details);
-      // Fallback: legacy Text Search API if v1 is restricted (403)
-      if (status === 403) {
-        const legacy = await this.legacyTextSearch(textQuery, pageSize);
-        if (legacy.length) return legacy;
+      // Add location bias if provided
+      if (biasCenter && biasRadiusMeters) {
+        body.locationBias = {
+          circle: {
+            center: biasCenter,
+            radius: biasRadiusMeters
+          }
+        };
       }
-      return [];
-    }
+
+      const fieldMask = [
+        'places.id',
+        'places.name',
+        'places.displayName',
+        'places.formattedAddress',
+        'places.location',
+        'places.types',
+        'places.photos',
+        'places.rating',
+        'places.userRatingCount',
+        'places.priceLevel'
+      ].join(',');
+
+      try {
+        const response = await axios.post(
+          `${this.baseUrl}/places:searchText`,
+          body,
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Goog-Api-Key': this.apiKey,
+              'X-Goog-FieldMask': fieldMask
+            },
+            timeout: 8000
+          }
+        );
+
+        return response.data?.places || [];
+      } catch (error) {
+        const status = error.response?.status;
+        const details = error.response?.data || error.message;
+        console.error('❌ Text search error:', status, details);
+        // Fallback: legacy Text Search API if v1 is restricted (403)
+        if (status === 403) {
+          const legacy = await this.legacyTextSearch(textQuery, pageSize);
+          if (legacy.length) return legacy;
+        }
+        return [];
+      }
+    });
   }
 
   // Legacy Text Search fallback (Places API - Text Search)
