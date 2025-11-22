@@ -193,10 +193,13 @@ function PlansContent() {
         
         // Skip if adventure_photos exists
         if (adventure.adventure_photos?.length > 0 && adventure.adventure_photos[0]?.photo_url) {
-          setAdventurePhotos(prev => ({
-            ...prev,
-            [adventure.id]: adventure.adventure_photos[0].photo_url
-          }));
+          const photoUrl = adventure.adventure_photos[0].photo_url;
+          if (photoUrl) {
+            setAdventurePhotos(prev => ({
+              ...prev,
+              [adventure.id]: photoUrl
+            }));
+          }
           continue;
         }
         
@@ -207,7 +210,7 @@ function PlansContent() {
             if (stepData.google_photo_url) {
               setAdventurePhotos(prev => ({
                 ...prev,
-                [adventure.id]: stepData.google_photo_url
+                [adventure.id]: stepData.google_photo_url!
               }));
               break;
             }

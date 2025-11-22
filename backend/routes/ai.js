@@ -437,16 +437,25 @@ Make this adventure unique and engaging!`;
         'AI generation timed out after 60 seconds'
       );
 
-      // Log usage and cost
+      // Log usage and cost with cache awareness
       if (completion.usage) {
         const cost = estimateCost(
           completion.usage.prompt_tokens,
           completion.usage.completion_tokens,
-          'gpt-4o'
+          'gpt-4o',
+          completion.usage // Pass full usage object for cache details
         );
 
         console.log(`💰 Cost: $${cost.totalCost} (${cost.promptTokens} in + ${cost.completionTokens} out)`);
-        console.log(`💾 Potential savings with caching: $${cost.cacheSavings} (${cost.savingsPercentage}%)`);
+
+        // Log cache performance
+        if (cost.cachedTokens > 0) {
+          console.log(`🎯 Cache HIT! ${cost.cachedTokens} tokens cached (${cost.cacheHitRate}% hit rate)`);
+          console.log(`💸 Actual savings: $${cost.actualSavings} (${((cost.actualSavings / (cost.totalCost + cost.actualSavings)) * 100).toFixed(1)}% reduction)`);
+        } else {
+          console.log(`❄️ Cache MISS - First time seeing this prompt`);
+          console.log(`💾 Potential savings on next request: $${cost.cacheSavings} (${cost.savingsPercentage}%)`);
+        }
 
         // Track usage
         usageTracker.logUsage(sessionId, completion.usage, 'gpt-4o');
@@ -469,19 +478,26 @@ Make this adventure unique and engaging!`;
         const enhancedAdventure = await enhanceAdventureWithGooglePlaces(parsed, app_filter?.location || 'San Francisco, CA');
         console.log("🎯 Enhanced adventure with Google Places data");
 
-        // Add cost metadata to response
+        // Add cost metadata to response with cache details
         if (completion.usage) {
           const cost = estimateCost(
             completion.usage.prompt_tokens,
             completion.usage.completion_tokens,
-            'gpt-4o'
+            'gpt-4o',
+            completion.usage // Pass full usage for cache tracking
           );
 
           enhancedAdventure._meta = {
             tokenUsage: completion.usage,
             cost: cost,
             model: 'gpt-4o',
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            cachePerformance: {
+              cacheHit: cost.cachedTokens > 0,
+              cachedTokens: cost.cachedTokens,
+              cacheHitRate: cost.cacheHitRate,
+              actualSavings: cost.actualSavings
+            }
           };
         }
 

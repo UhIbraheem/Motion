@@ -49,13 +49,14 @@ function countMessagesTokens(messages, model = 'gpt-4o') {
 }
 
 /**
- * Estimate cost for API call
+ * Estimate cost for API call with cache awareness
  * @param {number} promptTokens - Input tokens
  * @param {number} completionTokens - Output tokens
  * @param {string} model - Model name
+ * @param {object} usageDetails - Optional detailed usage from API (includes cached_tokens)
  * @returns {object} - Cost breakdown
  */
-function estimateCost(promptTokens, completionTokens, model = 'gpt-4o') {
+function estimateCost(promptTokens, completionTokens, model = 'gpt-4o', usageDetails = null) {
   // Pricing as of 2025 (per 1M tokens)
   const pricing = {
     'gpt-4o': {
@@ -77,24 +78,41 @@ function estimateCost(promptTokens, completionTokens, model = 'gpt-4o') {
 
   const modelPricing = pricing[model] || pricing['gpt-4o'];
 
-  const inputCost = (promptTokens / 1000000) * modelPricing.input;
+  // Check if we have actual cached token data from API response
+  const cachedTokens = usageDetails?.prompt_tokens_details?.cached_tokens || 0;
+  const uncachedPromptTokens = promptTokens - cachedTokens;
+
+  // Calculate actual costs (with cache if available)
+  const uncachedInputCost = (uncachedPromptTokens / 1000000) * modelPricing.input;
+  const cachedCost = (cachedTokens / 1000000) * modelPricing.cached;
+  const inputCost = uncachedInputCost + cachedCost;
   const outputCost = (completionTokens / 1000000) * modelPricing.output;
   const totalCost = inputCost + outputCost;
 
-  // Calculate potential savings with prompt caching
-  const cachedInputCost = (promptTokens / 1000000) * modelPricing.cached;
-  const cacheSavings = inputCost - cachedInputCost;
+  // Calculate potential savings if no cache was used
+  const fullInputCost = (promptTokens / 1000000) * modelPricing.input;
+  const potentialCachedCost = (promptTokens / 1000000) * modelPricing.cached;
+  const potentialSavings = fullInputCost - potentialCachedCost;
+
+  // Actual savings (if cache was used)
+  const actualSavings = cachedTokens > 0 ? (cachedTokens / 1000000) * (modelPricing.input - modelPricing.cached) : 0;
 
   return {
     promptTokens,
     completionTokens,
     totalTokens: promptTokens + completionTokens,
-    inputCost: parseFloat(inputCost.toFixed(4)),
-    outputCost: parseFloat(outputCost.toFixed(4)),
-    totalCost: parseFloat(totalCost.toFixed(4)),
-    cachedInputCost: parseFloat(cachedInputCost.toFixed(4)),
-    cacheSavings: parseFloat(cacheSavings.toFixed(4)),
-    savingsPercentage: Math.round((cacheSavings / inputCost) * 100)
+    inputCost: parseFloat(inputCost.toFixed(6)),
+    outputCost: parseFloat(outputCost.toFixed(6)),
+    totalCost: parseFloat(totalCost.toFixed(6)),
+    // Cache metrics
+    cachedTokens,
+    uncachedTokens: uncachedPromptTokens,
+    cacheHitRate: promptTokens > 0 ? parseFloat((cachedTokens / promptTokens * 100).toFixed(2)) : 0,
+    actualSavings: parseFloat(actualSavings.toFixed(6)),
+    // Potential savings (if all tokens were cached)
+    cachedInputCost: parseFloat(potentialCachedCost.toFixed(6)),
+    cacheSavings: parseFloat(potentialSavings.toFixed(6)),
+    savingsPercentage: Math.round((potentialSavings / fullInputCost) * 100)
   };
 }
 
