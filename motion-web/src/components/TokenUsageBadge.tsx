@@ -83,9 +83,22 @@ export function TokenUsageBadge({ meta, variant = 'compact' }: TokenUsageBadgePr
 
 function TokenUsageDetails({ meta }: { meta: UsageMeta }) {
   const { tokenUsage, cost, model, timestamp } = meta;
+  const cachePerf = (meta as any).cachePerformance;
 
   return (
     <div className="space-y-4">
+      {/* Cache Hit Banner */}
+      {cachePerf?.cacheHit && (
+        <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-3 border border-green-200">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+            <span className="text-sm font-semibold text-green-800">
+              🎯 Cache Hit! Saved ${cachePerf.actualSavings.toFixed(4)} ({cachePerf.cacheHitRate.toFixed(1)}% cached)
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Cost Summary */}
       <div className="bg-gradient-to-br from-[#3c7660]/5 to-[#f2cc6c]/5 rounded-xl p-4 border border-[#3c7660]/10">
         <div className="flex items-center justify-between mb-2">
