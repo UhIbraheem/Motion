@@ -93,6 +93,8 @@ export default function ForMePage() {
   const [selectedPlace, setSelectedPlace] = useState<PlaceResult | null>(null);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [savedPlaceIds, setSavedPlaceIds] = useState<Set<string>>(new Set());
+  const [albumPlaces, setAlbumPlaces] = useState<SavedPlace[]>([]);
+  const [loadingAlbumPlaces, setLoadingAlbumPlaces] = useState(false);
 
   // Authentication check
   useEffect(() => {
@@ -133,6 +135,32 @@ export default function ForMePage() {
       console.error('Error loading saved places:', error);
     }
   };
+
+  const loadAlbumPlaces = async (albumId: string) => {
+    if (!user) return;
+    setLoadingAlbumPlaces(true);
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/albums/${albumId}?userId=${user.id}`);
+      if (!res.ok) throw new Error('Failed to load album places');
+      const data = await res.json();
+      setAlbumPlaces(data.places || []);
+    } catch (error) {
+      console.error('Error loading album places:', error);
+      toast.error('Failed to load album places');
+      setAlbumPlaces([]);
+    } finally {
+      setLoadingAlbumPlaces(false);
+    }
+  };
+
+  // Load album places when album is selected
+  useEffect(() => {
+    if (selectedAlbum) {
+      loadAlbumPlaces(selectedAlbum);
+    } else {
+      setAlbumPlaces([]);
+    }
+  }, [selectedAlbum]);
 
   const handleSearch = async () => {
     if (!searchQuery.trim() || !locationQuery.trim()) {
@@ -215,6 +243,26 @@ export default function ForMePage() {
     } catch (error) {
       console.error('Error deleting album:', error);
       toast.error('Failed to delete album');
+    }
+  };
+
+  const handleRemovePlaceFromAlbum = async (placeId: string) => {
+    if (!user || !selectedAlbum) return;
+    if (!confirm('Remove this place from the album?')) return;
+
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/albums/${selectedAlbum}/places/${placeId}?userId=${user.id}`, {
+        method: 'DELETE'
+      });
+
+      if (!res.ok) throw new Error('Failed to remove place');
+
+      setAlbumPlaces(prev => prev.filter(p => p.id !== placeId));
+      loadAlbums(); // Refresh to update place counts
+      toast.success('Place removed from album');
+    } catch (error) {
+      console.error('Error removing place:', error);
+      toast.error('Failed to remove place');
     }
   };
 
@@ -483,78 +531,188 @@ export default function ForMePage() {
               )}
             </div>
 
-            {/* Search Results */}
+            {/* Search Results / Album Places */}
             <div className="md:col-span-9">
-              {searchResults.length === 0 && !isSearching ? (
-                <div className="text-center py-16">
-                  <IoSearch className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Start Discovering</h3>
-                  <p className="text-gray-600 mb-1">Search for restaurants, cafes, or attractions</p>
-                  <p className="text-sm text-gray-500">Save your favorites to albums for easy access</p>
+              {selectedAlbum ? (
+                // Show album places
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900">
+                        {albums.find(a => a.id === selectedAlbum)?.name}
+                      </h2>
+                      <p className="text-sm text-gray-600">
+                        {albumPlaces.length} {albumPlaces.length === 1 ? 'place' : 'places'}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={() => setSelectedAlbum(null)}
+                      size="sm"
+                    >
+                      <IoClose className="w-4 h-4 mr-2" />
+                      Close Album
+                    </Button>
+                  </div>
+
+                  {loadingAlbumPlaces ? (
+                    <div className="text-center py-16">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#3c7660] mx-auto mb-4"></div>
+                      <p className="text-gray-600">Loading places...</p>
+                    </div>
+                  ) : albumPlaces.length === 0 ? (
+                    <div className="text-center py-16">
+                      <IoBookmarkOutline className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">No Places Yet</h3>
+                      <p className="text-gray-600">Search and save places to this album</p>
+                    </div>
+                  ) : (
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {albumPlaces.map(place => {
+                        const photoUrl = place.photo_url || '/placeholder-place.jpg';
+
+                        return (
+                          <Card key={place.id} className="overflow-hidden hover:shadow-xl transition-shadow">
+                            <div className="relative h-48 bg-gray-200">
+                              <img
+                                src={photoUrl}
+                                alt={place.business_name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.src = '/placeholder-place.jpg';
+                                }}
+                              />
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleRemovePlaceFromAlbum(place.id)}
+                                className="absolute top-2 right-2 bg-white/90 hover:bg-white shadow-md"
+                              >
+                                <IoTrashOutline className="w-5 h-5 text-red-500" />
+                              </Button>
+                            </div>
+                            <CardContent className="p-4">
+                              <h3 className="font-semibold text-gray-900 mb-1 line-clamp-1">
+                                {place.business_name}
+                              </h3>
+                              <p className="text-xs text-gray-500 mb-2 line-clamp-1">
+                                <IoLocationOutline className="inline w-3 h-3 mr-1" />
+                                {place.address || 'Address unavailable'}
+                              </p>
+                              <div className="flex items-center gap-3 text-xs flex-wrap">
+                                {place.rating && (
+                                  <span className="flex items-center gap-1 text-yellow-600">
+                                    <IoStar className="w-3 h-3" />
+                                    {place.rating.toFixed(1)}
+                                  </span>
+                                )}
+                                {place.price_level && (
+                                  <span className="flex items-center gap-1 text-gray-600">
+                                    <IoCash className="w-3 h-3" />
+                                    {'$'.repeat(place.price_level)}
+                                  </span>
+                                )}
+                                {place.phone && (
+                                  <span className="flex items-center gap-1 text-gray-600">
+                                    <IoCallOutline className="w-3 h-3" />
+                                    <a href={`tel:${place.phone}`} className="hover:underline">
+                                      Call
+                                    </a>
+                                  </span>
+                                )}
+                                {place.website && (
+                                  <span className="flex items-center gap-1 text-gray-600">
+                                    <IoGlobeOutline className="w-3 h-3" />
+                                    <a href={place.website} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                                      Website
+                                    </a>
+                                  </span>
+                                )}
+                              </div>
+                              {place.notes && (
+                                <p className="text-xs text-gray-600 mt-2 italic">{place.notes}</p>
+                              )}
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               ) : (
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {searchResults.map(place => {
-                    const isSaved = savedPlaceIds.has(place.id);
-                    const photoUrl = place.photos?.[0]?.name
-                      ? `https://places.googleapis.com/v1/${place.photos[0].name}/media?key=${process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY}&maxHeightPx=400&maxWidthPx=400`
-                      : '/placeholder-place.jpg';
+                // Show search results
+                searchResults.length === 0 && !isSearching ? (
+                  <div className="text-center py-16">
+                    <IoSearch className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Start Discovering</h3>
+                    <p className="text-gray-600 mb-1">Search for restaurants, cafes, or attractions</p>
+                    <p className="text-sm text-gray-500">Save your favorites to albums for easy access</p>
+                  </div>
+                ) : (
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {searchResults.map(place => {
+                      const isSaved = savedPlaceIds.has(place.id);
+                      const photoUrl = place.photos?.[0]?.name
+                        ? `https://places.googleapis.com/v1/${place.photos[0].name}/media?key=${process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY}&maxHeightPx=400&maxWidthPx=400`
+                        : '/placeholder-place.jpg';
 
-                    return (
-                      <Card key={place.id} className="overflow-hidden hover:shadow-xl transition-shadow">
-                        <div className="relative h-48 bg-gray-200">
-                          <img
-                            src={photoUrl}
-                            alt={place.displayName || place.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.src = '/placeholder-place.jpg';
-                            }}
-                          />
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => openSaveDialog(place)}
-                            className="absolute top-2 right-2 bg-white/90 hover:bg-white shadow-md"
-                          >
-                            {isSaved ? (
-                              <IoBookmark className="w-5 h-5 text-[#3c7660]" />
-                            ) : (
-                              <IoBookmarkOutline className="w-5 h-5 text-gray-700" />
-                            )}
-                          </Button>
-                        </div>
-                        <CardContent className="p-4">
-                          <h3 className="font-semibold text-gray-900 mb-1 line-clamp-1">
-                            {place.displayName || place.name}
-                          </h3>
-                          <p className="text-xs text-gray-500 mb-2 line-clamp-1">
-                            <IoLocationOutline className="inline w-3 h-3 mr-1" />
-                            {place.formattedAddress || 'Address unavailable'}
-                          </p>
-                          <div className="flex items-center gap-3 text-xs">
-                            {place.rating && (
-                              <span className="flex items-center gap-1 text-yellow-600">
-                                <IoStar className="w-3 h-3" />
-                                {place.rating.toFixed(1)}
-                              </span>
-                            )}
-                            {place.priceLevel && (
-                              <span className="flex items-center gap-1 text-gray-600">
-                                <IoCash className="w-3 h-3" />
-                                {getPriceLevelSymbol(place.priceLevel)}
-                              </span>
-                            )}
-                            {place.businessStatus === 'OPERATIONAL' && (
-                              <Badge variant="outline" className="text-green-600 border-green-600">Open</Badge>
-                            )}
+                      return (
+                        <Card key={place.id} className="overflow-hidden hover:shadow-xl transition-shadow">
+                          <div className="relative h-48 bg-gray-200">
+                            <img
+                              src={photoUrl}
+                              alt={place.displayName || place.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.src = '/placeholder-place.jpg';
+                              }}
+                            />
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => openSaveDialog(place)}
+                              className="absolute top-2 right-2 bg-white/90 hover:bg-white shadow-md"
+                            >
+                              {isSaved ? (
+                                <IoBookmark className="w-5 h-5 text-[#3c7660]" />
+                              ) : (
+                                <IoBookmarkOutline className="w-5 h-5 text-gray-700" />
+                              )}
+                            </Button>
                           </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
+                          <CardContent className="p-4">
+                            <h3 className="font-semibold text-gray-900 mb-1 line-clamp-1">
+                              {place.displayName || place.name}
+                            </h3>
+                            <p className="text-xs text-gray-500 mb-2 line-clamp-1">
+                              <IoLocationOutline className="inline w-3 h-3 mr-1" />
+                              {place.formattedAddress || 'Address unavailable'}
+                            </p>
+                            <div className="flex items-center gap-3 text-xs">
+                              {place.rating && (
+                                <span className="flex items-center gap-1 text-yellow-600">
+                                  <IoStar className="w-3 h-3" />
+                                  {place.rating.toFixed(1)}
+                                </span>
+                              )}
+                              {place.priceLevel && (
+                                <span className="flex items-center gap-1 text-gray-600">
+                                  <IoCash className="w-3 h-3" />
+                                  {getPriceLevelSymbol(place.priceLevel)}
+                                </span>
+                              )}
+                              {place.businessStatus === 'OPERATIONAL' && (
+                                <Badge variant="outline" className="text-green-600 border-green-600">Open</Badge>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )
               )}
             </div>
           </div>
