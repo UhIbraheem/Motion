@@ -60,7 +60,7 @@ export default function Navigation() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
   // Hide search and filters on certain pages
-  const hideSearchAndFilters = pathname === '/create' || pathname === '/plans' || pathname === '/profile' || pathname.startsWith('/adventures/');
+  const hideSearchAndFilters = pathname === '/create' || pathname === '/plans' || pathname === '/profile' || pathname === '/for-me' || pathname.startsWith('/adventures/');
 
   useEffect(() => {
     const handleScroll = () => {
@@ -72,18 +72,23 @@ export default function Navigation() {
   }, []);
 
   const navItems = [
-    { 
-      name: 'Discover', 
+    {
+      name: 'Discover',
       href: '/',
       active: pathname === '/'
     },
-    { 
-      name: 'Create', 
+    {
+      name: 'For Me',
+      href: '/for-me',
+      active: pathname === '/for-me'
+    },
+    {
+      name: 'Create',
       href: '/create',
       active: pathname === '/create'
     },
-    { 
-      name: 'Plans', 
+    {
+      name: 'Plans',
       href: '/plans',
       active: pathname === '/plans'
     }

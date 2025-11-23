@@ -85,13 +85,26 @@ function AuthCallbackContent() {
               }
             }
 
-            console.log('🔐 Auth successful, redirecting to home page...');
-            
+            console.log('🔐 Auth successful, waiting for session to stabilize...');
+
             // Set localStorage flag to help signin page detect completed auth
             localStorage.setItem('motion_auth_complete', Date.now().toString());
-            
-            // Use router.replace for proper Next.js navigation with cookie handling
-            router.replace('/');
+
+            // Wait a moment for the session to fully propagate and auth state to update
+            // This prevents the race condition where we redirect before AuthContext picks up the new session
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Verify session is still valid before redirecting
+            const { data: { session: verifySession } } = await supabase.auth.getSession();
+
+            if (verifySession) {
+              console.log('🔐 Session verified, redirecting to home page...');
+              // Use router.replace for proper Next.js navigation with cookie handling
+              router.replace('/');
+            } else {
+              console.warn('🔐 Session verification failed, redirecting to signin');
+              router.replace('/auth/signin?error=Session expired');
+            }
             return;
           }
         }
