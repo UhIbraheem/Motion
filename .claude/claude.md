@@ -1,9 +1,21 @@
 # Motion - AI Adventure Planning App
 
-## Quick Reference
+## Product Vision (Updated 2024-11)
 
-### Tech Stack
-**Backend:** Node.js/Express, Supabase PostgreSQL, OpenAI GPT-4o, Google Places API v1
+**Motion is evolving from an AI-only planner into a comprehensive place discovery, saving, and planning platform.**
+
+**New Core Features:**
+- **"For Me" Page:** Search/discover places with Google Places API, save to albums
+- **Dual Creation:** Manual planning (free) + AI generation (premium subscription)
+- **Universal Saving:** Save places from anywhere (Discover, friends' plans, AI results) to personal albums
+- **Revenue:** Premium AI subscriptions, multi-day trip planner, OpenTable affiliate links
+
+*See `.claude/PRODUCT_VISION_V2.md` for full roadmap*
+
+---
+
+## Tech Stack
+**Backend:** Node.js/Express, Supabase PostgreSQL, OpenAI GPT-4o, Google Places API v1, Geocoding API
 **Frontend:** Next.js 14, TypeScript, Tailwind CSS, shadcn/ui
 **Key Packages:** tiktoken (token counting), axios (HTTP), dotenv
 
@@ -126,19 +138,37 @@ const steps = adventure.adventure_steps.map((step: AdventureStep) => ({
 }));
 ```
 
-### Known Limitations
-- Prompt caching: Configured but requires cache-control headers
-- Photo fallback: No Unsplash/Pexels integration yet
-- Mobile app: Basic features only, missing adventure creation
-- Auth: No session timeout warnings or CSRF protection yet
-- Testing: No E2E or unit tests yet
+### Known Limitations & Fixes Needed
+- **CRITICAL:** Geocoding API not enabled in Google Cloud (causes REQUEST_DENIED errors)
+  → See `GOOGLE_CLOUD_SETUP.md` for fix instructions
+- **Auth:** Race condition on redirect (user appears logged out until refresh)
+  → Need to wait for session validation before redirect
+- **Photo fallback:** No Unsplash/Pexels integration yet
+- **Mobile app:** Basic features only, missing adventure creation
+- **Testing:** No E2E or unit tests yet
+- **Manual Planning:** Not yet implemented (coming in Phase 2)
 
-### Priority Roadmap
-1. **AI Optimization** - Implement prompt caching, optimize token usage
-2. **Image Service** - Add fallback to Unsplash/Pexels when Google Photos unavailable
-3. **Auth & Security** - Polish sign-in/sign-up, add session management
-4. **Performance** - Implement Next.js Image optimization, loading states
-5. **Mobile Parity** - Complete React Native adventure creation
+### Priority Roadmap (Updated 2024-11)
+**Phase 1 - Foundation (Current):**
+1. Fix Google Cloud APIs (Geocoding API, Places API)
+2. Fix "fn is not a function" error (✅ Fixed)
+3. Fix auth redirect race condition
+4. Create "For Me" page shell
+5. Implement album system (backend + frontend)
+
+**Phase 2 - Core Features:**
+1. Manual plan creation UI with timeline builder
+2. Save places to albums from anywhere
+3. Dual-tab creation page (Manual + AI)
+4. Enhanced place search and filters
+
+**Phase 3 - Premium & Revenue:**
+1. Multi-day trip planner
+2. Subscription billing (Stripe)
+3. OpenTable affiliate integration
+4. Mobile app parity
+
+*See `.claude/PRODUCT_VISION_V2.md` for detailed roadmap*
 
 ### Debugging Tips
 - Check backend logs for `💰 Cost:`, `✅ Found:`, `❌ VALIDATION FAILED:`
