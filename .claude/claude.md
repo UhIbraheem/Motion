@@ -29,6 +29,8 @@
 #### Backend Critical Files
 ```
 backend/routes/ai.js          # AI generation, step regeneration, usage stats
+backend/routes/albums.js      # Album CRUD operations
+backend/routes/places.js      # Saved places and Google Places search proxy
 backend/services/GooglePlacesService.js  # Places search, photos, OPERATIONAL filtering
 backend/services/GeocodingService.js     # Location → lat/lng, LRU cache
 backend/utils/openaiHelpers.js           # Token counting, cost estimation, prompt caching
@@ -40,10 +42,13 @@ backend/middleware/errorHandler.js       # Global error handling
 #### Frontend Critical Files
 ```
 motion-web/src/app/create/page.tsx          # Adventure creation form
+motion-web/src/app/for-me/page.tsx          # Place discovery and album management
 motion-web/src/app/plans/page.tsx           # Saved adventures list
 motion-web/src/app/adventures/local/page.tsx  # Preview & save generated adventure
+motion-web/src/app/auth/callback/page.tsx   # OAuth callback with race condition fix
 motion-web/src/services/aiService.ts        # Frontend AI service wrapper
 motion-web/src/components/TokenUsageBadge.tsx  # Cost tracking UI
+motion-web/src/components/Navigation.tsx    # Main navigation with For Me link
 motion-web/src/types/adventureTypes.ts      # TypeScript type definitions
 ```
 
@@ -53,6 +58,9 @@ motion-web/src/types/adventureTypes.ts      # TypeScript type definitions
 - `adventure_steps` - Individual steps in adventures
 - `adventure_photos` - Photo URLs for adventures
 - `community_adventures` - Public shared adventures
+- `albums` - User's place collections
+- `saved_places` - Individual saved places
+- `album_places` - Many-to-many join table (albums ↔ places)
 
 ### Critical Business Logic
 
@@ -90,6 +98,21 @@ motion-web/src/types/adventureTypes.ts      # TypeScript type definitions
 - `PUT /:id` - Update adventure
 - `DELETE /:id` - Delete adventure
 
+#### Album Routes (`/api/albums/...`) - NEW
+- `GET /` - Get user's albums with place counts
+- `POST /` - Create album
+- `GET /:id` - Get album with all places
+- `PUT /:id` - Update album
+- `DELETE /:id` - Delete album
+- `POST /:id/places` - Add place to album
+- `DELETE /:id/places/:placeId` - Remove place from album
+
+#### Places Routes (`/api/places/...`) - NEW
+- `GET /saved` - Get user's saved places
+- `POST /save` - Save new place
+- `DELETE /saved/:id` - Delete saved place
+- `GET /search` - Search places (Google Places proxy)
+
 ### Environment Variables
 ```bash
 # Backend
@@ -106,13 +129,21 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 
 ### Recent Major Changes
 
-#### 2024-11 Session Updates
-1. **Business Validation Fix** - Added OPERATIONAL-only filtering, enhanced AI prompts to prevent suggesting closed businesses
-2. **Geocoding Service** - Fixed hardcoded SF coordinates, now dynamically geocodes user locations
-3. **TypeScript Cleanup** - Replaced all `any` types with proper `AdventureStep` typing
-4. **Token Usage UI** - Added TokenUsageBadge component showing cost breakdown and savings potential
-5. **Error Handling** - Comprehensive retry logic, circuit breakers, global error middleware
-6. **Performance Monitoring** - P50/P95/P99 percentile tracking for all operations
+#### 2024-11 Session Updates (Latest)
+1. **For Me Page** - Complete place discovery and album management system
+   - Google Places search integration
+   - Album CRUD with sidebar UI
+   - Save places to albums
+   - View album contents with place details
+2. **Backend APIs** - Full REST API for albums and saved places
+   - `/api/albums` - CRUD operations
+   - `/api/places/saved` - Saved places management
+   - `/api/places/search` - Google Places proxy
+3. **Auth Fix** - Fixed redirect race condition with 500ms delay
+4. **Business Validation Fix** - Added OPERATIONAL-only filtering
+5. **Geocoding Service** - Fixed hardcoded SF coordinates
+6. **TypeScript Cleanup** - Replaced all `any` types with proper typing
+7. **Token Usage UI** - Real cache hit detection and cost tracking
 
 ### Common Patterns
 
@@ -139,28 +170,29 @@ const steps = adventure.adventure_steps.map((step: AdventureStep) => ({
 ```
 
 ### Known Limitations & Fixes Needed
-- **CRITICAL:** Geocoding API not enabled in Google Cloud (causes REQUEST_DENIED errors)
-  → See `GOOGLE_CLOUD_SETUP.md` for fix instructions
-- **Auth:** Race condition on redirect (user appears logged out until refresh)
-  → Need to wait for session validation before redirect
+- ✅ ~~Geocoding API not enabled~~ - User resolved API key restrictions
+- ✅ ~~Auth redirect race condition~~ - Fixed with session validation delay
+- ✅ ~~GooglePlacesService errors~~ - Fixed singleton instantiation
 - **Photo fallback:** No Unsplash/Pexels integration yet
-- **Mobile app:** Basic features only, missing adventure creation
+- **Mobile app:** Basic features only, missing new features
 - **Testing:** No E2E or unit tests yet
 - **Manual Planning:** Not yet implemented (coming in Phase 2)
 
 ### Priority Roadmap (Updated 2024-11)
-**Phase 1 - Foundation (Current):**
-1. Fix Google Cloud APIs (Geocoding API, Places API)
-2. Fix "fn is not a function" error (✅ Fixed)
-3. Fix auth redirect race condition
-4. Create "For Me" page shell
-5. Implement album system (backend + frontend)
+**Phase 1 - Foundation (COMPLETE ✅):**
+1. ✅ Fix Google Cloud APIs (User resolved Geocoding API)
+2. ✅ Fix "fn is not a function" error
+3. ✅ Fix auth redirect race condition
+4. ✅ Create "For Me" page with place search
+5. ✅ Implement album system (backend + frontend)
+6. ✅ View album contents and remove places
 
-**Phase 2 - Core Features:**
+**Phase 2 - Core Features (In Progress):**
 1. Manual plan creation UI with timeline builder
-2. Save places to albums from anywhere
+2. Save places to albums from Discover/Plans pages
 3. Dual-tab creation page (Manual + AI)
-4. Enhanced place search and filters
+4. Enhanced place search filters (cuisine, price, rating)
+5. Replace AI step with saved place
 
 **Phase 3 - Premium & Revenue:**
 1. Multi-day trip planner
