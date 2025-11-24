@@ -91,9 +91,22 @@ export default function Navigation() {
 
   const handleSignOut = async () => {
     try {
+      // Immediate UI feedback - redirect first, sign out in background
+      const currentPath = pathname;
+
+      // Sign out and redirect
       await signOut();
+
+      // Force redirect to sign in page immediately
+      if (typeof window !== 'undefined') {
+        window.location.href = '/auth/signin';
+      }
     } catch (error) {
       console.error('Sign out error:', error);
+      // Even on error, attempt to redirect
+      if (typeof window !== 'undefined') {
+        window.location.href = '/auth/signin';
+      }
     }
   };
 

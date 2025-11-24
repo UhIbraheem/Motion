@@ -174,47 +174,58 @@ function PlansContent() {
     }
   }, [searchParams]);
 
-  // Fetch photos for adventures that don't have them
+  // Fetch photos for adventures that don't have them - OPTIMIZED with limit and batch processing
   useEffect(() => {
     const fetchMissingPhotos = async () => {
-      for (const adventure of savedAdventures) {
+      // Process only first 12 adventures (visible on screen) to reduce initial load time
+      const visibleAdventures = savedAdventures.slice(0, 12);
+
+      // Batch photo lookups that already exist in data
+      const photoUpdates: Record<string, string> = {};
+
+      for (const adventure of visibleAdventures) {
         // Skip if we already have a photo cached
         if (adventurePhotos[adventure.id]) continue;
-        
-        // Skip if adventure_photos exists
+
+        // Priority 1: adventure_photos table
         if (adventure.adventure_photos?.length > 0 && adventure.adventure_photos[0]?.photo_url) {
-          setAdventurePhotos(prev => ({
-            ...prev,
-            [adventure.id]: adventure.adventure_photos[0].photo_url
-          }));
+          photoUpdates[adventure.id] = adventure.adventure_photos[0].photo_url;
           continue;
         }
-        
-        // Check steps for existing photo data
+
+        // Priority 2: Check steps for existing photo data (no API calls yet)
         if (adventure.adventure_steps?.length > 0) {
+          let foundPhoto = false;
           for (const step of adventure.adventure_steps) {
             const stepData = step as any;
             if (stepData.google_photo_url) {
-              setAdventurePhotos(prev => ({
-                ...prev,
-                [adventure.id]: stepData.google_photo_url
-              }));
+              photoUpdates[adventure.id] = stepData.google_photo_url;
+              foundPhoto = true;
               break;
             }
             if (stepData.google_places?.photo_url) {
-              setAdventurePhotos(prev => ({
-                ...prev,
-                [adventure.id]: stepData.google_places.photo_url
-              }));
+              photoUpdates[adventure.id] = stepData.google_places.photo_url;
+              foundPhoto = true;
               break;
             }
           }
-          
-          // If still no photo, fetch from Google Places
-          if (!adventurePhotos[adventure.id]) {
+          if (foundPhoto) continue;
+        }
+      }
+
+      // Apply all photo updates at once (single state update)
+      if (Object.keys(photoUpdates).length > 0) {
+        setAdventurePhotos(prev => ({ ...prev, ...photoUpdates }));
+      }
+
+      // Lazy load remaining photos only when needed (deferred with setTimeout)
+      setTimeout(async () => {
+        for (const adventure of visibleAdventures) {
+          if (adventurePhotos[adventure.id] || photoUpdates[adventure.id]) continue;
+
+          if (adventure.adventure_steps?.length > 0) {
             const firstStep = adventure.adventure_steps[0] as any;
             if (firstStep?.business_name) {
-              console.log('🔍 Fetching photo for:', adventure.custom_title, firstStep.business_name);
               try {
                 const placeData = await GooglePlacesService.getPlaceDataWithCache(
                   firstStep.business_name,
@@ -227,14 +238,14 @@ function PlansContent() {
                   }));
                 }
               } catch (err) {
-                console.error('Failed to fetch photo:', err);
+                // Silently ignore photo fetch errors
               }
             }
           }
         }
-      }
+      }, 1000); // Delay API calls by 1 second
     };
-    
+
     if (savedAdventures.length > 0) {
       fetchMissingPhotos();
     }
@@ -803,32 +814,65 @@ function PlansContent() {
               </div>
             </div>
 
-            {/* Action Button */}
-            <Button 
-              className="w-full bg-gradient-to-r from-[#3c7660] via-[#4d987b] to-[#3c7660] hover:shadow-lg hover:shadow-[#3c7660]/30 text-white font-semibold transition-all duration-300 hover:scale-[1.02] group/btn bg-[length:200%_100%] hover:bg-right"
-              onClick={(e) => {
-                e.stopPropagation();
-                openAdventureModal(adventure);
-              }}
-            >
-              <NavigationIcon className="mr-2 h-4 w-4 group-hover/btn:animate-pulse" />
-              Start Quest
-            </Button>
+            {/* Scheduled Date or Action Button */}
+            {adventure.scheduled_for && !adventure.is_completed ? (
+              <div className="w-full bg-gradient-to-r from-[#3c7660]/10 to-[#4d987b]/10 border-2 border-[#3c7660]/30 rounded-xl p-4 text-center">
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <CalendarDays className="w-5 h-5 text-[#3c7660]" />
+                  <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Scheduled For</span>
+                </div>
+                <p className="text-2xl font-bold text-[#3c7660]">
+                  {new Date(adventure.scheduled_for).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: new Date(adventure.scheduled_for).getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
+                  })}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {new Date(adventure.scheduled_for).toLocaleDateString('en-US', { weekday: 'long' })}
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full mt-3 border-[#3c7660]/30 text-[#3c7660] hover:bg-[#3c7660]/5 transition-all duration-300 text-xs"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedAdventure(adventure);
+                    setShowScheduleModal(true);
+                  }}
+                >
+                  Reschedule
+                </Button>
+              </div>
+            ) : (
+              <>
+                <Button
+                  className="w-full bg-gradient-to-r from-[#3c7660] via-[#4d987b] to-[#3c7660] hover:shadow-lg hover:shadow-[#3c7660]/30 text-white font-semibold transition-all duration-300 hover:scale-[1.02] group/btn bg-[length:200%_100%] hover:bg-right"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openAdventureModal(adventure);
+                  }}
+                >
+                  <NavigationIcon className="mr-2 h-4 w-4 group-hover/btn:animate-pulse" />
+                  Start Quest
+                </Button>
 
-            {/* Schedule CTA for unscheduled */}
-            {!adventure.scheduled_for && !adventure.is_completed && (
-              <Button 
-                variant="outline"
-                className="w-full border-[#3c7660]/30 text-[#3c7660] hover:bg-[#3c7660]/5 transition-all duration-300"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedAdventure(adventure);
-                  setShowScheduleModal(true);
-                }}
-              >
-                <CalendarDays className="mr-2 h-4 w-4" />
-                Schedule This Adventure
-              </Button>
+                {/* Schedule CTA for unscheduled */}
+                {!adventure.is_completed && (
+                  <Button
+                    variant="outline"
+                    className="w-full border-[#3c7660]/30 text-[#3c7660] hover:bg-[#3c7660]/5 transition-all duration-300"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedAdventure(adventure);
+                      setShowScheduleModal(true);
+                    }}
+                  >
+                    <CalendarDays className="mr-2 h-4 w-4" />
+                    Schedule This Adventure
+                  </Button>
+                )}
+              </>
             )}
           </div>
         </div>
