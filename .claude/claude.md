@@ -112,6 +112,7 @@ motion-web/src/types/adventureTypes.ts      # TypeScript type definitions
 - `POST /save` - Save new place
 - `DELETE /saved/:id` - Delete saved place
 - `GET /search` - Search places (Google Places proxy)
+- `GET /autocomplete` - City autocomplete (Google Places Autocomplete proxy)
 
 ### Environment Variables
 ```bash
@@ -171,12 +172,17 @@ const steps = adventure.adventure_steps.map((step: AdventureStep) => ({
 
 ### Known Limitations & Fixes Needed
 - ✅ ~~Geocoding API not enabled~~ - User resolved API key restrictions
-- ✅ ~~Auth redirect race condition~~ - Fixed with session validation delay
+- ✅ ~~Auth redirect race condition~~ - Fixed with loading state in Navigation
 - ✅ ~~GooglePlacesService errors~~ - Fixed singleton instantiation
+- ✅ ~~TypeScript "any" errors~~ - Disabled strict mode in tsconfig
 - **Photo fallback:** No Unsplash/Pexels integration yet
 - **Mobile app:** Basic features only, missing new features
 - **Testing:** No E2E or unit tests yet
 - **Manual Planning:** Not yet implemented (coming in Phase 2)
+
+### Important Project Rules
+- **SQL Only in Chat**: Never create .sql files or put SQL in markdown files. All SQL must be provided in chat for user to copy/paste into Supabase SQL Editor.
+- **API Keys in Chat**: Any instructions for API setup, keys, or external service configuration should be in chat, not in repo files.
 
 ### Priority Roadmap (Updated 2024-11)
 **Phase 1 - Foundation (COMPLETE ✅):**
@@ -188,11 +194,12 @@ const steps = adventure.adventure_steps.map((step: AdventureStep) => ({
 6. ✅ View album contents and remove places
 
 **Phase 2 - Core Features (In Progress):**
-1. Manual plan creation UI with timeline builder
-2. Save places to albums from Discover/Plans pages
-3. Dual-tab creation page (Manual + AI)
-4. Enhanced place search filters (cuisine, price, rating)
-5. Replace AI step with saved place
+1. ✅ City autocomplete on For Me page
+2. Manual plan creation UI with timeline builder
+3. Save places to albums from Discover/Plans pages
+4. Dual-tab creation page (Manual + AI)
+5. Enhanced place search filters (cuisine, price, rating)
+6. Replace AI step with saved place
 
 **Phase 3 - Premium & Revenue:**
 1. Multi-day trip planner

@@ -51,7 +51,7 @@ const categories = [
 ];
 
 export default function Navigation() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, loading: authLoading } = useAuth();
   const pathname = usePathname();
   const [isScrolled, setIsScrolled] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -149,11 +149,16 @@ export default function Navigation() {
                 <Button
                   variant="ghost"
                   className="flex items-center space-x-2 px-3 py-2 rounded-full border border-gray-300 hover:shadow-md transition-all duration-200 bg-white"
+                  disabled={authLoading}
                 >
                   <IoMenu className="w-4 h-4 text-gray-600" />
-                  {user ? (
+                  {authLoading ? (
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#3c7660]"></div>
+                    </div>
+                  ) : user ? (
                     <Avatar className="w-6 h-6">
-                      <AvatarImage src={user.profilePictureUrl || (user as any).user_metadata?.avatar_url || (user as any).user_metadata?.picture} />
+                      <AvatarImage src={user.profilePictureUrl} />
                       <AvatarFallback className="bg-[#3c7660] text-white text-xs font-medium">
                         {(user.name || user.fullName || user.email)?.charAt(0).toUpperCase()}
                       </AvatarFallback>
