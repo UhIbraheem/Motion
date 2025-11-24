@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { OpenAI } = require("openai");
 const { extractFirstJsonBlock } = require("../utils/jsonExtractor");
-const GooglePlacesService = require("../services/GooglePlacesService");
+const googlePlaces = require("../services/GooglePlacesService");
 const geocoding = require("../services/GeocodingService");
 const { rateLimiters } = require("../utils/rateLimiter");
 const {
@@ -22,8 +22,6 @@ require("dotenv").config();
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
-
-const googlePlaces = new GooglePlacesService();
 
 // Endpoint to get Google Places data for frontend
 router.post("/google-places", async (req, res) => {

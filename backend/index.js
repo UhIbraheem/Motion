@@ -7,6 +7,7 @@ const aiRouter = require("./routes/ai");
 const placesRouter = require("./routes/places");
 const photosRouter = require("./routes/photos");
 const adventuresRouter = require("./routes/adventures");
+const albumsRouter = require("./routes/albums");
 
 // Import middleware
 const { requestLogger, slowRequestLogger } = require("./middleware/logger");
@@ -156,6 +157,7 @@ app.use("/api/ai", aiRouter);
 app.use("/api/places", placesRouter);
 app.use("/api/places", photosRouter);
 app.use("/api/adventures", adventuresRouter);
+app.use("/api/albums", albumsRouter);
 
 // Test route - pretty HTML for humans, JSON for apps
 app.get("/", (req, res) => {
