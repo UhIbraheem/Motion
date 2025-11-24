@@ -950,20 +950,8 @@ function PlansContent() {
               modifiers={{
                 scheduled: scheduledDates
               }}
-              components={{
-                DayContent: ({ date }) => {
-                  const hasEvent = scheduledDates.some(
-                    d => d.toDateString() === date.toDateString()
-                  );
-                  return (
-                    <div className="relative w-full h-full flex items-center justify-center">
-                      <span>{date.getDate()}</span>
-                      {hasEvent && (
-                        <div className="absolute bottom-0.5 w-1 h-1 bg-[#3c7660] rounded-full shadow-sm" />
-                      )}
-                    </div>
-                  );
-                }
+              modifiersClassNames={{
+                scheduled: "relative after:content-[''] after:absolute after:bottom-0.5 after:left-1/2 after:-translate-x-1/2 after:w-1 after:h-1 after:bg-[#3c7660] after:rounded-full after:shadow-sm"
               }}
               classNames={{
                 months: "flex flex-col space-y-4",
