@@ -95,6 +95,8 @@ export default function ForMePage() {
   const [savedPlaceIds, setSavedPlaceIds] = useState<Set<string>>(new Set());
   const [albumPlaces, setAlbumPlaces] = useState<SavedPlace[]>([]);
   const [loadingAlbumPlaces, setLoadingAlbumPlaces] = useState(false);
+  const [citySuggestions, setCitySuggestions] = useState<Array<{description: string; placeId: string}>>([]);
+  const [showCitySuggestions, setShowCitySuggestions] = useState(false);
 
   // Authentication check
   useEffect(() => {
@@ -134,6 +136,42 @@ export default function ForMePage() {
     } catch (error) {
       console.error('Error loading saved places:', error);
     }
+  };
+
+  // City autocomplete using Google Places Autocomplete API
+  const handleLocationInputChange = async (value: string) => {
+    setLocationQuery(value);
+
+    if (value.length < 2) {
+      setCitySuggestions([]);
+      setShowCitySuggestions(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(value)}&types=(cities)&key=${process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY}`,
+        { mode: 'cors' }
+      );
+
+      // Note: This will fail due to CORS - we need a backend proxy
+      // For now, use the backend proxy
+      const proxyRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/places/autocomplete?input=${encodeURIComponent(value)}`);
+      if (!proxyRes.ok) throw new Error('Autocomplete failed');
+
+      const data = await proxyRes.json();
+      setCitySuggestions(data.predictions || []);
+      setShowCitySuggestions(true);
+    } catch (error) {
+      console.error('Autocomplete error:', error);
+      // Silently fail - user can still type manually
+    }
+  };
+
+  const selectCity = (description: string) => {
+    setLocationQuery(description);
+    setShowCitySuggestions(false);
+    setCitySuggestions([]);
   };
 
   const loadAlbumPlaces = async (albumId: string) => {
@@ -386,14 +424,31 @@ export default function ForMePage() {
                 <div className="md:col-span-5">
                   <label className="text-xs font-medium text-gray-600 mb-1 block">Where?</label>
                   <div className="relative">
-                    <IoLocationOutline className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <IoLocationOutline className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 z-10" />
                     <Input
                       placeholder="City or neighborhood"
                       value={locationQuery}
-                      onChange={(e) => setLocationQuery(e.target.value)}
+                      onChange={(e) => handleLocationInputChange(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                      onBlur={() => setTimeout(() => setShowCitySuggestions(false), 200)}
+                      onFocus={() => citySuggestions.length > 0 && setShowCitySuggestions(true)}
                       className="pl-10"
                     />
+                    {showCitySuggestions && citySuggestions.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+                        {citySuggestions.map((suggestion, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => selectCity(suggestion.description)}
+                            className="w-full text-left px-4 py-2 hover:bg-gray-50 transition-colors flex items-center gap-2 border-b border-gray-100 last:border-b-0"
+                          >
+                            <IoLocationOutline className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                            <span className="text-sm text-gray-700">{suggestion.description}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <div className="md:col-span-2 flex items-end">
