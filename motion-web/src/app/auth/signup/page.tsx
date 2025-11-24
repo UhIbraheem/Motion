@@ -117,67 +117,77 @@ export default function SignUpPage() {
 
   return (
     <div className="min-h-screen flex">
-      {/* Left Side - Information Section with 4-Photo Grid Background */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
-        {/* 4-Photo Grid Background */}
+      {/* Left Side - Information Section with Real Images */}
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-slate-900 via-[#1a3d32] to-slate-900">
+        {/* Animated Background Pattern */}
+        <div className="absolute inset-0">
+          <div className="absolute top-0 left-0 w-full h-full">
+            <div className="absolute top-20 left-20 w-72 h-72 bg-[#3c7660] rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
+            <div className="absolute top-40 right-20 w-72 h-72 bg-teal-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
+            <div className="absolute -bottom-8 left-40 w-72 h-72 bg-[#4d987b] rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
+          </div>
+        </div>
+
+        {/* 4-Photo Grid Background with Real Unsplash Images */}
         <div className="absolute inset-0 grid grid-cols-2 grid-rows-2">
-          {/* Top Left - City Skyline */}
+          {/* Top Left - Food/Dining */}
           <div className="relative overflow-hidden">
             <Image
-              src="/api/placeholder/600/400"
-              alt="City skyline"
+              src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=600&h=400&fit=crop&q=80"
+              alt="Gourmet food dining experience"
               fill
               unoptimized
-              className="object-cover"
+              className="object-cover opacity-80"
             />
             <div className="absolute inset-0 bg-gradient-to-br from-[#3c7660]/60 to-transparent"></div>
           </div>
-          
-          {/* Top Right - Hiking */}
+
+          {/* Top Right - Adventure/Hiking */}
           <div className="relative overflow-hidden">
             <Image
-              src="/api/placeholder/600/400"
-              alt="Hiking adventure"
+              src="https://images.unsplash.com/photo-1551632811-561732d1e306?w=600&h=400&fit=crop&q=80"
+              alt="Outdoor adventure with friends"
               fill
               unoptimized
-              className="object-cover"
+              className="object-cover opacity-80"
             />
             <div className="absolute inset-0 bg-gradient-to-bl from-[#2d5a48]/60 to-transparent"></div>
           </div>
-          
-          {/* Bottom Left - Dinner */}
+
+          {/* Bottom Left - Rooftop Party */}
           <div className="relative overflow-hidden">
             <Image
-              src="/api/placeholder/600/400"
-              alt="Fine dining experience"
+              src="https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=600&h=400&fit=crop&q=80"
+              alt="Rooftop party with friends"
               fill
               unoptimized
-              className="object-cover"
+              className="object-cover opacity-80"
             />
             <div className="absolute inset-0 bg-gradient-to-tr from-[#3c7660]/60 to-transparent"></div>
           </div>
-          
-          {/* Bottom Right - Activity */}
+
+          {/* Bottom Right - Sunset with Friends */}
           <div className="relative overflow-hidden">
             <Image
-              src="/api/placeholder/600/400"
-              alt="Fun activity"
+              src="https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?w=600&h=400&fit=crop&q=80"
+              alt="Sunset celebration with friends"
               fill
               unoptimized
-              className="object-cover"
+              className="object-cover opacity-80"
             />
             <div className="absolute inset-0 bg-gradient-to-tl from-[#2d5a48]/60 to-transparent"></div>
           </div>
         </div>
-        
+
         {/* Dark overlay */}
-        <div className="absolute inset-0 bg-black/40"></div>
-        
-        {/* Content */}
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+
+        {/* Content with Flowing Animations */}
         <div className="relative z-10 flex flex-col justify-center p-12 text-white">
           <div className="max-w-md">
-            <div className="flex items-center gap-3 mb-8">
-              <div className="bg-white/20 backdrop-blur-sm rounded-full p-3">
+            {/* Animated Logo */}
+            <div className="flex items-center gap-3 mb-8 animate-fade-in">
+              <div className="bg-white/20 backdrop-blur-sm rounded-full p-3 animate-pulse-slow">
                 <IoSparkles className="w-8 h-8 text-white" />
               </div>
               <div>
@@ -185,32 +195,41 @@ export default function SignUpPage() {
                 <p className="text-white/80 text-sm">Your adventure awaits</p>
               </div>
             </div>
-            
-            <h2 className="text-4xl font-bold mb-6 leading-tight">
-              Discover endless possibilities in your city
-            </h2>
-            
-            <p className="text-xl text-white/90 mb-8 leading-relaxed">
-              From hidden speakeasies to hiking trails, from cultural experiences to foodie adventures. 
-              Let AI create personalized experiences tailored just for you.
+
+            {/* Flowing Taglines with Animations */}
+            <div className="mb-6 space-y-4">
+              <h2 className="text-4xl font-bold leading-tight animate-slide-in-left">
+                Connect with Motion
+              </h2>
+              <h2 className="text-3xl font-bold leading-tight text-[#f2cc6c] animate-slide-in-left animation-delay-200">
+                Discover endless possibilities
+              </h2>
+              <h2 className="text-2xl font-bold leading-tight text-white/90 animate-slide-in-left animation-delay-400">
+                Your city, reimagined
+              </h2>
+            </div>
+
+            <p className="text-lg text-white/90 mb-8 leading-relaxed animate-fade-in animation-delay-600">
+              From hidden speakeasies to sunset gatherings, rooftop adventures to foodie experiences.
+              Let AI create personalized moments with your people.
             </p>
-            
+
             <div className="space-y-4">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 animate-slide-in-left animation-delay-800">
                 <div className="bg-white/20 backdrop-blur-sm rounded-full p-2">
                   <IoStar className="w-5 h-5 text-[#f2cc6c]" />
                 </div>
                 <span className="text-lg">AI-powered adventure planning</span>
               </div>
-              
-              <div className="flex items-center gap-3">
+
+              <div className="flex items-center gap-3 animate-slide-in-left animation-delay-1000">
                 <div className="bg-white/20 backdrop-blur-sm rounded-full p-2">
                   <IoCheckmark className="w-5 h-5 text-green-400" />
                 </div>
                 <span className="text-lg">Curated by local explorers</span>
               </div>
-              
-              <div className="flex items-center gap-3">
+
+              <div className="flex items-center gap-3 animate-slide-in-left animation-delay-1200">
                 <div className="bg-white/20 backdrop-blur-sm rounded-full p-2">
                   <IoHeart className="w-5 h-5 text-pink-400" />
                 </div>
