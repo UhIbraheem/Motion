@@ -19,17 +19,51 @@ function AuthCallbackContent() {
       try {
         const code = searchParams.get('code');
         const type = searchParams.get('type');
+        const error_description = searchParams.get('error_description');
 
-        console.log('🔐 [Auth Callback] Starting...');
-        console.log('🔐 [Auth Callback] Query params:', { hasCode: !!code, error_code: searchParams.get('error'), error_description: searchParams.get('error_description') });
+        console.log('🔐 Auth callback - Code:', !!code, 'Type:', type);
+
+        // Handle error from auth provider
+        if (error_description) {
+          console.error('🔐 Auth provider error:', error_description);
+          throw new Error(error_description);
+        }
 
         if (code) {
-          console.log('🔐 [Auth Callback] Exchanging code for session...');
-          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          // Handle OAuth callback with retry logic for PKCE issues
+          let retries = 0;
+          let sessionData = null;
 
-          if (error) {
-            console.error('🔐 [Auth Callback] Exchange error:', error);
-            throw error;
+          while (retries < 3 && !sessionData) {
+            try {
+              const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+
+              if (error) {
+                // If it's a PKCE verifier error, clear storage and try once more
+                if (error.message?.includes('code verifier') && retries === 0) {
+                  console.log('🔐 PKCE error detected, clearing storage and retrying...');
+                  localStorage.clear();
+                  sessionStorage.clear();
+                  retries++;
+                  continue;
+                }
+                console.error('🔐 Session exchange error:', error);
+                throw error;
+              }
+
+              sessionData = data;
+              break;
+            } catch (err) {
+              retries++;
+              if (retries >= 3) throw err;
+              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
+            }
+          }
+
+          const { data } = { data: sessionData };
+
+          if (!data?.session) {
+            throw new Error('No session returned from authentication');
           }
 
           console.log('🔐 [Auth Callback] Exchange successful');

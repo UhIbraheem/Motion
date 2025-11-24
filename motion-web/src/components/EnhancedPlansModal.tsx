@@ -71,6 +71,14 @@ interface EnhancedPlansModalProps {
   onUpdate?: () => void; // Callback to refresh parent state
 }
 
+// Helper function to safely extract text from name field which can be string or object
+const extractNameText = (name: string | { text: string; languageCode: string } | undefined): string => {
+  if (!name) return '';
+  if (typeof name === 'string') return name;
+  if (typeof name === 'object' && 'text' in name) return name.text;
+  return '';
+};
+
 export default function EnhancedPlansModal({
   adventure,
   isOpen,
@@ -917,7 +925,7 @@ export default function EnhancedPlansModal({
                                 <MapPin className="w-4 h-4 text-[#3c7660]" />
                                 <span className="text-sm font-bold text-gray-800">
                                   {step.business_name ||
-                                   (typeof placeInfo?.name === 'object' ? placeInfo?.name?.text : placeInfo?.name) ||
+                                   extractNameText(placeInfo?.name) ||
                                    step.title}
                                 </span>
                                 {placeInfo && (
