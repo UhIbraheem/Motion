@@ -55,7 +55,7 @@ export default function SignInPage() {
         localStorage.removeItem('motion_auth_complete');
       }
     }
-    
+
     // Normal auth check with delay - redirect authenticated users to home
     const redirectTimeout = setTimeout(() => {
       if (!loading && user) {
@@ -64,7 +64,18 @@ export default function SignInPage() {
       }
     }, 500);
 
-    return () => clearTimeout(redirectTimeout);
+    // Safety timeout - if loading takes more than 15 seconds, assume error
+    const safetyTimeout = setTimeout(() => {
+      if (loading) {
+        console.log('🔐 Auth loading timeout, forcing refresh...');
+        setShowFallback(true);
+      }
+    }, 15000);
+
+    return () => {
+      clearTimeout(redirectTimeout);
+      clearTimeout(safetyTimeout);
+    };
   }, [user, loading, router]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -129,13 +140,14 @@ export default function SignInPage() {
     }
   };
 
-  // Show loading state while checking authentication
+  // Show loading state while checking authentication (but with timeout)
   if (loading && !showFallback) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#3c7660] mx-auto mb-4"></div>
-          <p className="text-[#3c7660]">Loading...</p>
+          <p className="text-[#3c7660]">Checking authentication...</p>
+          <p className="text-sm text-gray-500 mt-2">This should only take a moment</p>
         </div>
       </div>
     );
@@ -146,14 +158,30 @@ export default function SignInPage() {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-6">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#3c7660] mx-auto mb-4"></div>
-          <p className="text-[#3c7660] mb-4">Taking longer than expected...</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="bg-[#3c7660] text-white px-4 py-2 rounded-lg hover:bg-[#2d5a48] transition-colors"
-          >
-            Refresh Page
-          </button>
+          <div className="mb-4 text-red-500 text-5xl">⚠️</div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Authentication Timeout</h2>
+          <p className="text-gray-600 mb-4">The authentication check is taking longer than expected.</p>
+          <div className="space-y-3">
+            <button
+              onClick={() => {
+                localStorage.clear();
+                sessionStorage.clear();
+                window.location.reload();
+              }}
+              className="w-full bg-[#3c7660] text-white px-4 py-3 rounded-lg hover:bg-[#2d5a48] transition-colors font-semibold"
+            >
+              Clear Cache & Retry
+            </button>
+            <button
+              onClick={() => {
+                setShowFallback(false);
+                router.push('/');
+              }}
+              className="w-full border-2 border-[#3c7660] text-[#3c7660] px-4 py-3 rounded-lg hover:bg-[#3c7660]/5 transition-colors font-semibold"
+            >
+              Skip to Home
+            </button>
+          </div>
         </div>
       </div>
     );
