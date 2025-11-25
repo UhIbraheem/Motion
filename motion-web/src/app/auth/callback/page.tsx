@@ -2,21 +2,10 @@
 
 import React, { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  {
-    auth: {
-      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: true,
-      flowType: 'pkce'
-    }
-  }
-);
+// Use shared SSR-compatible Supabase client
+const supabase = createClient();
 
 function AuthCallbackContent() {
   const router = useRouter();

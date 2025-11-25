@@ -858,7 +858,23 @@ function PlansContent() {
               </div>
             ) : (
               <>
-                {/* Scheduled Date Button (matches button size) */}
+                {/* Schedule CTA for unscheduled - shown first */}
+                {!adventure.scheduled_for && (
+                  <Button
+                    variant="outline"
+                    className="w-full border-[#3c7660]/30 text-[#3c7660] hover:bg-[#3c7660]/5 transition-all duration-300"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedAdventure(adventure);
+                      setShowScheduleModal(true);
+                    }}
+                  >
+                    <CalendarDays className="mr-2 h-4 w-4" />
+                    Schedule This Adventure
+                  </Button>
+                )}
+
+                {/* Scheduled Date Button - shown first for scheduled adventures */}
                 {adventure.scheduled_for && (
                   <Button
                     variant="outline"
@@ -883,6 +899,7 @@ function PlansContent() {
                   </Button>
                 )}
 
+                {/* Start Quest button - always at bottom */}
                 <Button
                   className="w-full bg-gradient-to-r from-[#3c7660] via-[#4d987b] to-[#3c7660] hover:shadow-lg hover:shadow-[#3c7660]/30 text-white font-semibold transition-all duration-300 hover:scale-[1.02] group/btn bg-[length:200%_100%] hover:bg-right"
                   onClick={(e) => {
@@ -893,22 +910,6 @@ function PlansContent() {
                   <NavigationIcon className="mr-2 h-4 w-4 group-hover/btn:animate-pulse" />
                   Start Quest
                 </Button>
-
-                {/* Schedule CTA for unscheduled */}
-                {!adventure.scheduled_for && (
-                  <Button
-                    variant="outline"
-                    className="w-full border-[#3c7660]/30 text-[#3c7660] hover:bg-[#3c7660]/5 transition-all duration-300"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedAdventure(adventure);
-                      setShowScheduleModal(true);
-                    }}
-                  >
-                    <CalendarDays className="mr-2 h-4 w-4" />
-                    Schedule This Adventure
-                  </Button>
-                )}
               </>
             )}
           </div>

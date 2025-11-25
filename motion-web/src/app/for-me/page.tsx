@@ -132,20 +132,35 @@ export default function ForMePage() {
   const loadAlbums = async () => {
     if (!user) return;
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/albums?userId=${user.id}`);
+      // Skip if no API URL configured or backend not available
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      if (!apiUrl) {
+        console.log('No API URL configured, skipping album load');
+        return;
+      }
+      const res = await fetch(`${apiUrl}/api/albums?userId=${user.id}`);
       if (!res.ok) throw new Error('Failed to load albums');
       const data = await res.json();
       setAlbums(data);
     } catch (error) {
       console.error('Error loading albums:', error);
-      toast.error('Failed to load albums');
+      // Only show toast for non-network errors
+      if (error instanceof Error && !error.message.includes('fetch')) {
+        toast.error('Failed to load albums');
+      }
     }
   };
 
   const loadSavedPlaces = async () => {
     if (!user) return;
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/places/saved?userId=${user.id}`);
+      // Skip if no API URL configured or backend not available
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      if (!apiUrl) {
+        console.log('No API URL configured, skipping saved places load');
+        return;
+      }
+      const res = await fetch(`${apiUrl}/api/places/saved?userId=${user.id}`);
       if (!res.ok) throw new Error('Failed to load saved places');
       const data: SavedPlace[] = await res.json();
       setSavedPlaceIds(new Set(data.map(p => p.google_place_id)));
@@ -165,8 +180,15 @@ export default function ForMePage() {
     }
 
     try {
+      // Skip if no API URL configured or backend not available
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      if (!apiUrl) {
+        console.log('No API URL configured, skipping autocomplete');
+        return;
+      }
+      
       // Use backend proxy to avoid CORS issues
-      const proxyRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/places/autocomplete?input=${encodeURIComponent(value)}&types=(cities)`);
+      const proxyRes = await fetch(`${apiUrl}/api/places/autocomplete?input=${encodeURIComponent(value)}&types=(cities)`);
 
       if (!proxyRes.ok) {
         console.error('Autocomplete API error:', proxyRes.status);

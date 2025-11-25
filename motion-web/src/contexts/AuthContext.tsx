@@ -1,21 +1,10 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  {
-    auth: {
-      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: true,
-      flowType: 'pkce'
-    }
-  }
-);
+// Use shared SSR-compatible Supabase client
+const supabase = createClient();
 
 export interface User {
   id: string;
