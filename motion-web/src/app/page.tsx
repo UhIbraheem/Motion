@@ -95,27 +95,7 @@ export default function DiscoverPage() {
     }
   }, [isHydrated]); // Remove user dependency to prevent multiple calls
 
-  // Fix auth state mismatch - if we've loaded but have no user, check if session exists
-  useEffect(() => {
-    const checkAuthMismatch = async () => {
-      if (!loading && !user && isHydrated) {
-        // Check if there's actually a session (in case of state mismatch)
-        try {
-          const { data: { session } } = await fetch('/api/auth/session').then(r => r.json()).catch(() => ({ data: { session: null } }));
-          if (session) {
-            console.log('🔄 Auth mismatch detected - session exists but user is null. Refreshing...');
-            window.location.reload();
-          }
-        } catch (err) {
-          // Ignore errors
-        }
-      }
-    };
-
-    // Run check after a short delay to ensure auth context has initialized
-    const timer = setTimeout(checkAuthMismatch, 1000);
-    return () => clearTimeout(timer);
-  }, [loading, user, isHydrated]);
+  // Note: Auth state is managed by AuthContext - no need for extra session checks
 
   const fetchAdventures = async () => {
     try {
