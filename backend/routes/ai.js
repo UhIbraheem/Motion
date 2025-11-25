@@ -35,7 +35,7 @@ router.post("/google-places", async (req, res) => {
     console.log(`🔍 Frontend request: Looking up "${businessName}" in "${location}"`);
 
     // Geocode the location to get coordinates
-    const coords = await geocoding.geocode(location || 'San Francisco, CA');
+    const coords = await geocoding.geocode(location || 'Miami, FL');
 
     const places = await googlePlaces.textSearch({
       textQuery: businessName,
@@ -472,7 +472,7 @@ Make this adventure unique and engaging!`;
         }
 
         // Enhance with Google Places data
-        const enhancedAdventure = await enhanceAdventureWithGooglePlaces(parsed, app_filter?.location || 'San Francisco, CA');
+        const enhancedAdventure = await enhanceAdventureWithGooglePlaces(parsed, app_filter?.location || 'Miami, FL');
         console.log("🎯 Enhanced adventure with Google Places data");
 
         // Add cost metadata to response with cache details
@@ -509,7 +509,7 @@ Make this adventure unique and engaging!`;
           console.log("✅ Fallback extraction successful:", fallbackParsed.title);
 
           // Enhance with Google Places data
-          const enhancedFallback = await enhanceAdventureWithGooglePlaces(fallbackParsed, app_filter?.location || 'San Francisco, CA');
+          const enhancedFallback = await enhanceAdventureWithGooglePlaces(fallbackParsed, app_filter?.location || 'Miami, FL');
           console.log("🎯 Enhanced fallback adventure with Google Places data");
 
           return res.json(enhancedFallback);
@@ -576,7 +576,7 @@ CRITICAL: START WITH { - END WITH } - NO OTHER TEXT`
         console.log("📊 Adventure has", parsed?.steps?.length || 0, "steps");
         
         // Enhance with Google Places data
-        const enhancedLegacy = await enhanceAdventureWithGooglePlaces(parsed, app_filter?.location || 'San Francisco, CA');
+        const enhancedLegacy = await enhanceAdventureWithGooglePlaces(parsed, app_filter?.location || 'Miami, FL');
         console.log("🎯 Enhanced legacy adventure with Google Places data");
         
         return res.json(enhancedLegacy);

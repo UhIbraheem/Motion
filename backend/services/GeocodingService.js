@@ -170,9 +170,9 @@ class GeocodingService {
       }
     }
 
-    // Ultimate fallback: San Francisco
-    console.log(`📍 Using default fallback coordinates (San Francisco)`);
-    return cityCoordinates['san francisco'];
+    // Ultimate fallback: Miami
+    console.log(`📍 Using default fallback coordinates (Miami, FL)`);
+    return cityCoordinates['miami'] || { latitude: 25.7617, longitude: -80.1918, formattedAddress: 'Miami, FL, USA' };
   }
 
   /**
