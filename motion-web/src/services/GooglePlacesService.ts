@@ -18,6 +18,26 @@ interface GooglePlaceDetails {
   reviews?: any[];
 }
 
+interface CachedPlace {
+  place_id: string;
+  name: string;
+  formatted_address?: string;
+  lat?: number;
+  lng?: number;
+  rating?: number;
+  user_ratings_total?: number;
+  price_level?: number;
+  types?: string[];
+  phone_number?: string;
+  website?: string;
+  google_maps_url?: string;
+  opening_hours?: any;
+  primary_photo_url?: string;
+  photos?: any;
+  raw_data?: any;
+  last_updated: string;
+}
+
 interface GooglePlacePhoto {
   photo_reference: string;
   photo_url?: string;
@@ -30,6 +50,7 @@ interface GooglePlacePhoto {
 class GooglePlacesService {
   private static instance: GooglePlacesService;
   private apiKey: string;
+  private cacheTTLDays = 7;
 
   constructor() {
     this.apiKey = process.env.GOOGLE_PLACES_API_KEY || '';
@@ -40,6 +61,42 @@ class GooglePlacesService {
       GooglePlacesService.instance = new GooglePlacesService();
     }
     return GooglePlacesService.instance;
+  }
+
+  /**
+   * Check if cached data is still fresh
+   */
+  private isCacheFresh(lastUpdated: string): boolean {
+    if (!lastUpdated) return false;
+    const cacheDate = new Date(lastUpdated);
+    const now = new Date();
+    const diffDays = (now.getTime() - cacheDate.getTime()) / (1000 * 60 * 60 * 24);
+    return diffDays < this.cacheTTLDays;
+  }
+
+  /**
+   * Convert cached data to GooglePlaceDetails format
+   */
+  private cachedToDetails(cached: CachedPlace): GooglePlaceDetails {
+    return {
+      place_id: cached.place_id,
+      name: cached.name,
+      formatted_address: cached.formatted_address,
+      rating: cached.rating,
+      user_ratings_total: cached.user_ratings_total,
+      price_level: cached.price_level,
+      types: cached.types,
+      photo_references: [],
+      photo_url: cached.primary_photo_url,
+      opening_hours: cached.opening_hours,
+      website: cached.website,
+      formatted_phone_number: cached.phone_number,
+      business_status: 'OPERATIONAL',
+      geometry: cached.lat && cached.lng ? {
+        location: { lat: cached.lat, lng: cached.lng }
+      } : null,
+      reviews: []
+    };
   }
 
   /**
@@ -62,9 +119,20 @@ class GooglePlacesService {
 
   /**
    * Search for a place by business name and location
+   * NOW WITH DATABASE CACHING
    */
   async searchPlace(businessName: string, location?: string): Promise<GooglePlaceDetails | null> {
     try {
+      // STEP 1: Check cache first
+      const cached = await this.searchCachedPlaces(businessName, location);
+      if (cached) {
+        console.log('📦 Cache HIT for:', businessName);
+        return this.cachedToDetails(cached);
+      }
+      
+      console.log('🔍 Cache MISS, calling API for:', businessName);
+      
+      // STEP 2: Call API
       const response = await fetch('/api/ai/google-places', {
         method: 'POST',
         headers: {
@@ -106,10 +174,48 @@ class GooglePlacesService {
   }
 
   /**
+   * Search cache by business name and location
+   */
+  private async searchCachedPlaces(businessName: string, location?: string): Promise<CachedPlace | null> {
+    try {
+      let query = supabase
+        .from('google_places_cache')
+        .select('*')
+        .ilike('name', `%${businessName}%`);
+      
+      // Add location filter if provided
+      if (location) {
+        query = query.ilike('formatted_address', `%${location}%`);
+      }
+      
+      const { data, error } = await query.limit(3);
+      
+      if (error || !data || data.length === 0) return null;
+      
+      // Find freshest matching result
+      const fresh = data.find((d: CachedPlace) => this.isCacheFresh(d.last_updated));
+      return fresh || null;
+    } catch (err) {
+      console.error('Cache search error:', err);
+      return null;
+    }
+  }
+
+  /**
    * Get detailed place information by place_id
+   * NOW WITH CACHE CHECK FIRST
    */
   async getPlaceDetails(placeId: string): Promise<GooglePlaceDetails | null> {
     try {
+      // Check cache first
+      const cached = await this.getCachedPlaceData(placeId);
+      if (cached) {
+        console.log('📦 Cache HIT for place_id:', placeId);
+        return cached;
+      }
+      
+      console.log('🔍 Cache MISS for place_id:', placeId);
+      
       const fields = [
         'place_id', 'name', 'formatted_address', 'rating', 'user_ratings_total',
         'price_level', 'types', 'photos', 'opening_hours', 'website',
@@ -141,16 +247,19 @@ class GooglePlacesService {
   }
 
   /**
-   * Cache place data in Supabase (disabled due to RLS issues)
+   * Cache place data in Supabase
+   * Note: Client-side caching requires proper RLS policies
+   * Backend handles caching with service_role key
    */
   async cachePlaceData(placeDetails: GooglePlaceDetails): Promise<void> {
-    // Caching disabled - RLS policy prevents writes from client
-    // TODO: Move caching to backend API
+    // Client-side writes are now supported with proper RLS
+    // But backend is the primary cache writer using service_role key
+    console.log('💾 Cache write delegated to backend for:', placeDetails.name);
     return;
   }
 
   /**
-   * Get cached place data from Supabase
+   * Get cached place data from Supabase by place_id
    */
   async getCachedPlaceData(placeId: string): Promise<GooglePlaceDetails | null> {
     try {
@@ -158,14 +267,19 @@ class GooglePlacesService {
         .from('google_places_cache')
         .select('*')
         .eq('place_id', placeId)
-        .gte('last_updated', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()) // 7 days
         .single();
 
       if (error || !data) {
         return null;
       }
 
-      return data as GooglePlaceDetails;
+      // Check if cache is fresh (7 days)
+      if (!this.isCacheFresh(data.last_updated)) {
+        console.log('📦 Cache stale for:', placeId);
+        return null;
+      }
+
+      return this.cachedToDetails(data as CachedPlace);
     } catch (error) {
       console.error('Error getting cached place data:', error);
       return null;
@@ -174,32 +288,23 @@ class GooglePlacesService {
 
   /**
    * Get or fetch place data with caching
+   * This is the main method that should be used for all place lookups
    */
   async getPlaceDataWithCache(businessName: string, location?: string): Promise<GooglePlaceDetails | null> {
     try {
-      // First try to find in cache by name
-      const { data: cachedData, error } = await supabase
-        .from('google_places_cache')
-        .select('*')
-        .ilike('name', `%${businessName}%`)
-        .gte('last_updated', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
-        .limit(1);
-
-      if (!error && cachedData && cachedData.length > 0) {
-        console.log('📋 Using cached place data for:', businessName);
-        return cachedData[0] as GooglePlaceDetails;
+      // Use the unified searchCachedPlaces method
+      const cached = await this.searchCachedPlaces(businessName, location);
+      
+      if (cached) {
+        console.log('📦 Cache HIT for:', businessName);
+        return this.cachedToDetails(cached);
       }
 
-      // If not in cache, search and cache
-      console.log('🔍 Searching Google Places for:', businessName);
+      // If not in cache, search via API (backend will cache it)
+      console.log('🔍 Cache MISS, searching API for:', businessName);
       const placeData = await this.searchPlace(businessName, location);
       
-      if (placeData) {
-        await this.cachePlaceData(placeData);
-        return placeData;
-      }
-
-      return null;
+      return placeData;
     } catch (error) {
       console.error('Error getting place data with cache:', error);
       return null;

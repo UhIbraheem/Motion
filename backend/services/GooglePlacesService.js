@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { createClient } = require('@supabase/supabase-js');
 const { rateLimiters } = require('../utils/rateLimiter');
 
 class GooglePlacesService {
@@ -9,12 +10,228 @@ class GooglePlacesService {
       || process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY;
     this.baseUrl = 'https://places.googleapis.com/v1';
     this.rateLimiter = rateLimiters.googlePlaces;
+    
+    // Initialize Supabase client for caching (service role for writes)
+    this.supabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
+    );
+    
+    // Cache TTL in days
+    this.cacheTTLDays = 7;
+    
+    // Stats tracking
+    this.cacheHits = 0;
+    this.cacheMisses = 0;
+    this.apiCalls = 0;
 
     if (!this.apiKey) {
       console.log('⚠️ Google Places API key not configured');
     } else {
-      console.log('✅ Google Places API v1 initialized with rate limiting');
+      console.log('✅ Google Places API v1 initialized with rate limiting + DB caching');
     }
+  }
+  
+  // =====================================================
+  // DATABASE CACHING METHODS
+  // =====================================================
+  
+  /**
+   * Check if cached data is still fresh
+   */
+  isCacheFresh(lastUpdated) {
+    if (!lastUpdated) return false;
+    const cacheDate = new Date(lastUpdated);
+    const now = new Date();
+    const diffDays = (now - cacheDate) / (1000 * 60 * 60 * 24);
+    return diffDays < this.cacheTTLDays;
+  }
+  
+  /**
+   * Get place from cache by place_id
+   */
+  async getCachedPlace(placeId) {
+    if (!placeId || !this.supabase) return null;
+    
+    try {
+      const { data, error } = await this.supabase
+        .from('google_places_cache')
+        .select('*')
+        .eq('place_id', placeId)
+        .single();
+      
+      if (error || !data) return null;
+      
+      // Check if cache is fresh
+      if (!this.isCacheFresh(data.last_updated)) {
+        console.log(`📦 Cache stale for: ${placeId}`);
+        return null;
+      }
+      
+      this.cacheHits++;
+      console.log(`✅ Cache HIT for: ${data.name} (${placeId})`);
+      return data;
+    } catch (err) {
+      console.error('Cache lookup error:', err.message);
+      return null;
+    }
+  }
+  
+  /**
+   * Search cache by business name and location
+   */
+  async searchCachedPlaces(businessName, location) {
+    if (!businessName || !this.supabase) return null;
+    
+    try {
+      let query = this.supabase
+        .from('google_places_cache')
+        .select('*')
+        .ilike('name', `%${businessName}%`);
+      
+      // Add location filter if provided
+      if (location) {
+        query = query.ilike('formatted_address', `%${location}%`);
+      }
+      
+      const { data, error } = await query.limit(3);
+      
+      if (error || !data || data.length === 0) return null;
+      
+      // Find freshest matching result
+      const fresh = data.find(d => this.isCacheFresh(d.last_updated));
+      if (fresh) {
+        this.cacheHits++;
+        console.log(`✅ Cache HIT (name search) for: ${fresh.name}`);
+        return fresh;
+      }
+      
+      return null;
+    } catch (err) {
+      console.error('Cache search error:', err.message);
+      return null;
+    }
+  }
+  
+  /**
+   * Save place data to cache
+   */
+  async cachePlace(placeData) {
+    if (!placeData?.placeId || !this.supabase) return;
+    
+    try {
+      const cacheRecord = {
+        place_id: placeData.placeId,
+        name: placeData.name,
+        formatted_address: placeData.address,
+        lat: placeData.location?.latitude,
+        lng: placeData.location?.longitude,
+        rating: placeData.rating,
+        user_ratings_total: placeData.userRatingCount,
+        price_level: placeData.priceLevel,
+        types: placeData.types,
+        phone_number: placeData.phone,
+        website: placeData.website,
+        google_maps_url: placeData.googleMapsUri,
+        opening_hours: placeData.openingHours,
+        primary_photo_url: placeData.photoUrl,
+        photos: placeData.raw?.photos || null,
+        raw_data: placeData.raw,
+        last_updated: new Date().toISOString(),
+        last_api_fetch: new Date().toISOString()
+      };
+      
+      const { error } = await this.supabase
+        .from('google_places_cache')
+        .upsert(cacheRecord, { onConflict: 'place_id' });
+      
+      if (error) {
+        console.error('Cache write error:', error.message);
+      } else {
+        console.log(`💾 Cached: ${placeData.name}`);
+      }
+    } catch (err) {
+      console.error('Cache save error:', err.message);
+    }
+  }
+  
+  /**
+   * Cache multiple places at once (batch operation)
+   */
+  async cachePlaces(placesArray) {
+    if (!placesArray?.length || !this.supabase) return;
+    
+    const records = placesArray
+      .filter(p => p?.placeId)
+      .map(p => ({
+        place_id: p.placeId,
+        name: p.name,
+        formatted_address: p.address,
+        lat: p.location?.latitude,
+        lng: p.location?.longitude,
+        rating: p.rating,
+        user_ratings_total: p.userRatingCount,
+        price_level: p.priceLevel,
+        types: p.types,
+        phone_number: p.phone,
+        website: p.website,
+        google_maps_url: p.googleMapsUri,
+        opening_hours: p.openingHours,
+        primary_photo_url: p.photoUrl,
+        photos: p.raw?.photos || null,
+        raw_data: p.raw,
+        last_updated: new Date().toISOString(),
+        last_api_fetch: new Date().toISOString()
+      }));
+    
+    if (records.length === 0) return;
+    
+    try {
+      const { error } = await this.supabase
+        .from('google_places_cache')
+        .upsert(records, { onConflict: 'place_id' });
+      
+      if (error) {
+        console.error('Batch cache write error:', error.message);
+      } else {
+        console.log(`💾 Batch cached ${records.length} places`);
+      }
+    } catch (err) {
+      console.error('Batch cache error:', err.message);
+    }
+  }
+  
+  /**
+   * Convert cached data back to enriched format
+   */
+  cachedToEnriched(cached) {
+    return {
+      placeId: cached.place_id,
+      name: cached.name,
+      address: cached.formatted_address,
+      location: cached.lat && cached.lng ? { latitude: cached.lat, longitude: cached.lng } : null,
+      rating: cached.rating,
+      userRatingCount: cached.user_ratings_total,
+      priceLevel: cached.price_level,
+      phone: cached.phone_number,
+      website: cached.website,
+      googleMapsUri: cached.google_maps_url,
+      photoUrl: cached.primary_photo_url,
+      types: cached.types,
+      openingHours: cached.opening_hours,
+      currentlyOpen: null, // Can't know from cache
+      raw: cached.raw_data,
+      fromCache: true
+    };
+  }
+  
+  /**
+   * Log cache statistics
+   */
+  logCacheStats() {
+    const total = this.cacheHits + this.cacheMisses;
+    const hitRate = total > 0 ? ((this.cacheHits / total) * 100).toFixed(1) : 0;
+    console.log(`📊 Cache Stats: ${this.cacheHits} hits, ${this.cacheMisses} misses (${hitRate}% hit rate), ${this.apiCalls} API calls`);
   }
 
   // Small helpers
@@ -379,16 +596,26 @@ class GooglePlacesService {
   /**
    * Main function: Find and enrich business with full Google Places data
    * This replaces all the old validation services
+   * NOW WITH DATABASE CACHING
    */
   async lookupBusiness(businessName, localityHint, bias) {
     if (!businessName?.trim()) return null;
 
     // Process and enhance location context
     const enhancedLocation = this.processLocationContext(localityHint);
-  const cleanedName = this.cleanBusinessName(businessName);
-  const textQuery = `${cleanedName} in ${enhancedLocation}`;
+    const cleanedName = this.cleanBusinessName(businessName);
+    
+    // STEP 0: Check cache first
+    const cached = await this.searchCachedPlaces(cleanedName, enhancedLocation);
+    if (cached) {
+      return this.cachedToEnriched(cached);
+    }
+    
+    this.cacheMisses++;
+    const textQuery = `${cleanedName} in ${enhancedLocation}`;
 
-  console.log(`🔍 Looking up: "${textQuery}"`);
+    console.log(`🔍 Looking up (API): "${textQuery}"`);
+    this.apiCalls++;
 
     try {
       // Step 1: Text Search with simple retry logic
@@ -458,6 +685,9 @@ class GooglePlacesService {
         raw: details
       };
 
+      // CACHE THE RESULT for future lookups
+      await this.cachePlace(enrichedData);
+      
       console.log(`✅ Enriched: ${enrichedData.name} (${enrichedData.rating}⭐)`);
       return enrichedData;
 
@@ -536,12 +766,15 @@ class GooglePlacesService {
       const enrichedStep = await this.enrichAdventureStep(step, userLocationLabel);
       enrichedSteps.push(enrichedStep);
       
-      // Small delay to respect API rate limits
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Small delay to respect API rate limits (only needed for API calls, cache is instant)
+      await new Promise(resolve => setTimeout(resolve, 50));
     }
 
     const validatedCount = enrichedSteps.filter(s => s.validated).length;
     console.log(`✅ Enhanced ${validatedCount}/${steps.length} steps with Google Places data`);
+    
+    // Log cache statistics
+    this.logCacheStats();
     
     return enrichedSteps;
   }

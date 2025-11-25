@@ -197,9 +197,23 @@ SUPABASE_SERVICE_ROLE_KEY=<your-service-key>
 - User profiles with membership tiers
 - Fields: membership_tier, monthly_generations, generations_limit
 
-### `google_places_cache`
-- Cached Google Places data
-- Fields: place_id, name, rating, photos, opening_hours, last_updated
+### `google_places_cache` (ENHANCED 2025-11-25)
+- Cached Google Places data with comprehensive fields
+- Fields: place_id (PK), name, formatted_address, lat, lng, rating, user_ratings_total, price_level, types[], phone_number, website, google_maps_url, opening_hours (JSONB), primary_photo_url, photos (JSONB), raw_data (JSONB), last_updated, last_api_fetch, fetch_count
+- 7-day TTL for cache freshness
+- Functions: upsert_google_place(), search_cached_places(), is_cache_fresh()
+
+### `google_places_photos`
+- Multiple photos per cached place
+- Fields: id, place_id (FK), photo_url, photo_reference, width_px, height_px, is_primary, attribution, created_at
+
+### `geocoding_cache`
+- Cached location string → coordinates lookups
+- Fields: id, location_query (unique), lat, lng, formatted_address, country, state, city, hit_count
+
+### `place_usage_log`
+- Tracks place usage for cache prioritization
+- Fields: id, place_id, adventure_id, user_id, usage_type (generation/save/view/share), created_at
 
 ## Testing & Quality Assurance
 

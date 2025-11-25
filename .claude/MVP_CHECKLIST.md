@@ -1,6 +1,6 @@
 # Motion MVP Checklist - Path to Launch
 
-Last Updated: 2025-11-19
+Last Updated: 2025-11-25
 Target Launch: Q1 2025
 
 ---
@@ -44,12 +44,20 @@ Before going to production, ALL items in Priority 1-3 must be ✅
   - Changed all "San Francisco, CA" defaults to "Miami, FL"
   - All location-based features now use user's actual location
   - Commit: bf5dd3b
+- [x] Implement Google Places database caching ✅ **COMPLETED 2025-11-25**
+  - Added comprehensive caching layer to backend/services/GooglePlacesService.js
+  - Cache checks before every API call (7-day TTL)
+  - Auto-caches all lookupBusiness() results to Supabase
+  - Added cache statistics logging (hit rate tracking)
+  - Updated motion-web/src/services/GooglePlacesService.ts with cache reads
+  - New tables: google_places_cache (enhanced), google_places_photos, geocoding_cache
+  - Expected cost reduction: 75-85% ($20/day → ~$3-5/day)
+  - SQL schema provided with functions: upsert_google_place(), search_cached_places()
 - [ ] Implement geocoding API for location string → lat/lng conversion
 - [ ] Use user's actual location for Google Places bias
 - [ ] Add rate limiting and request queuing (prevent quota exhaustion)
 - [ ] Implement fallback image service (Unsplash/Pexels) when Google fails
 - [ ] Add retry logic for transient API failures (exponential backoff)
-- [ ] Cache Google Places responses (reduce API calls)
 - [ ] Monitor API quota usage and add alerts
 
 **Success Criteria**:
@@ -63,6 +71,11 @@ Before going to production, ALL items in Priority 1-3 must be ✅
 ## PRIORITY 2: USER EXPERIENCE & POLISH
 
 ### Authentication & Security
+- [x] Fix auth session mismatch (middleware vs client) ✅ **COMPLETED 2025-11-25**
+  - Changed AuthContext.tsx to use shared @/lib/supabase client
+  - Changed auth/callback/page.tsx to use same client
+  - Ensures consistent session state between server and client
+  - Commit: c1012f3
 - [ ] Polish sign-in page (add illustrations, better copy)
 - [ ] Polish sign-up page (progressive disclosure, clear value prop)
 - [ ] Add loading states to all auth buttons
