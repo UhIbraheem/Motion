@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
@@ -627,10 +628,13 @@ export default function ForMePage() {
                         return (
                           <Card key={place.id} className="overflow-hidden hover:shadow-xl transition-shadow">
                             <div className="relative h-48 bg-gray-200">
-                              <img
+                              <Image
                                 src={photoUrl}
                                 alt={place.business_name}
-                                className="w-full h-full object-cover"
+                                fill
+                                sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                                className="object-cover"
+                                unoptimized
                                 onError={(e) => {
                                   const target = e.target as HTMLImageElement;
                                   target.src = '/placeholder-place.jpg';
@@ -713,10 +717,13 @@ export default function ForMePage() {
                       return (
                         <Card key={place.id} className="overflow-hidden hover:shadow-xl transition-shadow">
                           <div className="relative h-48 bg-gray-200">
-                            <img
+                            <Image
                               src={photoUrl}
                               alt={place.displayName || place.name}
-                              className="w-full h-full object-cover"
+                              fill
+                              sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                              className="object-cover"
+                              unoptimized
                               onError={(e) => {
                                 const target = e.target as HTMLImageElement;
                                 target.src = '/placeholder-place.jpg';

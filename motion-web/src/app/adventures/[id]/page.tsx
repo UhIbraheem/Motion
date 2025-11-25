@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import Navigation from '@/components/Navigation';
 import { toast } from 'sonner';
@@ -330,7 +331,14 @@ export default function AdventureDetailPage() {
                       <div className="mt-3 grid grid-cols-2 gap-2">
                         {stepPhotos.map((p, idx) => (
                           <div key={idx} className="relative w-full aspect-video rounded-xl overflow-hidden border border-gray-200">
-                            <img src={p.url} alt={p.label || 'photo'} className="object-cover w-full h-full" />
+                            <Image
+                              src={p.url}
+                              alt={p.label || 'photo'}
+                              fill
+                              sizes="(max-width: 768px) 50vw, 33vw"
+                              className="object-cover"
+                              unoptimized
+                            />
                             {p.label && <div className="absolute bottom-1 left-1 text-[10px] px-1.5 py-0.5 bg-black/50 text-white rounded-full backdrop-blur-sm">{p.label}</div>}
                           </div>
                         ))}
