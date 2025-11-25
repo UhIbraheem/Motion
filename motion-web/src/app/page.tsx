@@ -6,11 +6,12 @@ import Link from 'next/link';
 import Image from 'next/image';
 import Navigation from '@/components/Navigation';
 import EnhancedAdventureCard from '@/components/EnhancedAdventureCard';
+import { AdventureCardSkeleton } from '@/components/LoadingSkeleton';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { 
+import {
   IoLocationOutline,
   IoTimeOutline,
   IoHeartOutline,
@@ -200,13 +201,12 @@ export default function DiscoverPage() {
 
         {/* Adventures Section */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Adventures Loading */}
+          {/* Adventures Loading with Skeletons */}
           {adventuresLoading && (
-            <div className="flex items-center justify-center min-h-[400px]">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#3c7660] mx-auto mb-4"></div>
-                <p className="text-gray-600">Loading adventures...</p>
-              </div>
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <AdventureCardSkeleton key={i} />
+              ))}
             </div>
           )}
 

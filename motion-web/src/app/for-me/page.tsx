@@ -29,6 +29,21 @@ import {
   IoHeartOutline
 } from 'react-icons/io5';
 
+// Simple skeleton for place cards
+const PlaceCardSkeleton = () => (
+  <Card className="overflow-hidden animate-pulse">
+    <div className="relative h-48 bg-gray-200" />
+    <CardContent className="p-4 space-y-3">
+      <div className="h-5 bg-gray-200 rounded w-3/4" />
+      <div className="h-4 bg-gray-100 rounded w-full" />
+      <div className="flex gap-3">
+        <div className="h-4 bg-gray-100 rounded w-16" />
+        <div className="h-4 bg-gray-100 rounded w-12" />
+      </div>
+    </CardContent>
+  </Card>
+);
+
 interface Album {
   id: string;
   name: string;
@@ -610,9 +625,10 @@ export default function ForMePage() {
                   </div>
 
                   {loadingAlbumPlaces ? (
-                    <div className="text-center py-16">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#3c7660] mx-auto mb-4"></div>
-                      <p className="text-gray-600">Loading places...</p>
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <PlaceCardSkeleton key={i} />
+                      ))}
                     </div>
                   ) : albumPlaces.length === 0 ? (
                     <div className="text-center py-16">
@@ -697,17 +713,24 @@ export default function ForMePage() {
                     </div>
                   )}
                 </div>
+              ) : isSearching ? (
+                // Show loading skeletons while searching
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <PlaceCardSkeleton key={i} />
+                  ))}
+                </div>
+              ) : searchResults.length === 0 ? (
+                // Show empty state
+                <div className="text-center py-16">
+                  <IoSearch className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Start Discovering</h3>
+                  <p className="text-gray-600 mb-1">Search for restaurants, cafes, or attractions</p>
+                  <p className="text-sm text-gray-500">Save your favorites to albums for easy access</p>
+                </div>
               ) : (
                 // Show search results
-                searchResults.length === 0 && !isSearching ? (
-                  <div className="text-center py-16">
-                    <IoSearch className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Start Discovering</h3>
-                    <p className="text-gray-600 mb-1">Search for restaurants, cafes, or attractions</p>
-                    <p className="text-sm text-gray-500">Save your favorites to albums for easy access</p>
-                  </div>
-                ) : (
-                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {searchResults.map(place => {
                       const isSaved = savedPlaceIds.has(place.id);
                       const photoUrl = place.photos?.[0]?.name

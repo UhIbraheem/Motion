@@ -167,7 +167,35 @@ export default function AdventureDetailPage() {
   };
 
   if (!user) return <div className="min-h-screen bg-gray-50"><Navigation /><main className="pt-20 p-8 text-center">Sign in required.</main></div>;
-  if (loading) return <div className="min-h-screen bg-gray-50"><Navigation /><main className="pt-20 p-8 flex items-center justify-center"><div className="animate-spin h-8 w-8 border-b-2 border-[#3c7660] rounded-full"/></main></div>;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
+        <Navigation />
+        <main className="pt-20 pb-24 w-[95%] max-w-6xl mx-auto">
+          <div className="animate-pulse space-y-6">
+            {/* Header skeleton */}
+            <div className="flex items-center gap-3 mb-6">
+              <div className="h-8 w-16 bg-gray-200 rounded" />
+              <div className="h-8 flex-1 bg-gray-200 rounded" />
+              <div className="h-10 w-32 bg-gray-200 rounded" />
+            </div>
+            {/* Steps skeleton */}
+            <div className="grid md:grid-cols-3 gap-6">
+              <div className="md:col-span-2 space-y-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="h-48 bg-gray-200 rounded-xl" />
+                ))}
+              </div>
+              <div className="space-y-6">
+                <div className="h-64 bg-gray-200 rounded-xl" />
+                <div className="h-32 bg-gray-200 rounded-xl" />
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
   if (error) return <div className="min-h-screen bg-gray-50"><Navigation /><main className="pt-20 p-8 text-center text-red-600">{error}</main></div>;
   if (!adventure) return <div className="min-h-screen bg-gray-50"><Navigation /><main className="pt-20 p-8 text-center">Adventure not found</main></div>;
 
