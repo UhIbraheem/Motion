@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, MapPin, Clock, Calendar as CalendarIcon, Star, CheckCircle2, Circle, Phone, Globe, ChevronDown, ChevronUp, ExternalLink, RefreshCw, TrendingUp, DollarSign, Navigation, Sparkles, Award, Users, ImageIcon } from 'lucide-react';
+import { X, MapPin, Clock, Calendar as CalendarIcon, Star, CheckCircle2, Circle, Phone, Globe, ChevronDown, ChevronUp, ExternalLink, TrendingUp, DollarSign, Navigation, Award } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
@@ -26,6 +25,10 @@ interface AdventureStep {
   business_phone?: string;
   business_website?: string;
   photo_url?: string; // Real Google Places photo
+  booking?: {
+    method: string;
+    fallback?: string;
+  };
   google_places?: {
     place_id: string;
     name: string | { text: string; languageCode: string };
@@ -35,7 +38,7 @@ interface AdventureStep {
     price_level: number;
     types: string[];
     photo_url: string;
-    opening_hours: any;
+    opening_hours: Record<string, unknown>;
     google_maps_uri?: string;
     website_uri?: string;
     national_phone_number?: string;
@@ -110,8 +113,6 @@ export default function EnhancedPlansModal({
   const [slideDirection, setSlideDirection] = useState<'left' | 'right' | null>(null);
   const [draggedStepIndex, setDraggedStepIndex] = useState<number | null>(null);
   const [dragOverStepIndex, setDragOverStepIndex] = useState<number | null>(null);
-
-  if (!isOpen) return null;
 
   const completedSteps = adventure.steps.filter(step => step.completed).length;
   const totalSteps = adventure.steps.length;
@@ -454,6 +455,9 @@ export default function EnhancedPlansModal({
       document.body.style.overflow = 'unset';
     };
   }, [isOpen]);
+
+  // Early return after all hooks
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-200 overflow-y-auto">

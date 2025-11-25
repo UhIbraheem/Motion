@@ -2,16 +2,16 @@
   "port": 3001,
   "localUrl": "http://localhost:3001",
   "localApiUrl": "http://localhost:3001/api/ai",
-  "primaryMobileUrl": "http://192.168.4.154:3001",
-  "primaryMobileApiUrl": "http://192.168.4.154:3001/api/ai",
+  "primaryMobileUrl": "http://192.168.4.158:3001",
+  "primaryMobileApiUrl": "http://192.168.4.158:3001/api/ai",
   "allMobileIPs": [
     {
       "interface": "Wi-Fi",
-      "ip": "192.168.4.154",
-      "url": "http://192.168.4.154:3001",
-      "apiUrl": "http://192.168.4.154:3001/api/ai",
+      "ip": "192.168.4.158",
+      "url": "http://192.168.4.158:3001",
+      "apiUrl": "http://192.168.4.158:3001/api/ai",
       "priority": 150
     }
   ],
-  "timestamp": "2025-10-16T20:39:05.002Z"
+  "timestamp": "2025-11-25T00:15:44.897Z"
 }
