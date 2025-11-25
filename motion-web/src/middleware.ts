@@ -62,11 +62,13 @@ export async function middleware(req: NextRequest) {
 
   console.log('🔐 Middleware check:', {
     path: req.nextUrl.pathname,
-    hasSession: !!session,
-    email: session?.user?.email
+    hasValidSession: !!session,
+    email: session?.user?.email,
+    error: undefined
   });
 
   // Skip middleware for callback - let it complete auth flow
+  // Don't check session or redirect during callback
   if (req.nextUrl.pathname === '/auth/callback') {
     console.log('🔐 Allowing callback page');
     return response

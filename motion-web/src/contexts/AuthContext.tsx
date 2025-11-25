@@ -5,7 +5,16 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  {
+    auth: {
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+      flowType: 'pkce'
+    }
+  }
 );
 
 export interface User {
@@ -344,10 +353,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.log('🔐 Starting Google OAuth...');
 
       // Always use our same-origin callback to avoid prod redirect
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : '');
-  const redirectTo = `${siteUrl}/auth/callback`;
-      
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+      const redirectTo = `${siteUrl}/auth/callback`;
+
       console.log('🔐 OAuth redirect URL:', redirectTo);
+
+      // Clear any old auth state before starting new flow
+      if (typeof window !== 'undefined') {
+        // Keep existing session but clear any stale PKCE codes
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.includes('code-verifier')) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(key => {
+          try {
+            localStorage.removeItem(key);
+          } catch (e) {
+            console.warn('Could not remove:', key);
+          }
+        });
+      }
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -356,7 +384,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
           queryParams: {
             access_type: 'offline',
             prompt: 'select_account',
-            response_type: 'code'
           },
           skipBrowserRedirect: false,
         },
@@ -368,8 +395,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         throw error;
       }
 
+      console.log('🔐 OAuth initiated successfully');
       return { success: true };
     } catch (error: any) {
+      console.error('🔐 OAuth exception:', error);
       setLoading(false);
       return {
         success: false,

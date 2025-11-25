@@ -6,7 +6,16 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  {
+    auth: {
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+      flowType: 'pkce'
+    }
+  }
 );
 
 function AuthCallbackContent() {
@@ -14,9 +23,17 @@ function AuthCallbackContent() {
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [hasRun, setHasRun] = useState(false);
 
   useEffect(() => {
     const handleAuthCallback = async () => {
+      // Prevent duplicate execution
+      if (hasRun) {
+        console.log('🔐 Callback already processed, skipping...');
+        return;
+      }
+      setHasRun(true);
+
       try {
         // If provider returned tokens in URL hash (implicit flow), clear them to avoid leaking
         if (typeof window !== 'undefined' && window.location.hash) {
@@ -29,13 +46,37 @@ function AuthCallbackContent() {
 
         const code = searchParams.get('code');
         const type = searchParams.get('type');
-        
+
         console.log('🔐 Auth callback - Code:', !!code, 'Type:', type);
-        
+
         if (code) {
-          // Handle OAuth callback
-          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-          
+          // Handle OAuth callback with retry for code verifier issues
+          let data, error;
+
+          try {
+            const result = await supabase.auth.exchangeCodeForSession(code);
+            data = result.data;
+            error = result.error;
+          } catch (exchangeError: any) {
+            console.error('🔐 Code exchange exception:', exchangeError);
+
+            // If it's a code verifier error, try getting the existing session
+            if (exchangeError.message?.includes('code') || exchangeError.message?.includes('verifier')) {
+              console.log('🔐 Code verifier error detected, checking for existing session...');
+              const { data: { session } } = await supabase.auth.getSession();
+
+              if (session) {
+                console.log('🔐 Found existing session, using it instead');
+                data = { session, user: session.user };
+                error = null;
+              } else {
+                throw exchangeError;
+              }
+            } else {
+              throw exchangeError;
+            }
+          }
+
           if (error) {
             console.error('🔐 Session exchange error:', error);
             throw error;
