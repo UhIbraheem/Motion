@@ -118,10 +118,24 @@ function estimateCost(promptTokens, completionTokens, model = 'gpt-4o', usageDet
 
 /**
  * Create optimized system prompt with caching markers
- * OpenAI caches prompts that are >1024 tokens and repeated
- * @param {string} basePrompt - Base system prompt
- * @param {object} options - Additional options
- * @returns {string} - Optimized prompt
+ *
+ * PROMPT CACHING EXPLAINED:
+ * - OpenAI automatically caches system prompts >1024 tokens (GPT-4, GPT-4o)
+ * - Cached prompts cost 50% less ($1.25/1M vs $2.50/1M for gpt-4o)
+ * - Cache TTL: 5-10 minutes
+ * - For maximum savings: Keep static rules at the start, dynamic vars at the end
+ *
+ * This function structures prompts optimally for caching:
+ * 1. Static rules first (always the same) → cached
+ * 2. Dynamic constraints last (change per request) → not cached
+ *
+ * Example savings:
+ * - Without cache: 2000 token prompt = $0.005
+ * - With cache (90% hit rate): 1800 cached + 200 new = $0.0028 (44% savings)
+ *
+ * @param {string} basePrompt - Base system prompt (currently unused, uses static template)
+ * @param {object} options - Dynamic request options (radius, budget, etc.)
+ * @returns {string} - Optimized cacheable prompt
  */
 function createCachableSystemPrompt(basePrompt, options = {}) {
   const { radius, budget, includeOpenTable = true } = options;

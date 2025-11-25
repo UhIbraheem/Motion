@@ -367,11 +367,23 @@ router.post("/generate-plan", async (req, res) => {
     console.log("📝 Received request:", { app_filter, radius, sessionId });
 
     // Create optimized cachable system prompt
+    // NOTE: OpenAI automatically caches system prompts >1024 tokens for 50% cost savings
+    // The createCachableSystemPrompt function structures prompts with static content first
+    // to maximize cache hit rate across requests
     const systemPrompt = createCachableSystemPrompt(null, {
       radius: radius || 10,
       budget: app_filter?.budget,
       includeOpenTable: true
     });
+
+    // Verify prompt is large enough for caching (>1024 tokens)
+    const promptLength = systemPrompt.length;
+    const estimatedPromptTokens = Math.ceil(promptLength / 4); // Rough estimate
+    if (estimatedPromptTokens > 1024) {
+      console.log(`✅ System prompt is cacheable (${estimatedPromptTokens} tokens, ${promptLength} chars)`);
+    } else {
+      console.log(`⚠️ System prompt may be too short for caching (${estimatedPromptTokens} tokens)`);
+    }
 
     // Enhanced user prompt with diversity instructions
     const diversityHints = [
