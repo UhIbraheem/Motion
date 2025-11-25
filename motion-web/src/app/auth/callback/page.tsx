@@ -6,82 +6,104 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  {
+    auth: {
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+      flowType: 'pkce'
+    }
+  }
 );
 
 function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [hasRun, setHasRun] = useState(false);
 
   useEffect(() => {
     const handleAuthCallback = async () => {
+      // Prevent duplicate execution
+      if (hasRun) {
+        console.log('🔐 Callback already processed, skipping...');
+        return;
+      }
+      setHasRun(true);
+
       try {
+        // If provider returned tokens in URL hash (implicit flow), clear them to avoid leaking
+        if (typeof window !== 'undefined' && window.location.hash) {
+          const hash = window.location.hash;
+          if (/#(access_token|refresh_token|provider_token)/i.test(hash)) {
+            // Replace state with same URL minus hash
+            window.history.replaceState(null, '', window.location.pathname + window.location.search);
+          }
+        }
+
         const code = searchParams.get('code');
         const type = searchParams.get('type');
-        const error_description = searchParams.get('error_description');
 
         console.log('🔐 Auth callback - Code:', !!code, 'Type:', type);
 
-        // Handle error from auth provider
-        if (error_description) {
-          console.error('🔐 Auth provider error:', error_description);
-          throw new Error(error_description);
-        }
-
         if (code) {
-          // Handle OAuth callback with retry logic for PKCE issues
-          let retries = 0;
-          let sessionData = null;
+          // Handle OAuth callback with retry for code verifier issues
+          let data, error;
 
-          while (retries < 3 && !sessionData) {
-            try {
-              const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          try {
+            const result = await supabase.auth.exchangeCodeForSession(code);
+            data = result.data;
+            error = result.error;
+          } catch (exchangeError: any) {
+            console.error('🔐 Code exchange exception:', exchangeError);
 
-              if (error) {
-                // If it's a PKCE verifier error, clear storage and try once more
-                if (error.message?.includes('code verifier') && retries === 0) {
-                  console.log('🔐 PKCE error detected, clearing storage and retrying...');
-                  localStorage.clear();
-                  sessionStorage.clear();
-                  retries++;
-                  continue;
-                }
-                console.error('🔐 Session exchange error:', error);
-                throw error;
+            // If it's a code verifier error, try getting the existing session
+            if (exchangeError.message?.includes('code') || exchangeError.message?.includes('verifier')) {
+              console.log('🔐 Code verifier error detected, checking for existing session...');
+              const { data: { session } } = await supabase.auth.getSession();
+
+              if (session) {
+                console.log('🔐 Found existing session, using it instead');
+                data = { session, user: session.user };
+                error = null;
+              } else {
+                throw exchangeError;
               }
-
-              sessionData = data;
-              break;
-            } catch (err) {
-              retries++;
-              if (retries >= 3) throw err;
-              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s before retry
+            } else {
+              throw exchangeError;
             }
           }
 
-          const { data } = { data: sessionData };
-
-          if (!data?.session) {
-            throw new Error('No session returned from authentication');
+          if (error) {
+            console.error('🔐 Session exchange error:', error);
+            throw error;
           }
 
-          console.log('🔐 [Auth Callback] Exchange successful');
+            console.log('🔐 Session exchange successful:', !!data.session);
 
-          if (data.session) {
-            // Check if user profile exists, create if not
-            console.log('🔐 [Auth Callback] Checking for existing session...');
+            if (data.session) {
+              // Store a flag indicating auth is complete
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('motion_auth_complete', Date.now().toString());
+              }
+
+              // Check if user profile exists, create if not
             const { data: profile, error: profileError } = await supabase
               .from('profiles')
               .select('*')
               .eq('id', data.session.user.id)
               .single();
 
+            console.log('👤 Profile check:', { exists: !!profile, error: profileError?.code });
+
             if (profileError && profileError.code === 'PGRST116') {
               // Profile doesn't exist, create it
               const userData = data.session.user;
-              console.log('👤 [Auth Callback] Creating profile...');
-
+              console.log('👤 Creating profile for user:', userData.email);
+              
               const { error: insertError } = await supabase.from('profiles').insert({
                 id: userData.id,
                 first_name: userData.user_metadata?.first_name || userData.user_metadata?.name?.split(' ')[0] || '',
@@ -98,36 +120,26 @@ function AuthCallbackContent() {
               });
 
               if (insertError) {
-                console.error('👤 [Auth Callback] Profile creation error:', insertError);
+                console.error('👤 Profile creation error:', insertError);
+              } else {
+                console.log('👤 Profile created successfully');
               }
             }
 
-            console.log('🔐 Auth successful, waiting for session to stabilize...');
-
+            console.log('🔐 Auth successful, redirecting to home page...');
+            
             // Set localStorage flag to help signin page detect completed auth
             localStorage.setItem('motion_auth_complete', Date.now().toString());
-
-            // Wait a moment for the session to fully propagate and auth state to update
-            // This prevents the race condition where we redirect before AuthContext picks up the new session
-            await new Promise(resolve => setTimeout(resolve, 500));
-
-            // Verify session is still valid before redirecting
-            const { data: { session: verifySession } } = await supabase.auth.getSession();
-
-            if (verifySession) {
-              console.log('🔐 Session verified, redirecting to home page...');
-              // Use router.replace for proper Next.js navigation with cookie handling
-              router.replace('/');
-            } else {
-              console.warn('🔐 Session verification failed, redirecting to signin');
-              router.replace('/auth/signin?error=Session expired');
-            }
+            
+            // Use router.replace for proper Next.js navigation with cookie handling
+            router.replace('/');
             return;
           }
         }
 
         // Handle password reset
         if (type === 'recovery') {
+          // The user clicked the reset password link
           router.push('/auth/reset-password/confirm');
           return;
         }
@@ -138,16 +150,40 @@ function AuthCallbackContent() {
           return;
         }
 
+        // Handle password reset (alternative check)
+        const accessToken = searchParams.get('access_token');
+        const refreshToken = searchParams.get('refresh_token');
+        
+        if (accessToken && refreshToken && !type) {
+          // This might be a password reset link
+          try {
+            const { data, error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+            
+            if (!error && data.session) {
+              router.push('/auth/reset-password/confirm');
+              return;
+            }
+          } catch (err) {
+            console.log('Session set error:', err);
+          }
+        }
+
         // Default redirect if no specific type
         router.push('/auth/signin');
 
       } catch (error) {
         const err = error as { message?: string };
-        console.error('❌ [Auth Callback] Error:', err);
+        console.error('Auth callback error:', err);
         setError(err?.message || 'Authentication failed');
+        // Redirect to signin with error after 3 seconds
         setTimeout(() => {
           router.push('/auth/signin?error=Authentication failed');
         }, 3000);
+      } finally {
+        setLoading(false);
       }
     };
 

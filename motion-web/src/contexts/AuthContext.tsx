@@ -1,10 +1,21 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { createClient } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 
-// Create singleton client instance
-const supabase = createClient();
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  {
+    auth: {
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+      flowType: 'pkce'
+    }
+  }
+);
 
 export interface User {
   id: string;
@@ -108,20 +119,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const initializeAuth = async () => {
     try {
       setLoading(true);
-
-      // Use getUser() instead of getSession() to verify the session is valid
-      // This contacts the auth server to authenticate the session
-      const { data: { user: authUser }, error } = await supabase.auth.getUser();
-
-      if (error) {
-        console.log('🔐 No valid session:', error.message);
-        setUser(null);
-        return;
-      }
-
-      if (authUser) {
-        console.log('🔐 Valid session found for:', authUser.email);
-        await fetchUserProfile(authUser.id);
+      
+      // Check if user is authenticated
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        await fetchUserProfile(session.user.id);
       } else {
         setUser(null);
       }
@@ -350,10 +353,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.log('🔐 Starting Google OAuth...');
 
       // Always use our same-origin callback to avoid prod redirect
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : '');
-  const redirectTo = `${siteUrl}/auth/callback`;
-      
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+      const redirectTo = `${siteUrl}/auth/callback`;
+
       console.log('🔐 OAuth redirect URL:', redirectTo);
+
+      // Clear any old auth state before starting new flow
+      if (typeof window !== 'undefined') {
+        // Keep existing session but clear any stale PKCE codes
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.includes('code-verifier')) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(key => {
+          try {
+            localStorage.removeItem(key);
+          } catch (e) {
+            console.warn('Could not remove:', key);
+          }
+        });
+      }
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -362,7 +384,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
           queryParams: {
             access_type: 'offline',
             prompt: 'select_account',
-            response_type: 'code'
           },
           skipBrowserRedirect: false,
         },
@@ -374,8 +395,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         throw error;
       }
 
+      console.log('🔐 OAuth initiated successfully');
       return { success: true };
     } catch (error: any) {
+      console.error('🔐 OAuth exception:', error);
       setLoading(false);
       return {
         success: false,
@@ -407,40 +430,32 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const signOut = async (): Promise<void> => {
+    setLoading(true);
     try {
-      console.log('🔐 [Sign Out] Starting sign out...');
-      setLoading(true);
-
-      // Sign out from Supabase (this clears cookies automatically with SSR client)
-      const { error } = await supabase.auth.signOut();
-
-      if (error) {
-        console.error('🔐 [Sign Out] Error:', error);
+      console.log('🔐 Signing out user...');
+      await supabase.auth.signOut();
+      // Extra: remove any cached tokens / session remnants
+      try {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('token');
+          localStorage.removeItem('supabase.auth.token');
+          sessionStorage.clear();
+        }
+      } catch {}
+      // Double-check session cleared
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        console.warn('Session still present after signOut, forcing client state reset');
       }
-
-      // Clear local state
       setUser(null);
-
-      // Clear any cached flags
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('motion_auth_complete');
-      }
-
-      console.log('🔐 [Sign Out] ✅ Complete, redirecting...');
-
-      // Small delay to ensure signOut completes
-      await new Promise(resolve => setTimeout(resolve, 200));
-
-      // Hard redirect to signin page
-      window.location.href = '/auth/signin';
-
+      console.log('🔐 Sign out complete');
+      if (typeof window !== 'undefined') window.location.replace('/');
     } catch (error) {
-      console.error('🔐 [Sign Out] ❌ Failed:', error);
-      // Clear state anyway
+      console.error('Sign out error:', error);
       setUser(null);
+      if (typeof window !== 'undefined') window.location.replace('/');
+    } finally {
       setLoading(false);
-      // Still redirect
-      window.location.href = '/auth/signin';
     }
   };
 
