@@ -138,7 +138,7 @@ export default function ForMePage() {
     }
   };
 
-  // City autocomplete using Google Places Autocomplete API
+  // City autocomplete using Google Places Autocomplete API via backend proxy
   const handleLocationInputChange = async (value: string) => {
     setLocationQuery(value);
 
@@ -149,15 +149,13 @@ export default function ForMePage() {
     }
 
     try {
-      const response = await fetch(
-        `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(value)}&types=(cities)&key=${process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY}`,
-        { mode: 'cors' }
-      );
+      // Use backend proxy to avoid CORS issues
+      const proxyRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/places/autocomplete?input=${encodeURIComponent(value)}&types=(cities)`);
 
-      // Note: This will fail due to CORS - we need a backend proxy
-      // For now, use the backend proxy
-      const proxyRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/places/autocomplete?input=${encodeURIComponent(value)}`);
-      if (!proxyRes.ok) throw new Error('Autocomplete failed');
+      if (!proxyRes.ok) {
+        console.error('Autocomplete API error:', proxyRes.status);
+        return;
+      }
 
       const data = await proxyRes.json();
       setCitySuggestions(data.predictions || []);

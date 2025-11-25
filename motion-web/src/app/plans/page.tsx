@@ -858,36 +858,29 @@ function PlansContent() {
               </div>
             ) : (
               <>
-                {/* Scheduled Date Card (if scheduled) */}
+                {/* Scheduled Date Button (matches button size) */}
                 {adventure.scheduled_for && (
-                  <div className="w-full bg-gradient-to-r from-[#3c7660]/10 to-[#4d987b]/10 border-2 border-[#3c7660]/30 rounded-xl p-4 text-center mb-3">
-                    <div className="flex items-center justify-center gap-2 mb-1">
-                      <CalendarDays className="w-5 h-5 text-[#3c7660]" />
-                      <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Scheduled For</span>
+                  <Button
+                    variant="outline"
+                    className="w-full border-[#3c7660]/30 bg-gradient-to-r from-[#3c7660]/5 to-[#4d987b]/5 text-[#3c7660] hover:bg-[#3c7660]/10 transition-all duration-300 flex items-center justify-between h-10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedAdventure(adventure);
+                      setShowScheduleModal(true);
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <CalendarDays className="w-4 h-4" />
+                      <span className="font-semibold">
+                        {new Date(adventure.scheduled_for).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: new Date(adventure.scheduled_for).getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
+                        })}
+                      </span>
                     </div>
-                    <p className="text-2xl font-bold text-[#3c7660]">
-                      {new Date(adventure.scheduled_for).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                        year: new Date(adventure.scheduled_for).getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
-                      })}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {new Date(adventure.scheduled_for).toLocaleDateString('en-US', { weekday: 'long' })}
-                    </p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full mt-3 border-[#3c7660]/30 text-[#3c7660] hover:bg-[#3c7660]/5 transition-all duration-300 text-xs"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedAdventure(adventure);
-                        setShowScheduleModal(true);
-                      }}
-                    >
-                      Reschedule
-                    </Button>
-                  </div>
+                    <span className="text-xs opacity-70">Click to reschedule</span>
+                  </Button>
                 )}
 
                 <Button

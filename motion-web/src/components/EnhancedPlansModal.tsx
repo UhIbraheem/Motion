@@ -216,48 +216,57 @@ export default function EnhancedPlansModal({
     setExpandedSteps(newExpanded);
   };
 
-  // Fetch Google Places data AND photos for steps
+  // Fetch Google Places data AND photos for steps - runs on modal open
   useEffect(() => {
     const fetchPlacesData = async () => {
+      console.log('📸 Fetching place photos for', adventure.steps.length, 'steps...');
+
       const fetchPromises = adventure.steps
-        .filter(step => step.business_name && !stepPlacesData[step.id])
+        .filter(step => step.business_name)
         .map(async (step) => {
           try {
             if (!step.business_name) return null;
-            
+
+            // Log what we're fetching
+            console.log('🔍 Fetching photos for:', step.business_name);
+
             const placeData = await GooglePlacesService.getPlaceDataWithCache(
               step.business_name,
               step.location
             );
-            
+
             if (placeData) {
               // Fetch multiple photos if available
               let photos: string[] = [];
               const placeDataAny = placeData as any;
-              
+
               if (placeDataAny.photos && Array.isArray(placeDataAny.photos) && placeDataAny.photos.length > 0) {
                 // Get up to 3 photos
                 photos = placeDataAny.photos.slice(0, 3).map((photo: any) => photo.url || photo);
+                console.log('✅ Found', photos.length, 'photos for', step.business_name);
               } else if (placeData.photo_url) {
                 photos = [placeData.photo_url];
+                console.log('✅ Found 1 photo for', step.business_name);
               }
-              
-              return { 
-                stepId: step.id, 
+
+              return {
+                stepId: step.id,
                 placeData: {
                   ...placeData,
                   photos // Array of photo URLs
                 }
               };
+            } else {
+              console.log('⚠️ No place data found for', step.business_name);
             }
           } catch (error) {
-            console.error('Error fetching place data for step:', step.id, error);
+            console.error('❌ Error fetching place data for step:', step.id, error);
           }
           return null;
         });
 
       const results = await Promise.all(fetchPromises);
-      
+
       const newPlacesData: Record<string, any> = {};
       results.forEach(result => {
         if (result) {
@@ -266,18 +275,24 @@ export default function EnhancedPlansModal({
       });
 
       if (Object.keys(newPlacesData).length > 0) {
-        setStepPlacesData(prev => ({
-          ...prev,
-          ...newPlacesData
-        }));
+        console.log('💾 Loaded place data for', Object.keys(newPlacesData).length, 'steps');
+        setStepPlacesData(newPlacesData); // Replace instead of merge to ensure fresh data
       }
     };
 
-    if (adventure.steps.length > 0) {
+    // Only fetch if modal is open and we have steps
+    if (isOpen && adventure.steps.length > 0) {
       fetchPlacesData();
     }
+
+    // Clean up on close
+    return () => {
+      if (!isOpen) {
+        setStepPlacesData({});
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [adventure.id]); // Only run when adventure changes
+  }, [isOpen, adventure.id]); // Run when modal opens or adventure changes
 
   const getStepPhotos = (step: AdventureStep): string[] => {
     // Get multiple photos for the step
