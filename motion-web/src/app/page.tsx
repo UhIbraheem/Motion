@@ -95,6 +95,28 @@ export default function DiscoverPage() {
     }
   }, [isHydrated]); // Remove user dependency to prevent multiple calls
 
+  // Fix auth state mismatch - if we've loaded but have no user, check if session exists
+  useEffect(() => {
+    const checkAuthMismatch = async () => {
+      if (!loading && !user && isHydrated) {
+        // Check if there's actually a session (in case of state mismatch)
+        try {
+          const { data: { session } } = await fetch('/api/auth/session').then(r => r.json()).catch(() => ({ data: { session: null } }));
+          if (session) {
+            console.log('🔄 Auth mismatch detected - session exists but user is null. Refreshing...');
+            window.location.reload();
+          }
+        } catch (err) {
+          // Ignore errors
+        }
+      }
+    };
+
+    // Run check after a short delay to ensure auth context has initialized
+    const timer = setTimeout(checkAuthMismatch, 1000);
+    return () => clearTimeout(timer);
+  }, [loading, user, isHydrated]);
+
   const fetchAdventures = async () => {
     try {
       setAdventuresLoading(true);
@@ -159,17 +181,17 @@ export default function DiscoverPage() {
         </div>
 
         {/* Create Adventure CTA (for non-users) */}
-        {!user && (
+        {!loading && !user && (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
             <div className="bg-gradient-to-r from-[#3c7660] to-[#2d5a48] rounded-2xl p-8 text-center text-white">
               <h2 className="text-2xl font-bold mb-2">Ready for your next adventure?</h2>
               <p className="text-white/90 mb-6 max-w-md mx-auto">
                 Let AI create a personalized experience tailored just for you
               </p>
-              <Link href="/auth/signin">
-                <Button 
+              <Link href="/auth/signin" className="inline-block">
+                <Button
                   size="lg"
-                  className="bg-white hover:bg-gray-50 text-[#3c7660] font-semibold px-8 py-3 rounded-full shadow-lg"
+                  className="bg-white hover:bg-gray-50 text-[#3c7660] font-semibold px-8 py-3 rounded-full shadow-lg cursor-pointer"
                 >
                   <IoAdd className="w-5 h-5 mr-2" />
                   Sign In to Create
@@ -224,14 +246,14 @@ export default function DiscoverPage() {
                 </p>
                 {user ? (
                   <Link href="/create">
-                    <Button className="bg-[#3c7660] hover:bg-[#2d5a48] text-white px-6 py-2 rounded-full">
+                    <Button className="bg-[#3c7660] hover:bg-[#2d5a48] text-white px-6 py-2 rounded-full cursor-pointer">
                       <IoAdd className="w-5 h-5 mr-2" />
                       Create Adventure
                     </Button>
                   </Link>
                 ) : (
                   <Link href="/auth/signin">
-                    <Button className="bg-[#3c7660] hover:bg-[#2d5a48] text-white px-6 py-2 rounded-full">
+                    <Button className="bg-[#3c7660] hover:bg-[#2d5a48] text-white px-6 py-2 rounded-full cursor-pointer">
                       Sign In to Create
                     </Button>
                   </Link>

@@ -796,8 +796,8 @@ export default function ForMePage() {
                     })}
                   </div>
                 )
-              )}
-            </div>
+              )
+            }
           </div>
         </div>
       </main>
