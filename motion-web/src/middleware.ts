@@ -55,15 +55,17 @@ export async function middleware(req: NextRequest) {
     }
   )
 
-  // Get session
+  // Validate session by getting user - this authenticates with the server
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
+    data: { user },
+    error
+  } = await supabase.auth.getUser()
 
   console.log('🔐 Middleware check:', {
     path: req.nextUrl.pathname,
-    hasSession: !!session,
-    email: session?.user?.email
+    hasValidSession: !!user,
+    email: user?.email,
+    error: error?.message
   });
 
   // Skip middleware for callback - let it complete auth flow
@@ -74,8 +76,8 @@ export async function middleware(req: NextRequest) {
 
   // Auth pages - redirect if already logged in
   if (req.nextUrl.pathname.startsWith('/auth/')) {
-    if (session) {
-      console.log('🔐 User has session, redirecting from auth page to home');
+    if (user && !error) {
+      console.log('🔐 User has valid session, redirecting from auth page to home');
       return NextResponse.redirect(new URL('/', req.url))
     }
     return response
@@ -84,7 +86,7 @@ export async function middleware(req: NextRequest) {
   // Protected routes - only protect profile
   const protectedRoutes = ['/profile']
   if (protectedRoutes.some(route => req.nextUrl.pathname.startsWith(route))) {
-    if (!session) {
+    if (!user || error) {
       return NextResponse.redirect(new URL('/auth/signin', req.url))
     }
   }

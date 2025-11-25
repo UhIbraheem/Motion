@@ -1,244 +1,212 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const { createClient } = require('@supabase/supabase-js');
-const GooglePlacesService = require('../services/GooglePlacesService');
+const { createClient } = require("@supabase/supabase-js");
+const googlePlaces = require("../services/GooglePlacesService");
+const geocoding = require("../services/GeocodingService");
 
-// Initialize Supabase
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
+  process.env.SUPABASE_ANON_KEY
 );
 
-/**
- * Check if an adventure needs Google Places enhancement
- */
-router.post('/check-enhancement', async (req, res) => {
+// ============================================
+// SAVED PLACES CRUD
+// ============================================
+
+// Get all saved places for a user
+router.get("/saved", async (req, res) => {
   try {
-    const { adventureId } = req.body;
+    const { userId } = req.query;
 
-    if (!adventureId) {
-      return res.status(400).json({ error: 'Adventure ID is required' });
+    if (!userId) {
+      return res.status(400).json({ error: "userId is required" });
     }
 
-    // Fetch adventure from database
-    const { data: adventure, error } = await supabase
-      .from('adventures')
-      .select('id, adventure_steps, google_places_validated, location')
-      .eq('id', adventureId)
-      .single();
+    const { data, error } = await supabase
+      .from("saved_places")
+      .select("*")
+      .eq("user_id", userId)
+      .order("saved_at", { ascending: false });
 
-    if (error || !adventure) {
-      return res.status(404).json({ error: 'Adventure not found' });
-    }
+    if (error) throw error;
 
-    const missingData = [];
-    let enhancementNeeded = false;
-
-    // Check if Google Places validation is missing
-    if (!adventure.google_places_validated) {
-      missingData.push('google_places_validation');
-      enhancementNeeded = true;
-    }
-
-    // Check steps for missing photos or business info
-    if (adventure.adventure_steps && Array.isArray(adventure.adventure_steps)) {
-      for (const step of adventure.adventure_steps) {
-        if (!step.photo_url) {
-          missingData.push('photos');
-          enhancementNeeded = true;
-          break;
-        }
-      }
-
-      for (const step of adventure.adventure_steps) {
-        if (!step.rating || !step.business_hours) {
-          missingData.push('business_info');
-          enhancementNeeded = true;
-          break;
-        }
-      }
-    }
-
-    res.json({
-      needed: enhancementNeeded,
-      missingData: [...new Set(missingData)] // Remove duplicates
-    });
-
+    console.log(`✅ Fetched ${data.length} saved places for user ${userId}`);
+    res.json(data);
   } catch (error) {
-    console.error('❌ Enhancement check error:', error);
-    res.status(500).json({ error: 'Failed to check enhancement needs' });
+    console.error("❌ Error fetching saved places:", error);
+    res.status(500).json({ error: "Failed to fetch saved places" });
   }
 });
 
-/**
- * Enhance an adventure with Google Places data
- */
-router.post('/enhance', async (req, res) => {
+// Save a new place
+router.post("/save", async (req, res) => {
   try {
-    const { adventureId } = req.body;
+    const {
+      userId,
+      googlePlaceId,
+      businessName,
+      address,
+      lat,
+      lng,
+      photoUrl,
+      rating,
+      priceLevel,
+      phone,
+      website,
+      businessHours,
+      types,
+      googleData,
+      notes
+    } = req.body;
 
-    if (!adventureId) {
-      return res.status(400).json({ error: 'Adventure ID is required' });
+    if (!userId || !googlePlaceId || !businessName) {
+      return res.status(400).json({
+        error: "userId, googlePlaceId, and businessName are required"
+      });
     }
 
-    console.log(`🔧 Enhancing adventure: ${adventureId}`);
-
-    // Fetch adventure from database
-    const { data: adventure, error } = await supabase
-      .from('adventures')
-      .select('id, adventure_steps, location, premium_features_used, google_places_validated')
-      .eq('id', adventureId)
+    const { data, error} = await supabase
+      .from("saved_places")
+      .insert({
+        user_id: userId,
+        google_place_id: googlePlaceId,
+        business_name: businessName,
+        address: address || null,
+        lat: lat || null,
+        lng: lng || null,
+        photo_url: photoUrl || null,
+        rating: rating || null,
+        price_level: priceLevel || null,
+        phone: phone || null,
+        website: website || null,
+        business_hours: businessHours || null,
+        types: types || null,
+        google_data: googleData || null,
+        notes: notes || null
+      })
+      .select()
       .single();
 
-    if (error || !adventure) {
-      return res.status(404).json({ error: 'Adventure not found' });
+    if (error) {
+      // Handle duplicate entry
+      if (error.code === '23505') {
+        const { data: existing } = await supabase
+          .from("saved_places")
+          .select("*")
+          .eq("user_id", userId)
+          .eq("google_place_id", googlePlaceId)
+          .single();
+
+        return res.json({
+          ...existing,
+          alreadySaved: true
+        });
+      }
+      throw error;
     }
 
-  let enhanced = false;
-  const enhancedSteps = [...(adventure.adventure_steps || [])];
-
-    // Enhance each step with Google Places data
-    for (let i = 0; i < enhancedSteps.length; i++) {
-      const step = enhancedSteps[i];
-      
-      // Skip if step already has complete data
-  if (step.validated && step.photo_url && step.rating) {
-        continue;
-      }
-
-      try {
-        console.log(`🔍 Enhancing step: ${step.title} in ${step.location}`);
-        
-        // Enhance with Google Places API v1
-        const validatedStep = await GooglePlacesService.enrichAdventureStep(
-          step,
-          adventure.location || 'United States'
-        );
-        
-        if (validatedStep && validatedStep !== step) {
-          enhancedSteps[i] = validatedStep;
-          enhanced = true;
-          console.log(`✅ Enhanced step: ${step.title}`);
-        }
-      } catch (stepError) {
-        console.error(`❌ Failed to enhance step ${step.title}:`, stepError);
-        // Continue with other steps even if one fails
-      }
-    }
-
-    // Update adventure in database if enhanced
-    if (enhanced) {
-      const updateData = {
-        adventure_steps: enhancedSteps,
-        google_places_validated: enhancedSteps.some(step => step.validated),
-        premium_features_used: {
-          ...(adventure.premium_features_used || {}),
-          google_places_validation: true
-        }
-      };
-
-      const { error: updateError } = await supabase
-        .from('adventures')
-        .update(updateData)
-  .eq('id', adventureId);
-
-      if (updateError) {
-        console.error('❌ Failed to update enhanced adventure:', updateError);
-        return res.status(500).json({ error: 'Failed to save enhancements' });
-      }
-
-      console.log(`✅ Adventure ${adventureId} enhanced successfully`);
-    }
-
-    res.json({
-      success: true,
-      enhanced,
-      message: enhanced ? 'Adventure enhanced with Google Places data' : 'No enhancement needed'
-    });
-
+    console.log("✅ Place saved:", businessName);
+    res.json(data);
   } catch (error) {
-    console.error('❌ Enhancement error:', error);
-    res.status(500).json({ error: 'Failed to enhance adventure' });
+    console.error("❌ Error saving place:", error);
+    res.status(500).json({ error: "Failed to save place" });
   }
 });
 
-/**
- * Batch enhance multiple adventures
- */
-router.post('/enhance-batch', async (req, res) => {
+// Delete saved place
+router.delete("/saved/:id", async (req, res) => {
   try {
-    const { adventureIds, userId } = req.body;
+    const { id } = req.params;
+    const { userId } = req.query;
 
-    if (!adventureIds || !Array.isArray(adventureIds)) {
-      return res.status(400).json({ error: 'Adventure IDs array is required' });
+    const { data: existing } = await supabase
+      .from("saved_places")
+      .select("user_id")
+      .eq("id", id)
+      .single();
+
+    if (!existing || existing.user_id !== userId) {
+      return res.status(403).json({ error: "Access denied" });
     }
 
-    console.log(`🔧 Batch enhancing ${adventureIds.length} adventures for user ${userId}`);
+    const { error } = await supabase
+      .from("saved_places")
+      .delete()
+      .eq("id", id);
 
-    const results = [];
+    if (error) throw error;
 
-    for (const adventureId of adventureIds) {
-      try {
-        // Call the single enhancement endpoint internally
-        const enhanceResult = await fetch(`${req.protocol}://${req.get('host')}/api/places/enhance`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ adventureId })
-        });
+    console.log("✅ Place deleted:", id);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("❌ Error deleting place:", error);
+    res.status(500).json({ error: "Failed to delete place" });
+  }
+});
 
-        const result = await enhanceResult.json();
-        results.push({
-          adventureId,
-          success: enhanceResult.ok,
-          enhanced: result.enhanced || false,
-          error: result.error
-        });
+// ============================================
+// GOOGLE PLACES SEARCH (Proxy)
+// ============================================
 
-        // Small delay to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-      } catch (error) {
-        results.push({
-          adventureId,
-          success: false,
-          enhanced: false,
-          error: error.message
-        });
-      }
+// Search places
+router.get("/search", async (req, res) => {
+  try {
+    const { query, location, radius } = req.query;
+
+    if (!query || !location) {
+      return res.status(400).json({ error: "query and location are required" });
     }
 
-    const successCount = results.filter(r => r.success).length;
-    const enhancedCount = results.filter(r => r.enhanced).length;
+    console.log("🔍 Searching places:", query, "in", location);
 
-    res.json({
-      results,
-      summary: {
-        total: adventureIds.length,
-        successful: successCount,
-        enhanced: enhancedCount,
-        failed: adventureIds.length - successCount
-      }
+    const coords = await geocoding.geocode(location);
+
+    const places = await googlePlaces.textSearch({
+      textQuery: query,
+      biasCenter: {
+        latitude: coords.latitude,
+        longitude: coords.longitude
+      },
+      biasRadiusMeters: radius ? parseInt(radius) : 5000,
+      pageSize: 20
     });
 
+    console.log(`✅ Found ${places.length} places`);
+    res.json(places);
   } catch (error) {
-    console.error('❌ Batch enhancement error:', error);
-    res.status(500).json({ error: 'Failed to batch enhance adventures' });
+    console.error("❌ Error searching places:", error);
+    res.status(500).json({ error: "Failed to search places" });
+  }
+});
+
+// ============================================
+// GOOGLE PLACES AUTOCOMPLETE
+// ============================================
+
+// City autocomplete proxy endpoint
+router.get("/autocomplete", async (req, res) => {
+  try {
+    const { input } = req.query;
+
+    if (!input || input.length < 2) {
+      return res.json({ predictions: [] });
+    }
+
+    const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&types=(cities)&key=${process.env.GOOGLE_PLACES_API_KEY}`;
+
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Google API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log(`✅ Autocomplete found ${data.predictions?.length || 0} cities for "${input}"`);
+
+    res.json(data);
+  } catch (error) {
+    console.error("❌ Error in autocomplete:", error);
+    res.status(500).json({ error: "Failed to autocomplete" });
   }
 });
 
 module.exports = router;
-// Self-test endpoint to diagnose Places connectivity
-router.get('/self-test', async (req, res) => {
-  try {
-    const sample = await GooglePlacesService.lookupBusiness('El Camino Fort Lauderdale', '817 E Las Olas Blvd, Fort Lauderdale, FL 33301');
-    res.json({ ok: !!sample, sample });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
-  }
-});

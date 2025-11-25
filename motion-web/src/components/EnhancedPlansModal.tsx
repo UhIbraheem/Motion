@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, MapPin, Clock, Calendar as CalendarIcon, Star, CheckCircle2, Circle, Phone, Globe, ChevronDown, ChevronUp, ExternalLink, RefreshCw, TrendingUp, DollarSign, Navigation, Sparkles, Award, Users, ImageIcon } from 'lucide-react';
+import { X, MapPin, Clock, Calendar as CalendarIcon, Star, CheckCircle2, Circle, Phone, Globe, ChevronDown, ChevronUp, ExternalLink, TrendingUp, DollarSign, Navigation, Award } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
@@ -26,6 +25,10 @@ interface AdventureStep {
   business_phone?: string;
   business_website?: string;
   photo_url?: string; // Real Google Places photo
+  booking?: {
+    method: string;
+    fallback?: string;
+  };
   google_places?: {
     place_id: string;
     name: string | { text: string; languageCode: string };
@@ -35,7 +38,7 @@ interface AdventureStep {
     price_level: number;
     types: string[];
     photo_url: string;
-    opening_hours: any;
+    opening_hours: Record<string, unknown>;
     google_maps_uri?: string;
     website_uri?: string;
     national_phone_number?: string;
@@ -106,8 +109,10 @@ export default function EnhancedPlansModal({
   const [tempSelectedDate, setTempSelectedDate] = useState<Date | undefined>(
     adventure.scheduled_for ? new Date(adventure.scheduled_for) : undefined
   );
-  
-  if (!isOpen) return null;
+  const [currentStepIndex, setCurrentStepIndex] = useState(0); // For step navigation
+  const [slideDirection, setSlideDirection] = useState<'left' | 'right' | null>(null);
+  const [draggedStepIndex, setDraggedStepIndex] = useState<number | null>(null);
+  const [dragOverStepIndex, setDragOverStepIndex] = useState<number | null>(null);
 
   const completedSteps = adventure.steps.filter(step => step.completed).length;
   const totalSteps = adventure.steps.length;
@@ -164,7 +169,19 @@ export default function EnhancedPlansModal({
       }
       return;
     }
+
+    // Show celebration toast
+    toast.success('🎉 Adventure completed!', {
+      description: `Congratulations on completing "${adventure.title}"! Your adventure has been saved to your completed plans.`,
+      duration: 5000,
+    });
+
     onMarkCompleted();
+
+    // Close modal after a brief delay to show the celebration
+    setTimeout(() => {
+      onClose();
+    }, 1500);
   };
 
   const handleTitleSave = async () => {
@@ -199,48 +216,57 @@ export default function EnhancedPlansModal({
     setExpandedSteps(newExpanded);
   };
 
-  // Fetch Google Places data AND photos for steps
+  // Fetch Google Places data AND photos for steps - runs on modal open
   useEffect(() => {
     const fetchPlacesData = async () => {
+      console.log('📸 Fetching place photos for', adventure.steps.length, 'steps...');
+
       const fetchPromises = adventure.steps
-        .filter(step => step.business_name && !stepPlacesData[step.id])
+        .filter(step => step.business_name)
         .map(async (step) => {
           try {
             if (!step.business_name) return null;
-            
+
+            // Log what we're fetching
+            console.log('🔍 Fetching photos for:', step.business_name);
+
             const placeData = await GooglePlacesService.getPlaceDataWithCache(
               step.business_name,
               step.location
             );
-            
+
             if (placeData) {
               // Fetch multiple photos if available
               let photos: string[] = [];
               const placeDataAny = placeData as any;
-              
+
               if (placeDataAny.photos && Array.isArray(placeDataAny.photos) && placeDataAny.photos.length > 0) {
                 // Get up to 3 photos
                 photos = placeDataAny.photos.slice(0, 3).map((photo: any) => photo.url || photo);
+                console.log('✅ Found', photos.length, 'photos for', step.business_name);
               } else if (placeData.photo_url) {
                 photos = [placeData.photo_url];
+                console.log('✅ Found 1 photo for', step.business_name);
               }
-              
-              return { 
-                stepId: step.id, 
+
+              return {
+                stepId: step.id,
                 placeData: {
                   ...placeData,
                   photos // Array of photo URLs
                 }
               };
+            } else {
+              console.log('⚠️ No place data found for', step.business_name);
             }
           } catch (error) {
-            console.error('Error fetching place data for step:', step.id, error);
+            console.error('❌ Error fetching place data for step:', step.id, error);
           }
           return null;
         });
 
       const results = await Promise.all(fetchPromises);
-      
+
       const newPlacesData: Record<string, any> = {};
       results.forEach(result => {
         if (result) {
@@ -249,18 +275,24 @@ export default function EnhancedPlansModal({
       });
 
       if (Object.keys(newPlacesData).length > 0) {
-        setStepPlacesData(prev => ({
-          ...prev,
-          ...newPlacesData
-        }));
+        console.log('💾 Loaded place data for', Object.keys(newPlacesData).length, 'steps');
+        setStepPlacesData(newPlacesData); // Replace instead of merge to ensure fresh data
       }
     };
 
-    if (adventure.steps.length > 0) {
+    // Only fetch if modal is open and we have steps
+    if (isOpen && adventure.steps.length > 0) {
       fetchPlacesData();
     }
+
+    // Clean up on close
+    return () => {
+      if (!isOpen) {
+        setStepPlacesData({});
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [adventure.id]); // Only run when adventure changes
+  }, [isOpen, adventure.id]); // Run when modal opens or adventure changes
 
   const getStepPhotos = (step: AdventureStep): string[] => {
     // Get multiple photos for the step
@@ -303,20 +335,148 @@ export default function EnhancedPlansModal({
     // Priority: google_places.google_maps_uri > constructed place_id link
     const googleMapsUri = step.google_places?.google_maps_uri;
     if (googleMapsUri) return googleMapsUri;
-    
+
     const placeId = step.google_places?.place_id || stepPlacesData[step.id]?.place_id;
     if (placeId) {
       return `https://www.google.com/maps/place/?q=place_id:${placeId}`;
     }
-    
+
     // Fallback to search query
     const query = encodeURIComponent(`${step.business_name || step.title} ${step.location || ''}`);
     return `https://www.google.com/maps/search/${query}`;
   };
 
+  const extractCountyOrLocality = (address?: string): string | null => {
+    if (!address) return null;
+
+    // Extract county/locality from formatted address
+    // Format is usually: "123 Street, City, State ZIP, Country"
+    const parts = address.split(',').map(p => p.trim());
+
+    // Return the second-to-last or last meaningful part (usually city/county)
+    if (parts.length >= 2) {
+      // If we have "City, State ZIP" format, return the city
+      const cityPart = parts[parts.length - 2];
+      // Remove ZIP codes and return clean city/county name
+      return cityPart.replace(/\d{5}(-\d{4})?/, '').trim();
+    }
+
+    return null;
+  };
+
+  const handleStepNavigation = (newIndex: number) => {
+    if (newIndex === currentStepIndex || newIndex < 0 || newIndex >= adventure.steps.length) {
+      return;
+    }
+
+    // Determine slide direction
+    setSlideDirection(newIndex > currentStepIndex ? 'left' : 'right');
+
+    // Change step after a brief delay to allow animation
+    setTimeout(() => {
+      setCurrentStepIndex(newIndex);
+      setSlideDirection(null);
+    }, 300);
+  };
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedStepIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', e.currentTarget.innerHTML);
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverStepIndex(index);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverStepIndex(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+
+    if (draggedStepIndex === null || draggedStepIndex === dropIndex) {
+      setDraggedStepIndex(null);
+      setDragOverStepIndex(null);
+      return;
+    }
+
+    // Ask for confirmation
+    const confirmed = window.confirm(
+      `Swap step ${draggedStepIndex + 1} with step ${dropIndex + 1}?\n\nThis will reorder your adventure.`
+    );
+
+    if (!confirmed) {
+      setDraggedStepIndex(null);
+      setDragOverStepIndex(null);
+      return;
+    }
+
+    try {
+      // Call API to update step orders in database
+      const response = await fetch(`/api/adventures/${adventure.id}/steps/reorder`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fromIndex: draggedStepIndex,
+          toIndex: dropIndex,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to reorder steps');
+      }
+
+      const result = await response.json();
+
+      toast.success('Steps reordered!', {
+        description: `Moved step ${draggedStepIndex + 1} to position ${dropIndex + 1}`
+      });
+
+      // Trigger parent update to refresh the adventure data
+      if (onUpdate) {
+        onUpdate();
+      }
+    } catch (error) {
+      console.error('Error reordering steps:', error);
+      toast.error('Failed to reorder steps', {
+        description: error instanceof Error ? error.message : 'An unexpected error occurred'
+      });
+    }
+
+    setDraggedStepIndex(null);
+    setDragOverStepIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedStepIndex(null);
+    setDragOverStepIndex(null);
+  };
+
+  // Prevent background scrolling when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
+  // Early return after all hooks
+  if (!isOpen) return null;
+
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl max-w-5xl w-full max-h-[92vh] overflow-hidden shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-300">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-200 overflow-y-auto">
+      <div className="bg-white rounded-3xl max-w-5xl w-full max-h-[92vh] overflow-hidden shadow-2xl border border-gray-100 animate-in zoom-in-95 duration-300 my-8">
         {/* Premium Header */}
         <div className="sticky top-0 bg-gradient-to-br from-white via-white to-[#f8f2d5]/30 border-b border-gray-100 px-8 py-6 flex items-center justify-between rounded-t-3xl z-10 backdrop-blur-sm">
           <div className="flex-1 mr-4">
@@ -363,22 +523,30 @@ export default function EnhancedPlansModal({
               </div>
             )}
             
-            <div className="flex items-center gap-5 text-sm">
-              <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-full px-3 py-1.5 border border-gray-100">
-                <MapPin className="w-4 h-4 text-[#3c7660]" />
-                <span className="font-medium text-gray-700">{adventure.location}</span>
+            {/* Location & Time Subheading with Dividers */}
+            <div className="flex items-center gap-4 text-sm text-gray-600 mb-4">
+              <div className="flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-[#3c7660]" />
+                <span className="font-medium">{adventure.location}</span>
               </div>
-              <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-full px-3 py-1.5 border border-gray-100">
-                <Clock className="w-4 h-4 text-[#3c7660]" />
-                <span className="font-medium text-gray-700">{adventure.duration}</span>
+              <span className="text-gray-300">•</span>
+              <div className="flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-[#3c7660]" />
+                <span className="font-medium">{adventure.duration}</span>
               </div>
               {adventure.google_places_validated && (
-                <Badge className="bg-white/40 backdrop-blur-md border border-emerald-500/30 text-emerald-700 shadow-sm">
-                  <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                  Verified
-                </Badge>
+                <>
+                  <span className="text-gray-300">•</span>
+                  <div className="flex items-center gap-1.5 text-emerald-600">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span className="font-medium">Verified</span>
+                  </div>
+                </>
               )}
             </div>
+
+            {/* Elegant Divider */}
+            <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent"></div>
           </div>
           <Button 
             variant="ghost" 
@@ -392,318 +560,261 @@ export default function EnhancedPlansModal({
 
         {/* Scrollable Content */}
         <div className="overflow-y-auto max-h-[calc(92vh-120px)] px-8 py-6 bg-gradient-to-br from-gray-50/50 via-white to-[#f8f2d5]/20">
-          {/* Premium Progress Section */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-[#3c7660]" />
-                Quest Progress
-              </span>
-              <span className="text-sm font-bold text-[#3c7660]">{completedSteps}/{totalSteps} steps</span>
-            </div>
-            <div className="relative w-full bg-gray-100 rounded-full h-3 overflow-hidden border border-gray-200 shadow-inner">
-              <div 
-                className="absolute inset-y-0 left-0 bg-gradient-to-r from-[#3c7660] to-[#4d987b] rounded-full transition-all duration-700 shadow-sm" 
-                style={{ width: `${progressPercentage}%` }}
-              />
-              {/* Shimmer effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer" />
-            </div>
-          </div>
-
-          {/* Premium Status Cards Grid */}
-          <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Status Card */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-100 shadow-lg hover:shadow-xl transition-all">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="p-3 bg-gradient-to-br from-[#3c7660]/10 to-[#4d987b]/10 rounded-xl">
-                  {adventure.is_completed ? (
-                    <Award className="w-5 h-5 text-emerald-600" />
-                  ) : isScheduled ? (
-                    <CalendarIcon className="w-5 h-5 text-[#3c7660]" />
-                  ) : (
-                    <Sparkles className="w-5 h-5 text-[#f2cc6c]" />
-                  )}
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 font-medium mb-1">Current Status</p>
-                  {adventure.is_completed ? (
-                    <Badge className="bg-white/40 backdrop-blur-md border border-emerald-500/30 text-emerald-700">
-                      <Award className="w-3.5 h-3.5 mr-1" />
-                      Completed
-                    </Badge>
-                  ) : isScheduled ? (
-                    <Badge className="bg-white/40 backdrop-blur-md border border-[#4d987b]/30 text-[#4d987b]">
-                      <CalendarIcon className="w-3.5 h-3.5 mr-1" />
-                      Scheduled
-                    </Badge>
-                  ) : (
-                    <Badge className="bg-white/40 backdrop-blur-md border border-gray-400/30 text-gray-600">
-                      <Clock className="w-3.5 h-3.5 mr-1" />
-                      Planning
-                    </Badge>
-                  )}
-                </div>
-              </div>
-              <div className="text-sm">
-                {scheduledDate ? (
-                  <div className="flex items-center gap-2 text-gray-700">
-                    <CalendarIcon className="w-4 h-4 text-[#3c7660]" />
-                    <span className="font-medium">
-                      {scheduledDate.toLocaleDateString('en-US', { 
-                        weekday: 'short', 
-                        month: 'short', 
-                        day: 'numeric',
-                        year: 'numeric'
-                      })}
-                    </span>
-                  </div>
-                ) : (
-                  <span className="text-gray-400 italic">Not scheduled</span>
-                )}
-              </div>
-            </div>
-
-            {/* Schedule Card */}
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-100 shadow-lg hover:shadow-xl transition-all">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="p-3 bg-gradient-to-br from-[#f2cc6c]/20 to-[#f2cc6c]/10 rounded-xl">
-                  <TrendingUp className="w-5 h-5 text-[#3c7660]" />
-                </div>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500 font-medium mb-1">Progress</p>
-                {canCompleteSteps ? (
-                  <Badge className="bg-white/40 backdrop-blur-md border border-emerald-500/30 text-emerald-700">
-                    <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                    Ready to Complete
-                  </Badge>
-                ) : adventure.is_completed ? (
-                  <Badge className="bg-white/40 backdrop-blur-md border border-emerald-600/30 text-emerald-700">
-                    <Star className="w-3.5 h-3.5 mr-1" />
-                    Finished
-                  </Badge>
-                ) : !isScheduled ? (
-                  <Badge className="bg-white/40 backdrop-blur-md border border-amber-500/30 text-amber-700">
-                    <CalendarIcon className="w-3.5 h-3.5 mr-1" />
-                    Needs Scheduling
-                  </Badge>
-                ) : (
-                  <Badge className="bg-white/40 backdrop-blur-md border border-[#4d987b]/30 text-[#4d987b]">
-                    <Clock className="w-3.5 h-3.5 mr-1" />
-                    In Progress
-                  </Badge>
-                )}
-              </div>
-              <div className="mt-3 text-sm">
-                {adventure.is_completed ? (
-                  <span className="text-emerald-600 font-semibold flex items-center gap-1">
-                    <Sparkles className="w-4 h-4" />
-                    Adventure completed!
-                  </span>
-                ) : isScheduled && scheduledDate! > today ? (
-                  <span className="text-blue-600 font-medium">
-                    {Math.ceil((scheduledDate!.getTime() - today.getTime()) / (1000 * 3600 * 24))} days to go
-                  </span>
-                ) : isScheduled ? (
-                  <span className="text-emerald-600 font-semibold flex items-center gap-1">
-                    <CheckCircle2 className="w-4 h-4" />
-                    Available now!
-                  </span>
-                ) : (
-                  <span className="text-gray-500">Schedule to begin</span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Collapsible Interactive Calendar Scheduling Section */}
-          {!adventure.is_completed && (
-            <div className="mb-8">
-              {/* Header Button - Always Visible */}
-              <button
-                onClick={() => setIsScheduleSectionOpen(!isScheduleSectionOpen)}
-                className="w-full relative overflow-hidden rounded-2xl transition-all duration-300 hover:shadow-xl group"
-              >
-                {/* Background gradient */}
-                <div className="absolute inset-0 bg-gradient-to-br from-[#f8f2d5] via-[#f2cc6c]/10 to-[#3c7660]/5" />
-                <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/40 to-transparent" />
-                
-                <div className="relative p-6 border-2 border-[#f2cc6c]/40 rounded-2xl backdrop-blur-sm group-hover:border-[#3c7660]/50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="p-3 bg-gradient-to-br from-[#3c7660] to-[#4d987b] rounded-xl shadow-lg group-hover:scale-110 transition-transform">
-                        <CalendarIcon className="w-6 h-6 text-white" />
-                      </div>
-                      <div className="text-left">
-                        <h4 className="text-xl font-bold text-gray-900 mb-1">
-                          {scheduledDate ? 'Scheduled Adventure' : 'Schedule Your Adventure'}
-                        </h4>
-                        <p className="text-sm text-gray-600">
-                          {scheduledDate 
-                            ? `${scheduledDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}`
-                            : 'Click to pick the perfect day to explore'
-                          }
-                        </p>
-                      </div>
+          {/* Unified Status & Schedule Box */}
+          <div className="mb-6 relative overflow-hidden rounded-2xl bg-gradient-to-br from-white via-white to-[#f8f2d5]/20 border-2 border-gray-100 shadow-xl">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
+              {/* LEFT: Schedule Section */}
+              {!adventure.is_completed && (
+                <div className="p-4 border-r border-gray-100">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-3 bg-gradient-to-br from-[#3c7660] to-[#4d987b] rounded-xl shadow-md">
+                      <CalendarIcon className="w-5 h-5 text-white" />
                     </div>
-                    
-                    <div className="flex items-center gap-3">
-                      {scheduledDate && (
-                        <div className="text-right mr-4">
-                          <div className="bg-white px-4 py-2 rounded-xl shadow-md border border-[#3c7660]/20">
-                            <p className="text-2xl font-bold text-[#3c7660]">
-                              {scheduledDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                            </p>
-                            <p className="text-xs text-gray-600">
-                              {scheduledDate.toLocaleDateString('en-US', { weekday: 'short' })}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                      <div className={`p-2 rounded-lg transition-all ${
-                        isScheduleSectionOpen 
-                          ? 'bg-[#3c7660] text-white rotate-180' 
-                          : 'bg-gray-100 text-gray-600'
-                      }`}>
-                        <ChevronDown className="w-5 h-5" />
-                      </div>
+                    <div>
+                      <h3 className="text-base font-bold text-gray-900">
+                        {scheduledDate ? 'Scheduled' : 'Schedule Adventure'}
+                      </h3>
+                      <p className="text-xs text-gray-600">
+                        {scheduledDate ? scheduledDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Pick a date'}
+                      </p>
                     </div>
                   </div>
-                </div>
-              </button>
 
-              {/* Expandable Calendar Section */}
-              {isScheduleSectionOpen && (
-                <div className="mt-4 relative overflow-hidden animate-in slide-in-from-top-2 duration-300">
-                  {/* Animated background gradient */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-[#f8f2d5] via-[#f2cc6c]/10 to-[#3c7660]/5 rounded-3xl" />
-                  <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/40 to-transparent rounded-3xl" />
-                  
-                  <div className="relative rounded-3xl p-8 border-2 border-[#f2cc6c]/40 shadow-2xl backdrop-blur-sm">
-                    {/* Inline Calendar - Beautiful Design */}
-                    <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 shadow-xl border border-gray-100">
-                      <Calendar
-                        mode="single"
-                        selected={tempSelectedDate}
-                        onSelect={handleDateSelect}
-                        disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                        className="rounded-xl border-0 mx-auto"
-                        classNames={{
-                          months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
-                          month: "space-y-4",
-                          caption: "flex justify-center pt-1 relative items-center",
-                          caption_label: "text-lg font-bold text-gray-900",
-                          nav: "space-x-1 flex items-center",
-                          nav_button: "h-9 w-9 bg-transparent hover:bg-[#3c7660]/10 rounded-lg transition-all p-0 inline-flex items-center justify-center",
-                          nav_button_previous: "absolute left-1",
-                          nav_button_next: "absolute right-1",
-                          table: "w-full border-collapse space-y-1",
-                          head_row: "flex",
-                          head_cell: "text-gray-500 rounded-md w-12 font-semibold text-sm uppercase",
-                          row: "flex w-full mt-2",
-                          cell: "relative p-0 text-center text-sm focus-within:relative focus-within:z-20 [&:has([aria-selected])]:bg-[#3c7660]/10 [&:has([aria-selected])]:rounded-lg",
-                          day: "h-12 w-12 p-0 font-semibold hover:bg-[#3c7660]/20 hover:text-[#3c7660] rounded-lg transition-all inline-flex items-center justify-center aria-selected:opacity-100 aria-selected:bg-gradient-to-br aria-selected:from-[#3c7660] aria-selected:to-[#4d987b] aria-selected:text-white aria-selected:shadow-lg aria-selected:scale-105",
-                          day_selected: "bg-gradient-to-br from-[#3c7660] to-[#4d987b] text-white hover:bg-[#3c7660] hover:text-white focus:bg-[#3c7660] focus:text-white shadow-lg scale-105",
-                          day_today: "bg-[#f2cc6c]/30 text-[#3c7660] font-bold border-2 border-[#f2cc6c]",
-                          day_outside: "text-gray-300 opacity-50",
-                          day_disabled: "text-gray-300 opacity-30 cursor-not-allowed hover:bg-transparent",
-                          day_hidden: "invisible",
-                        }}
-                      />
-                      
-                      {/* Quick Date Suggestions */}
-                      <div className="mt-6 pt-6 border-t border-gray-200">
-                        <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-3">Quick Pick</p>
-                        <div className="flex gap-2 flex-wrap">
-                          {[
-                            { label: 'Today', days: 0 },
-                            { label: 'Tomorrow', days: 1 },
-                            { label: 'This Weekend', days: (6 - new Date().getDay() + 7) % 7 || 7 },
-                            { label: 'Next Week', days: 7 },
-                          ].map((suggestion) => {
-                            const suggestedDate = new Date();
-                            suggestedDate.setDate(suggestedDate.getDate() + suggestion.days);
-                            
-                            return (
-                              <button
-                                key={suggestion.label}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDateSelect(suggestedDate);
-                                }}
-                                className="px-4 py-2 bg-gradient-to-br from-gray-50 to-gray-100 hover:from-[#3c7660]/10 hover:to-[#4d987b]/10 border border-gray-200 hover:border-[#3c7660]/30 rounded-xl text-sm font-medium text-gray-700 hover:text-[#3c7660] transition-all hover:shadow-md"
-                              >
-                                {suggestion.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Confirm/Cancel Buttons */}
-                    {tempSelectedDate && (
-                      <div className="mt-6 flex items-center justify-between gap-4 bg-emerald-50 rounded-xl p-5 border border-emerald-200 animate-in slide-in-from-bottom-2 duration-300">
-                        <div className="flex items-start gap-3 flex-1">
-                          <CalendarIcon className="w-5 h-5 text-emerald-600 mt-0.5 flex-shrink-0" />
-                          <div>
-                            <p className="text-sm font-semibold text-emerald-900">
-                              {tempSelectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
-                            </p>
-                            <p className="text-xs text-emerald-700 mt-1">
-                              Ready to confirm this date for your adventure?
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setTempSelectedDate(scheduledDate || undefined);
-                              setIsScheduleSectionOpen(false);
-                            }}
-                            variant="outline"
-                            className="border-gray-300 hover:bg-gray-50"
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleScheduleSubmit();
-                            }}
-                            className="bg-white/40 backdrop-blur-md border border-[#3c7660]/30 text-[#3c7660] hover:bg-[#3c7660]/10 hover:border-[#3c7660] hover:shadow-lg transition-all"
-                          >
-                            <CheckCircle2 className="w-4 h-4 mr-2" />
-                            Confirm Schedule
-                          </Button>
-                        </div>
-                      </div>
+                  {/* Status Badge */}
+                  <div className="mb-4">
+                    {isScheduled ? (
+                      <Badge className="bg-blue-50 border-blue-200 text-blue-700">
+                        <CalendarIcon className="w-3 h-3 mr-1" />
+                        Scheduled
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-gray-50 border-gray-200 text-gray-600">
+                        <Clock className="w-3 h-3 mr-1" />
+                        Needs Scheduling
+                      </Badge>
                     )}
+                  </div>
+
+                  {/* Schedule/Reschedule Button with Calendar Popover */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal bg-white/60 backdrop-blur-md border-2 border-[#3c7660]/30 hover:bg-[#3c7660]/5 hover:border-[#3c7660] transition-all"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4 text-[#3c7660]" />
+                        {scheduledDate ? (
+                          <span className="text-gray-900 font-medium">
+                            {format(scheduledDate, 'PPP')}
+                          </span>
+                        ) : (
+                          <span className="text-gray-500">Pick a date</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 bg-white/95 backdrop-blur-xl border-2 border-gray-100 shadow-2xl" align="start">
+                      <div className="p-4">
+                        {/* Glassmorphism Calendar */}
+                        <Calendar
+                          mode="single"
+                          selected={tempSelectedDate}
+                          onSelect={handleDateSelect}
+                          disabled={(date) => {
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            return date < today;
+                          }}
+                          className="rounded-xl"
+                          classNames={{
+                            months: "flex flex-col space-y-4",
+                            month: "space-y-4",
+                            caption: "flex justify-center pt-1 relative items-center mb-2",
+                            caption_label: "text-base font-bold text-gray-900",
+                            nav: "space-x-1 flex items-center",
+                            nav_button: "h-8 w-8 bg-white/60 backdrop-blur-sm hover:bg-[#3c7660]/10 rounded-xl transition-all border border-gray-200 hover:border-[#3c7660]/30",
+                            nav_button_previous: "absolute left-1",
+                            nav_button_next: "absolute right-1",
+                            table: "w-full border-collapse space-y-1",
+                            head_row: "flex",
+                            head_cell: "text-gray-600 rounded-lg w-10 font-semibold text-sm",
+                            row: "flex w-full mt-2",
+                            cell: "relative p-0 text-center text-sm focus-within:relative focus-within:z-20",
+                            day: "h-10 w-10 p-0 font-medium hover:bg-[#3c7660]/10 rounded-xl transition-all inline-flex items-center justify-center backdrop-blur-sm",
+                            day_selected: "bg-gradient-to-br from-[#3c7660]/90 to-[#4d987b]/90 text-white hover:from-[#3c7660] hover:to-[#4d987b] shadow-lg backdrop-blur-md rounded-xl scale-105",
+                            day_today: "bg-[#f2cc6c]/30 text-[#3c7660] font-bold rounded-xl ring-2 ring-[#f2cc6c]/50 ring-offset-1",
+                            day_outside: "text-gray-300 opacity-40",
+                            day_disabled: "text-gray-200 opacity-30 cursor-not-allowed hover:bg-transparent",
+                            day_hidden: "invisible",
+                          }}
+                        />
+
+                        {/* Confirm Button */}
+                        {tempSelectedDate && tempSelectedDate !== scheduledDate && (
+                          <div className="mt-4 pt-4 border-t border-gray-100">
+                            <Button
+                              onClick={() => {
+                                handleScheduleSubmit();
+                              }}
+                              className="w-full bg-gradient-to-r from-[#3c7660] to-[#4d987b] text-white hover:shadow-lg transition-all"
+                              size="sm"
+                            >
+                              <CheckCircle2 className="w-4 h-4 mr-2" />
+                              {scheduledDate ? 'Reschedule' : 'Confirm Schedule'}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              )}
+
+              {/* If completed, show completion status instead */}
+              {adventure.is_completed && (
+                <div className="p-4 border-r border-gray-100 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="p-4 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl shadow-lg mb-3 inline-block">
+                      <Award className="w-8 h-8 text-white" />
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-1">Adventure Completed!</h3>
+                    <p className="text-sm text-gray-600">Congratulations on finishing this journey</p>
                   </div>
                 </div>
               )}
+
+              {/* RIGHT: Progress Section */}
+              <div className="p-4 flex flex-col justify-center">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-3 bg-gradient-to-br from-[#f2cc6c]/30 to-[#f2cc6c]/10 rounded-xl">
+                    <TrendingUp className="w-5 h-5 text-[#3c7660]" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-gray-900">Progress Tracking</h3>
+                    <p className="text-xs text-gray-600">{completedSteps} of {totalSteps} steps completed</p>
+                  </div>
+                </div>
+
+                {/* Progress Stats */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Completion</span>
+                    <span className="text-sm font-bold text-[#3c7660]">{Math.round(progressPercentage)}%</span>
+                  </div>
+                  <div className="relative w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                    <div
+                      className="absolute inset-y-0 left-0 bg-gradient-to-r from-[#3c7660] to-[#4d987b] rounded-full transition-all duration-700"
+                      style={{ width: `${progressPercentage}%` }}
+                    />
+                  </div>
+
+                  {/* Status Badge */}
+                  <div className="pt-2">
+                    {adventure.is_completed ? (
+                      <Badge className="bg-emerald-50 border-emerald-200 text-emerald-700">
+                        <Star className="w-3 h-3 mr-1" />
+                        Completed
+                      </Badge>
+                    ) : canCompleteSteps ? (
+                      <Badge className="bg-emerald-50 border-emerald-200 text-emerald-700">
+                        <CheckCircle2 className="w-3 h-3 mr-1" />
+                        Ready to Complete
+                      </Badge>
+                    ) : !isScheduled ? (
+                      <Badge className="bg-amber-50 border-amber-200 text-amber-700">
+                        <CalendarIcon className="w-3 h-3 mr-1" />
+                        Schedule to Start
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-blue-50 border-blue-200 text-blue-700">
+                        <Clock className="w-3 h-3 mr-1" />
+                        In Progress
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
-          )}
+          </div>
+
+          {/* Step Navigation - Thinner with Dynamic Arrows */}
+          <div className="mb-6 bg-white/80 backdrop-blur-sm rounded-2xl p-3 border border-gray-100 shadow-lg">
+            <div className="text-center mb-2">
+              <h3 className="text-xs font-bold text-gray-700 inline-flex items-center gap-1.5 mb-0.5">
+                <Navigation className="w-3 h-3 text-[#3c7660]" />
+                Quick Navigation
+              </h3>
+              <p className="text-xs text-gray-500">
+                Step {currentStepIndex + 1} of {adventure.steps.length}
+              </p>
+            </div>
+            <div className="flex items-center justify-between w-full gap-1">
+              {adventure.steps.sort((a, b) => a.step_order - b.step_order).map((step, index) => (
+                <React.Fragment key={step.id}>
+                  <button
+                    draggable
+                    onClick={() => handleStepNavigation(index)}
+                    onDragStart={(e) => handleDragStart(e, index)}
+                    onDragOver={(e) => handleDragOver(e, index)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, index)}
+                    onDragEnd={handleDragEnd}
+                    className={`flex-shrink-0 w-8 h-8 rounded-lg font-bold text-xs transition-all duration-300 border ${
+                      index === currentStepIndex
+                        ? 'bg-gradient-to-br from-[#3c7660] to-[#4d987b] text-white border-[#3c7660] scale-110 shadow-md cursor-pointer z-10'
+                        : step.completed
+                        ? 'bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-200 hover:scale-105 cursor-move'
+                        : dragOverStepIndex === index && draggedStepIndex !== index
+                        ? 'bg-blue-100 border-blue-400 border-dashed scale-105 cursor-move'
+                        : draggedStepIndex === index
+                        ? 'opacity-50 scale-95 cursor-grabbing'
+                        : 'bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200 hover:border-[#3c7660] hover:scale-105 cursor-move'
+                    }`}
+                    title={draggedStepIndex !== null ? 'Drop to swap positions' : `Click to view • Drag to reorder: ${step.title}`}
+                  >
+                    {step.completed ? <CheckCircle2 className="w-3.5 h-3.5 mx-auto" /> : index + 1}
+                  </button>
+                  {index < adventure.steps.length - 1 && (
+                    <div className="flex-1 flex items-center justify-center">
+                      <ChevronDown className="w-3.5 h-3.5 text-gray-300 rotate-[-90deg]" />
+                    </div>
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
+            <p className="text-xs text-center text-gray-500 mt-1.5 italic">
+              Drag to reorder • Click to navigate
+            </p>
+          </div>
 
           {/* Flowing Adventure Timeline - Modern Card Design */}
           <div className="mb-6">
             {/* Timeline Flow */}
-            <div className="relative">
+            <div className="relative overflow-hidden">
               {(() => {
                 // Calculate the next incomplete step index
                 const sortedSteps = [...adventure.steps].sort((a, b) => a.step_order - b.step_order);
                 const nextIncompleteIndex = sortedSteps.findIndex(step => !step.completed);
-                
-                return sortedSteps.map((step, index) => {
-                  const stepNumber = index + 1;
-                  const isLast = index === adventure.steps.length - 1;
-                  const stepPhotos = getStepPhotos(step);
-                  const placeInfo = stepPlacesData[step.id] || step.google_places;
-                  
-                  return (
-                    <div key={step.id} className="relative">
+
+                // Show only the current step
+                const step = sortedSteps[currentStepIndex];
+                if (!step) return null;
+
+                const stepNumber = currentStepIndex + 1;
+                const isLast = currentStepIndex === adventure.steps.length - 1;
+                const isFirst = currentStepIndex === 0;
+                const stepPhotos = getStepPhotos(step);
+                const placeInfo = stepPlacesData[step.id] || step.google_places;
+
+                return (
+                  <div className="relative">
+                    <div
+                      key={step.id}
+                      className={`transition-all duration-300 ${
+                        slideDirection === 'left' ? 'animate-slide-out-left' :
+                        slideDirection === 'right' ? 'animate-slide-out-right' :
+                        'animate-slide-in'
+                      }`}
+                    >
                       {/* Dynamic Step Card */}
                       <div className={`relative bg-white rounded-2xl border-2 overflow-hidden transition-all duration-500 hover:shadow-2xl group ${
                         step.completed 
@@ -730,7 +841,7 @@ export default function EnhancedPlansModal({
                                 className="object-cover"
                                 sizes="(max-width: 768px) 100vw, 40vw"
                                 quality={95}
-                                priority={index < 2}
+                                priority={currentStepIndex < 2}
                                 onError={(e) => {
                                   // Fallback to a default image on error
                                   const target = e.target as HTMLImageElement;
@@ -828,26 +939,68 @@ export default function EnhancedPlansModal({
                                   )}
                                 </div>
                               </div>
-                              <div className="flex items-center gap-2 text-gray-600 mb-2">
+                              {/* Business Name */}
+                              <div className="flex items-center gap-2 text-gray-600 mb-1">
                                 <MapPin className="w-4 h-4 text-[#3c7660]" />
-                                <span className="text-sm font-medium">
+                                <span className="text-sm font-bold text-gray-800">
                                   {step.business_name ||
                                    extractNameText(placeInfo?.name) ||
-                                   'Location'}
+                                   step.title}
                                 </span>
                                 {placeInfo && (
                                   <span className="ml-auto flex items-center gap-1 text-xs text-emerald-600 font-semibold">
                                     <CheckCircle2 className="w-3 h-3" />
-                                    Google Verified
+                                    Verified
                                   </span>
                                 )}
                               </div>
-                              {(placeInfo?.formatted_address || placeInfo?.address) && (
-                                <p className="text-xs text-gray-500 mt-1 ml-6">
-                                  {placeInfo.formatted_address || placeInfo.address}
+                              {/* Address */}
+                              {(placeInfo?.formatted_address || placeInfo?.address || step.location) && (
+                                <p className="text-xs text-gray-500 ml-6 mb-1">
+                                  {placeInfo?.formatted_address || placeInfo?.address || step.location}
                                 </p>
                               )}
-                              
+
+                              {/* County/Locality & Rating Row */}
+                              <div className="flex items-center gap-3 ml-6 mb-2">
+                                {(() => {
+                                  const county = extractCountyOrLocality(placeInfo?.formatted_address || placeInfo?.address);
+                                  return county ? (
+                                    <span className="text-xs text-gray-600 font-medium">
+                                      📍 {county}
+                                    </span>
+                                  ) : null;
+                                })()}
+                                {(placeInfo?.user_ratings_total || placeInfo?.user_rating_count) && (
+                                  <span className="text-xs text-gray-500">
+                                    ({(placeInfo.user_ratings_total || placeInfo.user_rating_count).toLocaleString()} reviews)
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Reservation/Booking Info */}
+                              {(step.booking || step.business_phone || step.business_website) && (
+                                <div className="ml-6 mb-3 p-2.5 bg-blue-50 rounded-lg border border-blue-100">
+                                  <div className="flex items-start gap-2">
+                                    <CalendarIcon className="w-3.5 h-3.5 text-blue-600 mt-0.5 flex-shrink-0" />
+                                    <div className="flex-1">
+                                      <p className="text-xs font-semibold text-blue-900 mb-1">Reservation Info</p>
+                                      {step.booking && (
+                                        <p className="text-xs text-blue-700">
+                                          {step.booking.method}
+                                          {step.booking.fallback && ` • ${step.booking.fallback}`}
+                                        </p>
+                                      )}
+                                      {!step.booking && step.business_phone && (
+                                        <p className="text-xs text-blue-700">
+                                          Call ahead recommended: {step.business_phone}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
                               {/* Business Hours - Prominent Display */}
                               {(placeInfo?.opening_hours?.weekday_text || 
                                 placeInfo?.regularOpeningHours?.weekdayDescriptions || 
@@ -968,42 +1121,36 @@ export default function EnhancedPlansModal({
                         </div>
                       </div>
 
-                      {/* Flowing Arrow Connector - Only bounce on next incomplete */}
-                      {!isLast && (
-                        <div className="flex justify-center my-4 relative">
-                          <div className="flex flex-col items-center gap-2">
-                            {/* Dotted line */}
-                            <div className={`w-0.5 h-8 rounded-full transition-all duration-500 ${
-                              step.completed 
-                                ? 'bg-gradient-to-b from-emerald-400 to-emerald-500 opacity-80' 
-                                : 'bg-gradient-to-b from-[#3c7660] to-[#4d987b] opacity-30'
-                            }`} />
-                            {/* Arrow - Only bounce if this is the next step to complete */}
-                            <div className={`p-2 rounded-full shadow-lg transition-all duration-300 ${
-                              step.completed 
-                                ? 'bg-gradient-to-br from-emerald-400 to-emerald-500 scale-110' 
-                                : index === nextIncompleteIndex 
-                                  ? 'bg-gradient-to-br from-[#3c7660] to-[#4d987b] animate-bounce' 
-                                  : 'bg-gradient-to-br from-gray-300 to-gray-400 opacity-50'
-                            }`}>
-                              {step.completed ? (
-                                <CheckCircle2 className="w-5 h-5 text-white" />
-                              ) : (
-                                <ChevronDown className="w-5 h-5 text-white" />
-                              )}
-                            </div>
-                            {/* Dotted line */}
-                            <div className={`w-0.5 h-8 rounded-full transition-all duration-500 ${
-                              step.completed 
-                                ? 'bg-gradient-to-b from-emerald-500 to-emerald-400 opacity-80' 
-                                : 'bg-gradient-to-b from-[#4d987b] to-[#3c7660] opacity-30'
-                            }`} />
-                          </div>
-                        </div>
-                      )}
+                      {/* Navigation buttons */}
+                      <div className="flex justify-between items-center mt-6 gap-4">
+                        <button
+                          onClick={() => handleStepNavigation(currentStepIndex - 1)}
+                          disabled={isFirst}
+                          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all ${
+                            isFirst
+                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                              : 'bg-white/40 backdrop-blur-md border border-[#3c7660]/30 text-[#3c7660] hover:bg-[#3c7660]/10 hover:border-[#3c7660] hover:shadow-lg'
+                          }`}
+                        >
+                          <ChevronUp className="w-5 h-5 rotate-[-90deg]" />
+                          Previous Step
+                        </button>
+                        <button
+                          onClick={() => handleStepNavigation(currentStepIndex + 1)}
+                          disabled={isLast}
+                          className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all ${
+                            isLast
+                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                              : 'bg-white/40 backdrop-blur-md border border-[#3c7660]/30 text-[#3c7660] hover:bg-[#3c7660]/10 hover:border-[#3c7660] hover:shadow-lg'
+                          }`}
+                        >
+                          Next Step
+                          <ChevronDown className="w-5 h-5 rotate-[-90deg]" />
+                        </button>
+                      </div>
                     </div>
-                  );
-                });
+                  </div>
+                );
               })()}
             </div>
           </div>

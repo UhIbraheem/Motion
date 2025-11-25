@@ -22,7 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { 
+import {
   MapPin,
   Clock,
   Star,
@@ -43,14 +43,17 @@ import {
   Navigation as NavigationIcon,
   Calendar as CalendarIcon,
   Filter,
-  Search
+  Search,
+  RefreshCw,
+  Share2
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import AdventureService from '@/services/AdventureService';
 import GooglePlacesService from '@/services/GooglePlacesService';
-import { SavedAdventure } from '@/types/adventureTypes';
+import { SavedAdventure, AdventureStep } from '@/types/adventureTypes';
 import EnhancedPlansModal from '@/components/EnhancedPlansModal';
+import { AdventureCardSkeleton, CalendarSkeleton } from '@/components/LoadingSkeleton';
 
 // Mock calendar events data - this will be replaced with real data from backend
 const mockCalendarEvents = [
@@ -122,8 +125,15 @@ function PlansContent() {
   const [selectedAdventure, setSelectedAdventure] = useState<SavedAdventure | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [highlightedAdventureId, setHighlightedAdventureId] = useState<string | null>(null);
+
+  // Share modal state
+  const [shareTitle, setShareTitle] = useState('');
+  const [shareDescription, setShareDescription] = useState('');
+  const [shareRating, setShareRating] = useState(5);
+  const [isSharing, setIsSharing] = useState(false);
 
   // Share to Discover with a quick review
   const handleShare = async (rating: number, text?: string) => {
@@ -197,7 +207,7 @@ function PlansContent() {
         if (adventure.adventure_steps?.length > 0) {
           let foundPhoto = false;
           for (const step of adventure.adventure_steps) {
-            const stepData = step as any;
+            const stepData = step as AdventureStep;
             if (stepData.google_photo_url) {
               photoUpdates[adventure.id] = stepData.google_photo_url;
               foundPhoto = true;
@@ -311,9 +321,9 @@ function PlansContent() {
       await AdventureService.updateStepCompletion(selectedAdventure.id, stepId, completed);
       
       toast.success(completed ? 'Step completed!' : 'Step unchecked');
-      
+
       // Check if all steps are completed and it's scheduled for today or past
-      const allCompleted = updatedSteps.every((step: any) => step.completed);
+      const allCompleted = updatedSteps.every((step: AdventureStep) => step.completed);
       const scheduledDate = selectedAdventure.scheduled_for ? new Date(selectedAdventure.scheduled_for) : null;
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -361,10 +371,10 @@ function PlansContent() {
       
       // Reload to ensure complete sync
       await loadAdventures();
-      
-    } catch (error: any) {
+
+    } catch (error) {
       console.error('❌ Scheduling failed:', error);
-      toast.error(error?.message || 'Failed to schedule adventure. Please try again.');
+      toast.error((error as Error)?.message || 'Failed to schedule adventure. Please try again.');
     }
   };
 
@@ -372,8 +382,8 @@ function PlansContent() {
   const handleMarkCompleted = async () => {
     if (!selectedAdventure) return;
 
-    const allStepsCompleted = selectedAdventure.adventure_steps.every((step: any) => step.completed);
-    
+    const allStepsCompleted = selectedAdventure.adventure_steps.every((step: AdventureStep) => step.completed);
+
     if (!allStepsCompleted) {
       toast.error('Please complete all steps first');
       return;
@@ -395,10 +405,10 @@ function PlansContent() {
       
       // Reload to sync
       await loadAdventures();
-      
-    } catch (error: any) {
+
+    } catch (error) {
       console.error('❌ Completion failed:', error);
-      toast.error(error?.message || 'Failed to mark as completed');
+      toast.error((error as Error)?.message || 'Failed to mark as completed');
     }
   };
 
@@ -515,8 +525,8 @@ function PlansContent() {
     // Priority 2: Google Places data in steps
     if (adventure.adventure_steps?.length > 0) {
       for (const step of adventure.adventure_steps) {
-        const stepData = step as any;
-        
+        const stepData = step as AdventureStep;
+
         if (stepData.google_photo_url) return stepData.google_photo_url;
         if (stepData.google_places?.photo_url) return stepData.google_places.photo_url;
         if (stepData.photo_url) return stepData.photo_url;
@@ -548,7 +558,7 @@ function PlansContent() {
     // Get photos from all steps
     if (adventure.adventure_steps?.length > 0) {
       for (const step of adventure.adventure_steps) {
-        const stepData = step as any;
+        const stepData = step as AdventureStep;
         const photoUrl = stepData.google_photo_url || stepData.google_places?.photo_url || stepData.photo_url;
         if (photoUrl && !photos.includes(photoUrl)) {
           photos.push(photoUrl);
@@ -593,8 +603,8 @@ function PlansContent() {
     const photoIndex = currentPhotoIndex[adventure.id] || 0;
     const photo = allPhotos[photoIndex];
     const hasMultiplePhotos = allPhotos.length > 1;
-    
-    const completedSteps = adventure.adventure_steps.filter((step: any) => step.completed).length;
+
+    const completedSteps = adventure.adventure_steps.filter((step: AdventureStep) => step.completed).length;
     const totalSteps = adventure.adventure_steps.length;
     const progress = totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0;
     
@@ -632,8 +642,10 @@ function PlansContent() {
                   fill
                   className="object-cover transition-all duration-700 group-hover:scale-110"
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                  priority={photoIndex === 0}
-                  quality={95} // High quality images
+                  loading={photoIndex === 0 ? 'eager' : 'lazy'}
+                  quality={85}
+                  placeholder="blur"
+                  blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2YzZjRmNiIvPjwvc3ZnPg=="
                   key={photo}
                 />
                 {/* Multi-layer gradient overlay for depth */}
@@ -814,38 +826,63 @@ function PlansContent() {
               </div>
             </div>
 
-            {/* Scheduled Date or Action Button */}
-            {adventure.scheduled_for && !adventure.is_completed ? (
-              <div className="w-full bg-gradient-to-r from-[#3c7660]/10 to-[#4d987b]/10 border-2 border-[#3c7660]/30 rounded-xl p-4 text-center">
-                <div className="flex items-center justify-center gap-2 mb-1">
-                  <CalendarDays className="w-5 h-5 text-[#3c7660]" />
-                  <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Scheduled For</span>
-                </div>
-                <p className="text-2xl font-bold text-[#3c7660]">
-                  {new Date(adventure.scheduled_for).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: new Date(adventure.scheduled_for).getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
-                  })}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {new Date(adventure.scheduled_for).toLocaleDateString('en-US', { weekday: 'long' })}
-                </p>
+            {/* Action Buttons - Different for completed vs active */}
+            {adventure.is_completed ? (
+              <div className="space-y-2">
                 <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full mt-3 border-[#3c7660]/30 text-[#3c7660] hover:bg-[#3c7660]/5 transition-all duration-300 text-xs"
+                  className="w-full bg-gradient-to-r from-emerald-500 to-green-600 hover:shadow-lg hover:shadow-emerald-500/30 text-white font-semibold transition-all duration-300 hover:scale-[1.02]"
                   onClick={(e) => {
                     e.stopPropagation();
                     setSelectedAdventure(adventure);
-                    setShowScheduleModal(true);
+                    setShareTitle(adventure.custom_title || '');
+                    setShareDescription('');
+                    setShareRating(5);
+                    setShowShareModal(true);
                   }}
                 >
-                  Reschedule
+                  <Share2 className="mr-2 h-4 w-4" />
+                  Post to Discover
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full border-[#3c7660]/30 text-[#3c7660] hover:bg-[#3c7660]/5 transition-all duration-300"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    setSelectedAdventure(adventure);
+                    await handleDuplicate();
+                  }}
+                >
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Do Again
                 </Button>
               </div>
             ) : (
               <>
+                {/* Scheduled Date Button (matches button size) */}
+                {adventure.scheduled_for && (
+                  <Button
+                    variant="outline"
+                    className="w-full border-[#3c7660]/30 bg-gradient-to-r from-[#3c7660]/5 to-[#4d987b]/5 text-[#3c7660] hover:bg-[#3c7660]/10 transition-all duration-300 flex items-center justify-between h-10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedAdventure(adventure);
+                      setShowScheduleModal(true);
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <CalendarDays className="w-4 h-4" />
+                      <span className="font-semibold">
+                        {new Date(adventure.scheduled_for).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: new Date(adventure.scheduled_for).getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
+                        })}
+                      </span>
+                    </div>
+                    <span className="text-xs opacity-70">Click to reschedule</span>
+                  </Button>
+                )}
+
                 <Button
                   className="w-full bg-gradient-to-r from-[#3c7660] via-[#4d987b] to-[#3c7660] hover:shadow-lg hover:shadow-[#3c7660]/30 text-white font-semibold transition-all duration-300 hover:scale-[1.02] group/btn bg-[length:200%_100%] hover:bg-right"
                   onClick={(e) => {
@@ -858,7 +895,7 @@ function PlansContent() {
                 </Button>
 
                 {/* Schedule CTA for unscheduled */}
-                {!adventure.is_completed && (
+                {!adventure.scheduled_for && (
                   <Button
                     variant="outline"
                     className="w-full border-[#3c7660]/30 text-[#3c7660] hover:bg-[#3c7660]/5 transition-all duration-300"
@@ -885,28 +922,50 @@ function PlansContent() {
 
   // Render calendar view
   const renderCalendarView = () => {
+    const scheduledDates = scheduledAdventures
+      .filter(a => a.scheduled_for)
+      .map(a => new Date(a.scheduled_for as string));
+
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Calendar */}
-        <Card className="bg-white/90 backdrop-blur-sm border-0 shadow-md">
+        <Card className="bg-white/95 backdrop-blur-xl border-2 border-gray-100 shadow-2xl">
           <CardContent className="p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Schedule</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <CalendarIcon className="w-5 h-5 text-[#3c7660]" />
+              Schedule
+            </h3>
             <Calendar
               mode="single"
               selected={selectedDate}
               onSelect={handleDateSelect}
-              className="rounded-md border-0"
+              className="rounded-xl"
               modifiers={{
-                scheduled: scheduledAdventures
-                  .filter(a => a.scheduled_for)
-                  .map(a => new Date(a.scheduled_for as string))
+                scheduled: scheduledDates
               }}
-              modifiersStyles={{
-                scheduled: { 
-                  backgroundColor: '#3c7660', 
-                  color: 'white',
-                  fontWeight: 'bold'
-                }
+              modifiersClassNames={{
+                scheduled: "relative after:content-[''] after:absolute after:bottom-0.5 after:left-1/2 after:-translate-x-1/2 after:w-1 after:h-1 after:bg-[#3c7660] after:rounded-full after:shadow-sm"
+              }}
+              classNames={{
+                months: "flex flex-col space-y-4",
+                month: "space-y-4",
+                caption: "flex justify-center pt-1 relative items-center mb-2",
+                caption_label: "text-base font-bold text-gray-900",
+                nav: "space-x-1 flex items-center",
+                nav_button: "h-8 w-8 bg-white/60 backdrop-blur-sm hover:bg-[#3c7660]/10 rounded-xl transition-all border border-gray-200 hover:border-[#3c7660]/30",
+                nav_button_previous: "absolute left-1",
+                nav_button_next: "absolute right-1",
+                table: "w-full border-collapse space-y-1",
+                head_row: "flex",
+                head_cell: "text-gray-600 rounded-lg w-10 font-semibold text-sm",
+                row: "flex w-full mt-2",
+                cell: "relative p-0 text-center text-sm focus-within:relative focus-within:z-20",
+                day: "h-10 w-10 p-0 font-medium hover:bg-[#3c7660]/10 rounded-xl transition-all inline-flex items-center justify-center backdrop-blur-sm",
+                day_selected: "bg-gradient-to-br from-[#3c7660]/20 to-[#4d987b]/20 text-[#3c7660] font-bold rounded-xl ring-2 ring-[#3c7660]/40 ring-offset-1 backdrop-blur-md",
+                day_today: "bg-[#f2cc6c]/30 text-[#3c7660] font-bold rounded-xl ring-2 ring-[#f2cc6c]/50 ring-offset-1",
+                day_outside: "text-gray-300 opacity-40",
+                day_disabled: "text-gray-200 opacity-30 cursor-not-allowed hover:bg-transparent",
+                day_hidden: "invisible",
               }}
             />
           </CardContent>
@@ -981,15 +1040,28 @@ function PlansContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white relative">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-[#f8f2d5]/20 relative">
         <Navigation />
-        <div className="pt-20 px-4">
-          <div className="max-w-6xl mx-auto">
-            <div className="flex items-center justify-center py-20">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#3c7660] mx-auto mb-4"></div>
-                <p className="text-[#3c7660] font-medium">Loading your adventures...</p>
+        <div className="pt-20 px-4 pb-12">
+          <div className="max-w-7xl mx-auto">
+            {/* Header skeleton */}
+            <div className="mb-10">
+              <div className="h-10 bg-gray-200 rounded w-1/3 mb-3 animate-pulse" />
+              <div className="h-6 bg-gray-100 rounded w-1/4 mb-6 animate-pulse" />
+
+              {/* Stats skeleton */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="bg-white/80 rounded-2xl p-5 h-32 animate-pulse" />
+                ))}
               </div>
+            </div>
+
+            {/* Grid skeleton */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <AdventureCardSkeleton key={i} />
+              ))}
             </div>
           </div>
         </div>
@@ -1217,7 +1289,7 @@ function PlansContent() {
             duration: `${selectedAdventure.duration_hours} hours`,
             difficulty: 'Easy',
             tags: [],
-            steps: selectedAdventure.adventure_steps.map((s: any, idx: number) => ({
+            steps: selectedAdventure.adventure_steps.map((s: AdventureStep, idx: number) => ({
               id: s.id || `step-${idx}`,
               title: s.title || s.business_name || `Step ${idx + 1}`,
               description: s.notes || s.description || '',
@@ -1250,7 +1322,7 @@ function PlansContent() {
             created_at: selectedAdventure.saved_at,
             scheduled_for: selectedAdventure.scheduled_for,
             is_completed: !!selectedAdventure.is_completed,
-            google_places_validated: selectedAdventure.adventure_steps.some((s: any) => s.validated),
+            google_places_validated: selectedAdventure.adventure_steps.some((s: AdventureStep) => s.validated),
           }}
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
@@ -1266,9 +1338,12 @@ function PlansContent() {
 
       {/* Schedule Modal */}
       <Dialog open={showScheduleModal} onOpenChange={setShowScheduleModal}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md bg-white/95 backdrop-blur-xl border-2 border-gray-100">
           <DialogHeader>
-            <DialogTitle>Schedule Adventure</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarIcon className="w-5 h-5 text-[#3c7660]" />
+              Schedule Adventure
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-gray-600">
@@ -1278,16 +1353,42 @@ function PlansContent() {
               mode="single"
               selected={selectedDate}
               onSelect={setSelectedDate}
-              disabled={(date) => date < new Date()}
-              className="rounded-md border"
+              disabled={(date) => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                return date < today;
+              }}
+              className="rounded-xl mx-auto"
+              classNames={{
+                months: "flex flex-col space-y-4",
+                month: "space-y-4",
+                caption: "flex justify-center pt-1 relative items-center mb-2",
+                caption_label: "text-base font-bold text-gray-900",
+                nav: "space-x-1 flex items-center",
+                nav_button: "h-8 w-8 bg-white/60 backdrop-blur-sm hover:bg-[#3c7660]/10 rounded-xl transition-all border border-gray-200 hover:border-[#3c7660]/30",
+                nav_button_previous: "absolute left-1",
+                nav_button_next: "absolute right-1",
+                table: "w-full border-collapse space-y-1",
+                head_row: "flex",
+                head_cell: "text-gray-600 rounded-lg w-10 font-semibold text-sm",
+                row: "flex w-full mt-2",
+                cell: "relative p-0 text-center text-sm focus-within:relative focus-within:z-20",
+                day: "h-10 w-10 p-0 font-medium hover:bg-[#3c7660]/10 rounded-xl transition-all inline-flex items-center justify-center backdrop-blur-sm",
+                day_selected: "bg-gradient-to-br from-[#3c7660]/90 to-[#4d987b]/90 text-white hover:from-[#3c7660] hover:to-[#4d987b] shadow-lg backdrop-blur-md rounded-xl scale-105",
+                day_today: "bg-[#f2cc6c]/30 text-[#3c7660] font-bold rounded-xl ring-2 ring-[#f2cc6c]/50 ring-offset-1",
+                day_outside: "text-gray-300 opacity-40",
+                day_disabled: "text-gray-200 opacity-30 cursor-not-allowed hover:bg-transparent",
+                day_hidden: "invisible",
+              }}
             />
-            <div className="flex gap-2 justify-end">
+            <div className="flex gap-2 justify-end pt-2">
               <Button
                 variant="outline"
                 onClick={() => {
                   setShowScheduleModal(false);
                   setSelectedDate(undefined);
                 }}
+                className="border-gray-300 hover:bg-gray-50"
               >
                 Cancel
               </Button>
@@ -1300,9 +1401,149 @@ function PlansContent() {
                   }
                 }}
                 disabled={!selectedDate}
-                className="bg-[#3c7660] hover:bg-[#2a5444] text-white"
+                className="bg-gradient-to-r from-[#3c7660] to-[#4d987b] hover:shadow-lg text-white disabled:opacity-50"
               >
+                <CheckCircle2 className="w-4 h-4 mr-2" />
                 Schedule
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Share to Discover Modal */}
+      <Dialog open={showShareModal} onOpenChange={setShowShareModal}>
+        <DialogContent className="max-w-2xl bg-white/95 backdrop-blur-xl border-2 border-gray-100">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-2xl">
+              <Share2 className="w-6 h-6 text-emerald-600" />
+              Share Adventure to Discover
+            </DialogTitle>
+            <p className="text-sm text-gray-600 mt-2">
+              Share your completed adventure with the community and inspire others!
+            </p>
+          </DialogHeader>
+          <div className="space-y-6 mt-4">
+            {/* Title */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-800 mb-2">
+                Adventure Title
+              </label>
+              <input
+                type="text"
+                value={shareTitle}
+                onChange={(e) => setShareTitle(e.target.value)}
+                placeholder="Give your adventure a memorable title..."
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-base text-gray-800 focus:border-[#3c7660] focus:ring-2 focus:ring-[#3c7660]/20 outline-none transition-all"
+              />
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-800 mb-2">
+                Share Your Experience
+              </label>
+              <textarea
+                value={shareDescription}
+                onChange={(e) => setShareDescription(e.target.value)}
+                placeholder="Share highlights, tips, or memorable moments from your adventure..."
+                rows={4}
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-base text-gray-800 focus:border-[#3c7660] focus:ring-2 focus:ring-[#3c7660]/20 outline-none transition-all resize-none"
+              />
+            </div>
+
+            {/* Rating */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-800 mb-3">
+                Rate Your Adventure
+              </label>
+              <div className="flex items-center gap-2">
+                {[1, 2, 3, 4, 5].map((rating) => (
+                  <button
+                    key={rating}
+                    onClick={() => setShareRating(rating)}
+                    className="transition-all duration-200 hover:scale-110"
+                  >
+                    <Star
+                      className={`w-10 h-10 transition-all ${
+                        rating <= shareRating
+                          ? 'fill-[#f2cc6c] text-[#f2cc6c]'
+                          : 'text-gray-300'
+                      }`}
+                    />
+                  </button>
+                ))}
+                <span className="ml-3 text-lg font-semibold text-gray-700">
+                  {shareRating} {shareRating === 1 ? 'star' : 'stars'}
+                </span>
+              </div>
+            </div>
+
+            {/* Preview */}
+            {selectedAdventure && (
+              <div className="bg-gradient-to-br from-gray-50 to-[#f8f2d5]/20 rounded-xl p-4 border border-gray-100">
+                <p className="text-xs font-semibold text-gray-600 mb-2 uppercase tracking-wide">Preview</p>
+                <div className="flex items-center gap-3">
+                  <MapPin className="w-4 h-4 text-[#3c7660]" />
+                  <span className="text-sm text-gray-700">{selectedAdventure.location}</span>
+                </div>
+                <div className="flex items-center gap-3 mt-1">
+                  <Clock className="w-4 h-4 text-[#3c7660]" />
+                  <span className="text-sm text-gray-700">{selectedAdventure.duration_hours}h</span>
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowShareModal(false);
+                  setShareTitle('');
+                  setShareDescription('');
+                  setShareRating(5);
+                }}
+                disabled={isSharing}
+                className="flex-1 border-gray-300 hover:bg-gray-50"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (!shareTitle.trim()) {
+                    toast.error('Please add a title for your adventure');
+                    return;
+                  }
+                  if (!selectedAdventure) return;
+
+                  setIsSharing(true);
+                  try {
+                    await handleShare(shareRating, shareDescription);
+                    setShowShareModal(false);
+                    setShareTitle('');
+                    setShareDescription('');
+                    setShareRating(5);
+                  } catch (error) {
+                    console.error('Share error:', error);
+                  } finally {
+                    setIsSharing(false);
+                  }
+                }}
+                disabled={isSharing || !shareTitle.trim()}
+                className="flex-1 bg-gradient-to-r from-emerald-500 to-green-600 hover:shadow-lg text-white disabled:opacity-50"
+              >
+                {isSharing ? (
+                  <>
+                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
+                    Sharing...
+                  </>
+                ) : (
+                  <>
+                    <Share2 className="w-4 h-4 mr-2" />
+                    Share to Discover
+                  </>
+                )}
               </Button>
             </div>
           </div>

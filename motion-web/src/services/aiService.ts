@@ -40,6 +40,31 @@ export interface AdventureStep {
   photos?: any[];
 }
 
+export interface TokenUsage {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+}
+
+export interface CostEstimate {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  inputCost: number;
+  outputCost: number;
+  totalCost: number;
+  cachedInputCost: number;
+  cacheSavings: number;
+  savingsPercentage: number;
+}
+
+export interface UsageMeta {
+  tokenUsage: TokenUsage;
+  cost: CostEstimate;
+  model: string;
+  timestamp: string;
+}
+
 export interface GeneratedAdventure {
   id?: string;
   title: string;
@@ -61,6 +86,8 @@ export interface GeneratedAdventure {
   budget?: string;
   groupSize?: number;
   radius?: number;
+  // Token usage and cost tracking
+  _meta?: UsageMeta;
 }
 
 export class WebAIAdventureService {
@@ -108,6 +135,12 @@ export class WebAIAdventureService {
       const backendData = await response.json();
       console.log('✅ Adventure generated:', backendData.title);
 
+      // Log token usage if available
+      if (backendData._meta) {
+        console.log(`💰 Cost: $${backendData._meta.cost.totalCost} (${backendData._meta.tokenUsage.prompt_tokens} in + ${backendData._meta.tokenUsage.completion_tokens} out)`);
+        console.log(`💾 Potential savings with caching: $${backendData._meta.cost.cacheSavings} (${backendData._meta.cost.savingsPercentage}%)`);
+      }
+
       // Transform backend response to our format (with enhanced data)
       const adventure: GeneratedAdventure = {
         title: backendData.title || backendData.plan_title || this.generateDefaultTitle(filters),
@@ -125,7 +158,9 @@ export class WebAIAdventureService {
         groupSize: filters.groupSize,
         radius: filters.radius,
         category: this.determineCategory(filters.experienceTypes || []),
-        rating: 4.5 // Default rating for new adventures
+        rating: 4.5, // Default rating for new adventures
+        // Preserve token usage and cost metadata
+        _meta: backendData._meta
       };
 
       return { data: adventure, error: null };

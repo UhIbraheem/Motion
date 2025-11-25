@@ -2,29 +2,44 @@ const express = require("express");
 const router = express.Router();
 const { OpenAI } = require("openai");
 const { extractFirstJsonBlock } = require("../utils/jsonExtractor");
-const GooglePlacesService = require("../services/GooglePlacesService");
+const googlePlaces = require("../services/GooglePlacesService");
+const geocoding = require("../services/GeocodingService");
+const { rateLimiters } = require("../utils/rateLimiter");
+const {
+  countMessagesTokens,
+  estimateCost,
+  createCachableSystemPrompt,
+  usageTracker
+} = require("../utils/openaiHelpers");
+const {
+  retryOpenAI,
+  retryGooglePlaces,
+  withTimeout
+} = require("../utils/retryUtils");
+const { asyncHandler } = require("../middleware/errorHandler");
 require("dotenv").config();
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const googlePlaces = require("../services/GooglePlacesService");
-
 // Endpoint to get Google Places data for frontend
 router.post("/google-places", async (req, res) => {
   try {
     const { businessName, location } = req.body;
-    
+
     if (!businessName) {
       return res.status(400).json({ error: "Business name is required" });
     }
 
     console.log(`🔍 Frontend request: Looking up "${businessName}" in "${location}"`);
-    
+
+    // Geocode the location to get coordinates
+    const coords = await geocoding.geocode(location || 'Miami, FL');
+
     const places = await googlePlaces.textSearch({
       textQuery: businessName,
-      biasCenter: { latitude: 37.7749, longitude: -122.4194 }, // Default to SF
+      biasCenter: { latitude: coords.latitude, longitude: coords.longitude },
       biasRadiusMeters: 10000,
       pageSize: 1
     });
@@ -86,21 +101,57 @@ async function enhanceAdventureWithGooglePlaces(adventure, location) {
         }
 
         console.log(`🔍 Looking up: "${step.business_name}" near "${step.location || location}"`);
-        
+
         // Search for the business
         const searchQuery = step.business_name;
         const biasLocation = step.location || location;
-        
-        const places = await googlePlaces.textSearch({
-          textQuery: searchQuery,
-          biasCenter: { latitude: 37.7749, longitude: -122.4194 }, // Default to SF, should be enhanced with geocoding
-          biasRadiusMeters: 10000, // 10km radius
-          pageSize: 1
+
+        // Geocode the location to get coordinates with retry
+        const coords = await retryGooglePlaces(async () => {
+          return await geocoding.geocode(biasLocation);
         });
+
+        // First attempt: Search with specific location (with retry and timeout)
+        let places = await withTimeout(
+          retryGooglePlaces(async () => {
+            return await googlePlaces.textSearch({
+              textQuery: `${searchQuery} ${biasLocation}`,
+              biasCenter: { latitude: coords.latitude, longitude: coords.longitude },
+              biasRadiusMeters: 10000, // 10km radius
+              pageSize: 3 // Get more results to filter
+            });
+          }),
+          10000, // 10 second timeout
+          'Google Places search timed out'
+        );
+
+        // If no results, try broader search with just city name
+        if (!places || places.length === 0) {
+          console.log(`   🔄 Retrying with broader search...`);
+          const cityCoords = await retryGooglePlaces(async () => {
+            return await geocoding.geocode(location);
+          });
+
+          places = await withTimeout(
+            retryGooglePlaces(async () => {
+              return await googlePlaces.textSearch({
+                textQuery: searchQuery,
+                biasCenter: { latitude: cityCoords.latitude, longitude: cityCoords.longitude },
+                biasRadiusMeters: 16000, // Wider radius
+                pageSize: 3
+              });
+            }),
+            10000,
+            'Google Places broader search timed out'
+          );
+        }
 
         if (places && places.length > 0) {
           const place = places[0];
-          console.log(`✅ Found place: ${place.displayName} (Rating: ${place.rating || 'N/A'})`);
+          const displayName = place.displayName?.text || place.displayName || place.name;
+          const businessStatus = place.businessStatus || 'UNKNOWN';
+
+          console.log(`✅ Found: "${displayName}" | Status: ${businessStatus} | Rating: ${place.rating || 'N/A'}`);
           
           // Get photo URL if available
           let photoUrl = null;
@@ -124,6 +175,7 @@ async function enhanceAdventureWithGooglePlaces(adventure, location) {
             google_maps_uri: place.googleMapsUri,
             google_photo_reference: place.photos && place.photos.length > 0 ? place.photos[0].name : null,
             google_photo_url: photoUrl,
+            google_business_status: businessStatus,
             google_places: {
               place_id: place.id || '',
               name: place.displayName?.text || place.displayName || '',
@@ -131,20 +183,24 @@ async function enhanceAdventureWithGooglePlaces(adventure, location) {
               rating: place.rating || 0,
               user_ratings_total: place.userRatingCount || 0,
               price_level: place.priceLevel || 0,
+              business_status: businessStatus,
               google_maps_uri: place.googleMapsUri || '',
               website_uri: place.websiteUri || '',
               national_phone_number: place.nationalPhoneNumber || '',
               opening_hours: place.regularOpeningHours || null,
+              current_opening_hours: place.currentOpeningHours || null,
               photo_url: photoUrl,
               last_updated: new Date().toISOString()
             },
             validated: true
           };
         } else {
-          console.log(`❌ No place found for: ${step.business_name}`);
+          console.log(`❌ VALIDATION FAILED: "${step.business_name}" - No matching business found in Google Places`);
+          console.log(`   This business may be closed, fictional, or the name is incorrect`);
           return {
             ...step,
-            validated: false
+            validated: false,
+            validation_error: 'Business not found in Google Places - may be closed or non-existent'
           };
         }
       } catch (error) {
@@ -157,10 +213,31 @@ async function enhanceAdventureWithGooglePlaces(adventure, location) {
     })
   );
 
+  // Quality validation: check if too many businesses failed validation
+  const validatedCount = enhancedSteps.filter(s => s.validated).length;
+  const validationRate = validatedCount / enhancedSteps.length;
+
+  console.log(`📊 Validation rate: ${validatedCount}/${enhancedSteps.length} (${Math.round(validationRate * 100)}%)`);
+
+  // If validation rate is too low, mark as low quality
+  const qualityThreshold = 0.6; // At least 60% should validate
+  const isLowQuality = validationRate < qualityThreshold;
+
+  if (isLowQuality) {
+    console.log(`⚠️ LOW QUALITY ADVENTURE: Only ${Math.round(validationRate * 100)}% of businesses validated`);
+  }
+
   return {
     ...adventure,
     steps: enhancedSteps,
-    google_places_enhanced: true
+    google_places_enhanced: true,
+    validation_stats: {
+      total_steps: enhancedSteps.length,
+      validated_steps: validatedCount,
+      validation_rate: validationRate,
+      is_low_quality: isLowQuality,
+      quality_threshold: qualityThreshold
+    }
   };
 }
 
@@ -193,47 +270,47 @@ const adventureSchema = {
           type: "object",
           additionalProperties: false,
           properties: {
-            time: { 
+            time: {
               type: "string",
-              description: "Time in HH:MM format (24-hour)" 
+              description: "Time in HH:MM format (24-hour)"
             },
-            title: { 
+            title: {
               type: "string",
-              description: "Activity name" 
+              description: "Activity name"
             },
-            location: { 
+            location: {
               type: "string",
-              description: "Specific address/location" 
+              description: "Specific address/location"
             },
-            business_name: { 
+            business_name: {
               type: "string",
-              description: "Exact business/venue name" 
+              description: "Exact business/venue name - MUST be a real, currently operating business"
             },
-            notes: { 
+            notes: {
               type: "string",
-              description: "Details and tips" 
+              description: "Details and tips"
             },
             booking: {
               type: "object",
               additionalProperties: false,
               properties: {
-                method: { 
+                method: {
                   type: "string",
-                  description: "How to book/access" 
+                  description: "How to book/access"
                 },
-                link: { 
+                link: {
                   type: "string",
-                  description: "Website URL if applicable" 
+                  description: "Website URL if applicable"
                 },
-                fallback: { 
+                fallback: {
                   type: "string",
-                  description: "Alternative if booking fails" 
+                  description: "Alternative if booking fails"
                 }
               },
               required: ["method", "link", "fallback"]
             }
           },
-          required: ["time", "title", "location"]
+          required: ["time", "title", "location", "business_name", "notes", "booking"]
         }
       }
     },
@@ -244,102 +321,209 @@ const adventureSchema = {
 
 // Test route to verify API is working
 router.get("/test", (req, res) => {
-  res.json({ 
+  res.json({
     message: "AI routes working! 🤖",
     timestamp: new Date().toISOString()
   });
 });
 
+// Get usage statistics
+router.get("/usage-stats/:sessionId?", (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    if (sessionId) {
+      // Get specific session stats
+      const stats = usageTracker.getSessionStats(sessionId);
+
+      if (!stats) {
+        return res.status(404).json({ error: "Session not found" });
+      }
+
+      return res.json({
+        sessionId,
+        stats
+      });
+    } else {
+      // Get all stats
+      const allStats = usageTracker.getAllStats();
+      return res.json(allStats);
+    }
+  } catch (error) {
+    console.error("💥 Error fetching usage stats:", error);
+    res.status(500).json({
+      error: "Failed to fetch usage stats",
+      details: error.message
+    });
+  }
+});
+
 // Generate adventure plan
 router.post("/generate-plan", async (req, res) => {
   try {
-    const { app_filter, radius } = req.body;
+    const { app_filter, radius, userId } = req.body;
+    const sessionId = userId || `session_${Date.now()}`;
 
-    console.log("📝 Received request:", { app_filter, radius });
+    console.log("📝 Received request:", { app_filter, radius, sessionId });
 
-    const systemPrompt = `You are an AI concierge planning adventures. Create detailed, personalized adventure plans with real businesses and locations. Follow all user preferences and constraints exactly.
+    // Create optimized cachable system prompt
+    // NOTE: OpenAI automatically caches system prompts >1024 tokens for 50% cost savings
+    // The createCachableSystemPrompt function structures prompts with static content first
+    // to maximize cache hit rate across requests
+    const systemPrompt = createCachableSystemPrompt(null, {
+      radius: radius || 10,
+      budget: app_filter?.budget,
+      includeOpenTable: true
+    });
 
-RULES:
-- Keep all locations within ${radius} miles of each other and of the user's starting point
-- Use realistic time windows (e.g., 14:30, 16:00) to pace the plan realistically
-- When suggesting restaurants/cafés: prioritize OpenTable listings with reservation links
-- Ensure the plan flows smoothly between locations (minimize backtracking)
-- Make sure all recommendations are REAL businesses/locations that are currently open
-- Do NOT make up fictional places or businesses
-- Make sure all filters are coherent with each other
-- Be diverse with locations and always explore new combinations
-- URLs must NOT have semicolons after them - use proper JSON format
+    // Verify prompt is large enough for caching (>1024 tokens)
+    const promptLength = systemPrompt.length;
+    const estimatedPromptTokens = Math.ceil(promptLength / 4); // Rough estimate
+    if (estimatedPromptTokens > 1024) {
+      console.log(`✅ System prompt is cacheable (${estimatedPromptTokens} tokens, ${promptLength} chars)`);
+    } else {
+      console.log(`⚠️ System prompt may be too short for caching (${estimatedPromptTokens} tokens)`);
+    }
 
-BUDGET GUIDELINES - CRITICAL:
-${app_filter?.budget ? `
-User selected ${app_filter.budget} budget tier. Follow these EXACT cost ranges:
-- $ (Budget): Total cost should be $25-50 per person, display as "$"
-- $$ (Premium): Total cost should be $50-100 per person, display as "$$" 
-- $$$ (Luxury): Total cost should be $75+ per person, display as "$$$"
-Use the budget symbol (e.g., "$$") as the estimatedCost, NOT dollar ranges like "$140-200".
-` : '- Consider moderate budget when no specific budget provided'}
+    // Enhanced user prompt with diversity instructions
+    const diversityHints = [
+      'Explore hidden gems and lesser-known spots',
+      'Mix popular attractions with local favorites',
+      'Include diverse experiences across different neighborhoods',
+      'Suggest unique, memorable activities',
+      'Avoid repeating the same type of venue twice'
+    ];
 
-CRITICAL BUSINESS NAME REQUIREMENTS:
-- ALWAYS include the exact business name in the "business_name" field
-- Use the official business name (e.g., "Starbucks", "The Metropolitan Museum of Art", "Central Park")
-- For restaurants: use the exact restaurant name (e.g., "Joe's Pizza", "Le Bernardin")
-- For attractions: use the official name (e.g., "Empire State Building", "Brooklyn Bridge")
-- For parks/outdoor spaces: use the official park name (e.g., "Central Park", "Prospect Park")
-- Business names should be searchable in Google Places API
-- If unsure of exact name, use the most commonly known official name`;
+    const randomHint = diversityHints[Math.floor(Math.random() * diversityHints.length)];
 
-    const userPrompt = `Create an adventure plan based on these filters: ${app_filter}`;
+    const userPrompt = `Create an adventure plan based on these filters: ${JSON.stringify(app_filter)}
+
+DIVERSITY INSTRUCTION: ${randomHint}
+
+Make this adventure unique and engaging!`;
 
     console.log("🤖 Sending to OpenAI with Structured Outputs...");
+
+    // Estimate token count before API call
+    const messages = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt }
+    ];
+
+    const estimatedTokens = countMessagesTokens(messages);
+    console.log(`📊 Estimated input tokens: ${estimatedTokens}`);
 
     try {
       // PRIMARY: Use Structured Outputs for guaranteed JSON
       console.log("🤖 Attempting Structured Outputs with gpt-4o...");
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o", // Use gpt-4o instead of gpt-4o-mini
-        messages: [
-          {
-            role: "system",
-            content: systemPrompt
-          },
-          {
-            role: "user", 
-            content: userPrompt
-          }
-        ],
-        response_format: {
-          type: "json_schema",
-          json_schema: adventureSchema
-        },
-        temperature: 0.3,
-      });
+
+      // Wrap in rate limiter AND retry logic with timeout
+      const completion = await withTimeout(
+        retryOpenAI(async () => {
+          return await rateLimiters.openai.execute(async () => {
+            return await openai.chat.completions.create({
+              model: "gpt-4o",
+              messages: [
+                {
+                  role: "system",
+                  content: systemPrompt
+                },
+                {
+                  role: "user",
+                  content: userPrompt
+                }
+              ],
+              response_format: {
+                type: "json_schema",
+                json_schema: adventureSchema
+              },
+              temperature: 0.3,
+              // Enable prompt caching (automatically done by OpenAI for prompts >1024 tokens)
+            });
+          });
+        }),
+        60000, // 60 second timeout for AI generation
+        'AI generation timed out after 60 seconds'
+      );
+
+      // Log usage and cost with cache awareness
+      if (completion.usage) {
+        const cost = estimateCost(
+          completion.usage.prompt_tokens,
+          completion.usage.completion_tokens,
+          'gpt-4o',
+          completion.usage // Pass full usage object for cache details
+        );
+
+        console.log(`💰 Cost: $${cost.totalCost} (${cost.promptTokens} in + ${cost.completionTokens} out)`);
+
+        // Log cache performance
+        if (cost.cachedTokens > 0) {
+          console.log(`🎯 Cache HIT! ${cost.cachedTokens} tokens cached (${cost.cacheHitRate}% hit rate)`);
+          console.log(`💸 Actual savings: $${cost.actualSavings} (${((cost.actualSavings / (cost.totalCost + cost.actualSavings)) * 100).toFixed(1)}% reduction)`);
+        } else {
+          console.log(`❄️ Cache MISS - First time seeing this prompt`);
+          console.log(`💾 Potential savings on next request: $${cost.cacheSavings} (${cost.savingsPercentage}%)`);
+        }
+
+        // Track usage
+        usageTracker.logUsage(sessionId, completion.usage, 'gpt-4o');
+      }
 
       const rawContent = completion.choices[0].message.content;
       console.log("✅ Received structured output from OpenAI");
-      
+
       try {
         const parsed = JSON.parse(rawContent);
         console.log("✅ Successfully parsed structured JSON:", parsed.title);
         console.log("📊 Adventure has", parsed?.steps?.length || 0, "steps");
-        
+
+        // Validate step quality
+        if (!parsed.steps || parsed.steps.length === 0) {
+          throw new Error("No steps generated in adventure");
+        }
+
         // Enhance with Google Places data
-        const enhancedAdventure = await enhanceAdventureWithGooglePlaces(parsed, app_filter?.location || 'San Francisco, CA');
+        const enhancedAdventure = await enhanceAdventureWithGooglePlaces(parsed, app_filter?.location || 'Miami, FL');
         console.log("🎯 Enhanced adventure with Google Places data");
-        
+
+        // Add cost metadata to response with cache details
+        if (completion.usage) {
+          const cost = estimateCost(
+            completion.usage.prompt_tokens,
+            completion.usage.completion_tokens,
+            'gpt-4o',
+            completion.usage // Pass full usage for cache tracking
+          );
+
+          enhancedAdventure._meta = {
+            tokenUsage: completion.usage,
+            cost: cost,
+            model: 'gpt-4o',
+            timestamp: new Date().toISOString(),
+            cachePerformance: {
+              cacheHit: cost.cachedTokens > 0,
+              cachedTokens: cost.cachedTokens,
+              cacheHitRate: cost.cacheHitRate,
+              actualSavings: cost.actualSavings
+            }
+          };
+        }
+
         return res.json(enhancedAdventure);
       } catch (parseError) {
         console.log("⚠️ Structured output parse failed, trying fallback extractor...");
-        
+
         // FALLBACK: Use robust JSON extraction
         const extractedJson = extractFirstJsonBlock(rawContent);
         if (extractedJson) {
           const fallbackParsed = JSON.parse(extractedJson);
           console.log("✅ Fallback extraction successful:", fallbackParsed.title);
-          
+
           // Enhance with Google Places data
-          const enhancedFallback = await enhanceAdventureWithGooglePlaces(fallbackParsed, app_filter?.location || 'San Francisco, CA');
+          const enhancedFallback = await enhanceAdventureWithGooglePlaces(fallbackParsed, app_filter?.location || 'Miami, FL');
           console.log("🎯 Enhanced fallback adventure with Google Places data");
-          
+
           return res.json(enhancedFallback);
         } else {
           throw new Error("No valid JSON found in response");
@@ -404,7 +588,7 @@ CRITICAL: START WITH { - END WITH } - NO OTHER TEXT`
         console.log("📊 Adventure has", parsed?.steps?.length || 0, "steps");
         
         // Enhance with Google Places data
-        const enhancedLegacy = await enhanceAdventureWithGooglePlaces(parsed, app_filter?.location || 'San Francisco, CA');
+        const enhancedLegacy = await enhanceAdventureWithGooglePlaces(parsed, app_filter?.location || 'Miami, FL');
         console.log("🎯 Enhanced legacy adventure with Google Places data");
         
         return res.json(enhancedLegacy);

@@ -1,12 +1,10 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+// Create singleton client instance
+const supabase = createClient();
 
 export interface User {
   id: string;
@@ -110,12 +108,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const initializeAuth = async () => {
     try {
       setLoading(true);
-      
-      // Check if user is authenticated
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (session?.user) {
-        await fetchUserProfile(session.user.id);
+
+      // Use getUser() instead of getSession() to verify the session is valid
+      // This contacts the auth server to authenticate the session
+      const { data: { user: authUser }, error } = await supabase.auth.getUser();
+
+      if (error) {
+        console.log('🔐 No valid session:', error.message);
+        setUser(null);
+        return;
+      }
+
+      if (authUser) {
+        console.log('🔐 Valid session found for:', authUser.email);
+        await fetchUserProfile(authUser.id);
       } else {
         setUser(null);
       }
@@ -401,32 +407,40 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const signOut = async (): Promise<void> => {
-    setLoading(true);
     try {
-      console.log('🔐 Signing out user...');
-      await supabase.auth.signOut();
-      // Extra: remove any cached tokens / session remnants
-      try {
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('token');
-          localStorage.removeItem('supabase.auth.token');
-          sessionStorage.clear();
-        }
-      } catch {}
-      // Double-check session cleared
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        console.warn('Session still present after signOut, forcing client state reset');
+      console.log('🔐 [Sign Out] Starting sign out...');
+      setLoading(true);
+
+      // Sign out from Supabase (this clears cookies automatically with SSR client)
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        console.error('🔐 [Sign Out] Error:', error);
       }
+
+      // Clear local state
       setUser(null);
-      console.log('🔐 Sign out complete');
-      if (typeof window !== 'undefined') window.location.replace('/');
+
+      // Clear any cached flags
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('motion_auth_complete');
+      }
+
+      console.log('🔐 [Sign Out] ✅ Complete, redirecting...');
+
+      // Small delay to ensure signOut completes
+      await new Promise(resolve => setTimeout(resolve, 200));
+
+      // Hard redirect to signin page
+      window.location.href = '/auth/signin';
+
     } catch (error) {
-      console.error('Sign out error:', error);
+      console.error('🔐 [Sign Out] ❌ Failed:', error);
+      // Clear state anyway
       setUser(null);
-      if (typeof window !== 'undefined') window.location.replace('/');
-    } finally {
       setLoading(false);
+      // Still redirect
+      window.location.href = '/auth/signin';
     }
   };
 

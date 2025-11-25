@@ -36,6 +36,7 @@ import { WebAIAdventureService, type AdventureFilters } from '@/services/aiServi
 import { experienceTypes as EXPERIENCE_TYPES } from '@/data/experienceTypes';
 import { VIBES } from '@/data/vibes';
 import { BUDGET_TIERS, detectCurrencyFromLocation, getBudgetPromptText, formatBudgetDisplay, getBudgetRange } from '@/config/budgetConfig';
+import PreferencesService from '@/services/PreferencesService';
 
 // Map string icon identifiers from experienceTypes data file to actual components
 const experienceIconMap: Record<string, React.ComponentType<any>> = {
@@ -166,10 +167,11 @@ export default function CreatePage() {
   const bgRef = useRef<HTMLDivElement | null>(null);
   const blobRef = useRef<HTMLDivElement | null>(null);
 
-  // Load user usage stats
+  // Load user usage stats and preferences
   useEffect(() => {
     if (user) {
       loadUsageStats();
+      loadUserPreferences();
     }
   }, [user]);
 
@@ -183,6 +185,39 @@ export default function CreatePage() {
     } catch (error) {
       // silently ignore usage stats load errors
       console.log('Usage stats error, continuing without stats');
+    }
+  };
+
+  const loadUserPreferences = async () => {
+    if (!user) return;
+    try {
+      const prefs = await PreferencesService.getUserPreferences(user.id);
+
+      // Only apply preferences if form fields are empty/default
+      setFormData(prev => {
+        const shouldApplyDefaults =
+          !prev.budget || !prev.radius || !prev.duration || !prev.groupSize;
+
+        if (!shouldApplyDefaults) return prev;
+
+        return {
+          ...prev,
+          budget: prev.budget || prefs.defaultBudget || '',
+          radius: prev.radius || String(prefs.defaultRadius || 10),
+          duration: prev.duration || prefs.defaultDuration || '',
+          groupSize: prev.groupSize || String(prefs.defaultGroupSize || ''),
+          dietaryRestrictions: prev.dietaryRestrictions.length > 0
+            ? prev.dietaryRestrictions
+            : prefs.savedDietaryRestrictions || [],
+          dietaryPreferences: prev.dietaryPreferences.length > 0
+            ? prev.dietaryPreferences
+            : prefs.savedDietaryPreferences || []
+        };
+      });
+
+      console.log('✅ User preferences loaded and applied');
+    } catch (error) {
+      console.log('Could not load user preferences, using defaults');
     }
   };
   const handleVibeSelect = (vibe: string) => setFormData(prev => ({ ...prev, vibe }));

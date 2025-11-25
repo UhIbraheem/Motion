@@ -568,6 +568,11 @@ async getCommunityAdventures(): Promise<{
         adventure_photos (
           photo_url,
           is_cover_photo
+        ),
+        profiles (
+          first_name,
+          last_name,
+          profile_picture_url
         )
       `)
       .order('created_at', { ascending: false });
