@@ -227,6 +227,17 @@ async function enhanceAdventureWithGooglePlaces(adventure, location) {
     console.log(`⚠️ LOW QUALITY ADVENTURE: Only ${Math.round(validationRate * 100)}% of businesses validated`);
   }
 
+  // CACHE all validated places to google_places_cache for instant future loading
+  const validatedSteps = enhancedSteps.filter(s => s.validated && s.google_places?.place_id);
+  if (validatedSteps.length > 0) {
+    try {
+      await googlePlaces.cacheAdventureSteps(validatedSteps);
+      console.log(`💾 Cached ${validatedSteps.length} validated places from adventure generation`);
+    } catch (cacheError) {
+      console.error('Cache error (non-blocking):', cacheError.message);
+    }
+  }
+
   return {
     ...adventure,
     steps: enhancedSteps,

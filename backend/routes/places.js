@@ -65,6 +65,25 @@ router.post("/save", async (req, res) => {
       });
     }
 
+    // CACHE the place to google_places_cache for future instant loading
+    if (googlePlaceId) {
+      await googlePlaces.cachePlace({
+        placeId: googlePlaceId,
+        name: businessName,
+        address: address,
+        location: lat && lng ? { latitude: lat, longitude: lng } : null,
+        rating: rating,
+        priceLevel: priceLevel,
+        phone: phone,
+        website: website,
+        openingHours: businessHours,
+        photoUrl: photoUrl,
+        types: types,
+        raw: googleData
+      });
+      console.log(`💾 Cached place to google_places_cache: ${businessName}`);
+    }
+
     const { data, error} = await supabase
       .from("saved_places")
       .insert({

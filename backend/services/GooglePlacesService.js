@@ -226,6 +226,101 @@ class GooglePlacesService {
   }
   
   /**
+   * Cache all Google Places data from adventure steps
+   * Call this when an adventure is saved to ensure all data is persisted
+   */
+  async cacheAdventureSteps(steps) {
+    if (!steps?.length || !this.supabase) {
+      console.log('⚠️ No steps to cache');
+      return { cached: 0, skipped: 0 };
+    }
+    
+    const placesToCache = [];
+    let skipped = 0;
+    
+    for (const step of steps) {
+      // Extract Google Places data from step
+      const googlePlaces = step.google_places;
+      if (!googlePlaces?.place_id) {
+        skipped++;
+        continue;
+      }
+      
+      placesToCache.push({
+        place_id: googlePlaces.place_id,
+        name: googlePlaces.name || step.business_name,
+        formatted_address: googlePlaces.address || googlePlaces.formatted_address || step.location,
+        lat: googlePlaces.location?.latitude || step.coordinates?.lat,
+        lng: googlePlaces.location?.longitude || step.coordinates?.lng,
+        rating: googlePlaces.rating || step.rating,
+        user_ratings_total: googlePlaces.user_rating_count || googlePlaces.user_ratings_total,
+        price_level: googlePlaces.price_level || step.price_level,
+        types: googlePlaces.types || [],
+        phone_number: googlePlaces.phone || step.business_phone,
+        website: googlePlaces.website || googlePlaces.website_uri || step.business_website,
+        google_maps_url: googlePlaces.google_maps_uri || step.google_maps_url,
+        opening_hours: googlePlaces.opening_hours,
+        primary_photo_url: googlePlaces.photo_url || step.photo_url || step.google_photo_url,
+        photos: null, // Will be filled from raw_data if available
+        raw_data: step.raw_data || null,
+        last_updated: new Date().toISOString(),
+        last_api_fetch: googlePlaces.last_updated || new Date().toISOString()
+      });
+    }
+    
+    if (placesToCache.length === 0) {
+      console.log(`⚠️ No valid places found in ${steps.length} steps (${skipped} skipped)`);
+      return { cached: 0, skipped };
+    }
+    
+    try {
+      const { error } = await this.supabase
+        .from('google_places_cache')
+        .upsert(placesToCache, { onConflict: 'place_id' });
+      
+      if (error) {
+        console.error('Adventure steps cache error:', error.message);
+        return { cached: 0, skipped, error: error.message };
+      }
+      
+      console.log(`💾 Cached ${placesToCache.length} places from adventure (${skipped} skipped)`);
+      return { cached: placesToCache.length, skipped };
+    } catch (err) {
+      console.error('Adventure cache error:', err.message);
+      return { cached: 0, skipped, error: err.message };
+    }
+  }
+  
+  /**
+   * Get place by ID from cache, return null if not found or stale
+   */
+  async getCachedPlaceById(placeId) {
+    if (!placeId || !this.supabase) return null;
+    
+    try {
+      const { data, error } = await this.supabase
+        .from('google_places_cache')
+        .select('*')
+        .eq('place_id', placeId)
+        .single();
+      
+      if (error || !data) return null;
+      
+      if (!this.isCacheFresh(data.last_updated)) {
+        console.log(`📦 Cache stale for place_id: ${placeId}`);
+        return null;
+      }
+      
+      this.cacheHits++;
+      console.log(`✅ Cache HIT (place_id) for: ${data.name}`);
+      return this.cachedToEnriched(data);
+    } catch (err) {
+      console.error('Cache lookup by ID error:', err.message);
+      return null;
+    }
+  }
+  
+  /**
    * Log cache statistics
    */
   logCacheStats() {

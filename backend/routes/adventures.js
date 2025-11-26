@@ -68,6 +68,10 @@ router.post('/create-enhanced', async (req, res) => {
       });
     }
 
+    // CACHE all Google Places data from adventure steps
+    const cacheResult = await GooglePlacesService.cacheAdventureSteps(enhancedAdventure.steps);
+    console.log(`💾 Cached ${cacheResult.cached} places from adventure`);
+
     console.log('✅ Enhanced adventure created successfully:', data.id);
 
     res.json({

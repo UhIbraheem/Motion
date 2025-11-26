@@ -4,6 +4,7 @@ const GooglePlacesService = require('../services/GooglePlacesService');
 
 /**
  * Get photos for adventure steps
+ * CACHE-FIRST: Checks database cache before calling Google API
  */
 router.post('/photos', async (req, res) => {
   try {
@@ -13,29 +14,53 @@ router.post('/photos', async (req, res) => {
       return res.status(400).json({ error: 'Steps array is required' });
     }
 
-    console.log(`📸 Fetching ${photosPerStep} photo(s) for ${steps.length} steps via Google Places`);
+    console.log(`📸 Fetching ${photosPerStep} photo(s) for ${steps.length} steps (cache-first)`);
 
     const results = [];
+    let cacheHits = 0;
+    let apiCalls = 0;
+    
     for (let stepIndex = 0; stepIndex < steps.length; stepIndex++) {
       const step = steps[stepIndex];
       const name = step?.business_name || step?.name || step?.title;
       const location = step?.location;
-      if (!name) continue;
+      const placeId = step?.place_id || step?.google_place_id || step?.google_places?.place_id;
+      
+      if (!name && !placeId) continue;
 
       let enriched = null;
-      try {
-        enriched = await GooglePlacesService.lookupBusiness(name, location);
-      } catch (e) {
-        console.error('Lookup error for step', name, e?.message || e);
+      
+      // CACHE-FIRST STRATEGY
+      // 1. Try to get from cache by place_id if available
+      if (placeId) {
+        enriched = await GooglePlacesService.getCachedPlaceById(placeId);
+        if (enriched) {
+          cacheHits++;
+          console.log(`📦 Cache HIT (place_id) for step ${stepIndex + 1}: ${enriched.name}`);
+        }
+      }
+      
+      // 2. If not found by place_id, try lookupBusiness (which also checks cache by name)
+      if (!enriched && name) {
+        try {
+          enriched = await GooglePlacesService.lookupBusiness(name, location);
+          if (enriched?.fromCache) {
+            cacheHits++;
+          } else if (enriched) {
+            apiCalls++;
+          }
+        } catch (e) {
+          console.error('Lookup error for step', name, e?.message || e);
+        }
       }
 
-  if (enriched?.photoUrl) {
+      if (enriched?.photoUrl) {
         // Primary photo
         results.push({
           url: enriched.photoUrl,
           width: 800,
           height: 600,
-          source: 'google',
+          source: enriched.fromCache ? 'cache' : 'google',
           label: enriched.name || name,
           step_index: stepIndex,
           photo_order: 0,
@@ -49,7 +74,7 @@ router.post('/photos', async (req, res) => {
             url: enriched.photoUrl,
             width: 800,
             height: 600,
-            source: 'google',
+            source: enriched.fromCache ? 'cache' : 'google',
             label: enriched.name || name,
             step_index: stepIndex,
             photo_order: p,
@@ -62,11 +87,14 @@ router.post('/photos', async (req, res) => {
         console.log(`⚠️ No Google photo for step ${stepIndex + 1}: ${name}. Skipping photo output.`);
       }
 
-      // Gentle pacing to avoid API rate limits
-      await new Promise(r => setTimeout(r, 100));
+      // Gentle pacing to avoid API rate limits (only needed for non-cached)
+      if (!enriched?.fromCache) {
+        await new Promise(r => setTimeout(r, 100));
+      }
     }
 
-    res.json({ photos: results });
+    console.log(`📊 Photos fetched: ${results.length} photos, ${cacheHits} cache hits, ${apiCalls} API calls`);
+    res.json({ photos: results, stats: { cacheHits, apiCalls, total: results.length } });
   } catch (error) {
     console.error('❌ Photos API error:', error);
     res.status(500).json({ error: 'Failed to fetch photos' });
