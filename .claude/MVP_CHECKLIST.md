@@ -14,7 +14,7 @@ Before going to production, ALL items in Priority 1-3 must be ✅
 ## PRIORITY 1: CORE FUNCTIONALITY (BLOCKERS)
 
 ### AI Optimization & Accuracy
-- [ ] Review and optimize AI prompts for better accuracy
+- [x] Review and optimize AI prompts for better accuracy ✅ **COMPLETED 2025-12-01** - Diversity hints added to prompts
 - [x] Implement prompt caching (90% cost reduction on repeat queries) ✅ **COMPLETED 2025-11-25**
   - Enhanced createCachableSystemPrompt() with comprehensive documentation
   - Added cache verification logging (>1024 token threshold check)
@@ -22,12 +22,12 @@ Before going to production, ALL items in Priority 1-3 must be ✅
   - Current prompt: 2,847 tokens (97.8% cache hit rate observed)
   - Actual savings: 60% cost reduction with 80% cache hit rate
   - Commit: cd50b03
-- [ ] Add token counting UI (show cost per generation)
-- [ ] Enhance AI response parsing with comprehensive error handling
-- [ ] Improve filter diversity in prompts (avoid repetitive suggestions)
-- [ ] Validate AI-generated business names with Google Places (100% validation)
-- [ ] Add fallback strategies for AI failures (graceful degradation)
-- [ ] Implement AI response quality scoring (auto-retry if low quality)
+- [x] Add token counting UI (show cost per generation) ✅ **COMPLETED 2025-12-01** - TokenUsageBadge component with cache tracking
+- [x] Enhance AI response parsing with comprehensive error handling ✅ **COMPLETED 2025-12-01** - Multi-layer fallback with legacy model support
+- [x] Improve filter diversity in prompts (avoid repetitive suggestions) ✅ **COMPLETED 2025-12-01** - Random diversity hints per generation
+- [x] Validate AI-generated business names with Google Places (100% validation) ✅ **COMPLETED 2025-12-01** - Validation stats with 60% quality threshold
+- [x] Add fallback strategies for AI failures (graceful degradation) ✅ **COMPLETED 2025-12-01** - Graceful fallback plan on total failure
+- [x] Implement AI response quality scoring (auto-retry if low quality) ✅ **COMPLETED 2025-12-01** - Auto-retry when <60% validation rate
 
 **Success Criteria**:
 - ✅ 95%+ AI generation success rate
@@ -53,11 +53,11 @@ Before going to production, ALL items in Priority 1-3 must be ✅
   - New tables: google_places_cache (enhanced), google_places_photos, geocoding_cache
   - Expected cost reduction: 75-85% ($20/day → ~$3-5/day)
   - SQL schema provided with functions: upsert_google_place(), search_cached_places()
-- [ ] Implement geocoding API for location string → lat/lng conversion
-- [ ] Use user's actual location for Google Places bias
-- [ ] Add rate limiting and request queuing (prevent quota exhaustion)
-- [ ] Implement fallback image service (Unsplash/Pexels) when Google fails
-- [ ] Add retry logic for transient API failures (exponential backoff)
+- [x] Implement geocoding API for location string → lat/lng conversion ✅ **COMPLETED 2025-12-01** - GeocodingService with 24hr LRU cache
+- [x] Use user's actual location for Google Places bias ✅ **COMPLETED 2025-12-01** - Geocoded coordinates used in all searches
+- [x] Add rate limiting and request queuing (prevent quota exhaustion) ✅ **COMPLETED 2025-12-01** - Token bucket rate limiter with queuing
+- [x] Implement fallback image service (Unsplash/Pexels) when Google fails ✅ **COMPLETED 2025-12-01** - FallbackImageService with Unsplash + Lorem Picsum
+- [x] Add retry logic for transient API failures (exponential backoff) ✅ **COMPLETED 2025-12-01** - retryUtils with circuit breakers
 - [ ] Monitor API quota usage and add alerts
 
 **Success Criteria**:

@@ -4,6 +4,7 @@ const { OpenAI } = require("openai");
 const { extractFirstJsonBlock } = require("../utils/jsonExtractor");
 const googlePlaces = require("../services/GooglePlacesService");
 const geocoding = require("../services/GeocodingService");
+const fallbackImages = require("../services/FallbackImageService");
 const { rateLimiters } = require("../utils/rateLimiter");
 const {
   countMessagesTokens,
@@ -155,12 +156,31 @@ async function enhanceAdventureWithGooglePlaces(adventure, location) {
           
           // Get photo URL if available
           let photoUrl = null;
+          let photoSource = 'google';
           if (place.photos && place.photos.length > 0) {
             try {
               photoUrl = await googlePlaces.getPhotoUri(place.photos[0].name, 400);
               console.log(`📸 Photo URL retrieved for ${place.displayName}`);
             } catch (photoError) {
               console.log(`⚠️ Failed to get photo URL: ${photoError.message}`);
+            }
+          }
+
+          // Use fallback image service if Google Photos unavailable
+          if (!photoUrl) {
+            console.log(`🖼️ No Google photo, trying fallback image service...`);
+            try {
+              const fallbackImage = await fallbackImages.getCategoryImage(
+                place.types || [],
+                location
+              );
+              if (fallbackImage) {
+                photoUrl = fallbackImage.url;
+                photoSource = fallbackImage.source;
+                console.log(`✅ Fallback image: ${photoSource}`);
+              }
+            } catch (fallbackError) {
+              console.log(`⚠️ Fallback image failed: ${fallbackError.message}`);
             }
           }
           
@@ -495,8 +515,69 @@ Make this adventure unique and engaging!`;
         }
 
         // Enhance with Google Places data
-        const enhancedAdventure = await enhanceAdventureWithGooglePlaces(parsed, app_filter?.location || 'Miami, FL');
+        let enhancedAdventure = await enhanceAdventureWithGooglePlaces(parsed, app_filter?.location || 'Miami, FL');
         console.log("🎯 Enhanced adventure with Google Places data");
+
+        // Auto-retry if quality is too low (only retry once to avoid excessive API calls)
+        if (enhancedAdventure.validation_stats?.is_low_quality && !req.body._retryAttempt) {
+          console.log("🔄 Quality too low, retrying generation with emphasis on real businesses...");
+
+          // Mark this as a retry attempt
+          req.body._retryAttempt = true;
+
+          // Retry with more explicit instructions
+          const retryUserPrompt = `${userPrompt}
+
+CRITICAL: You MUST suggest ONLY real, currently operating businesses that exist in ${app_filter?.location || 'Miami, FL'}.
+Every business name must be verifiable on Google Maps. Avoid generic or fictional names.`;
+
+          const retryCompletion = await withTimeout(
+            retryOpenAI(async () => {
+              return await rateLimiters.openai.execute(async () => {
+                return await openai.chat.completions.create({
+                  model: "gpt-4o",
+                  messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: retryUserPrompt }
+                  ],
+                  response_format: {
+                    type: "json_schema",
+                    json_schema: adventureSchema
+                  },
+                  temperature: 0.4, // Slightly higher for different results
+                });
+              });
+            }),
+            60000,
+            'AI retry generation timed out'
+          );
+
+          const retryParsed = JSON.parse(retryCompletion.choices[0].message.content);
+          const retryEnhanced = await enhanceAdventureWithGooglePlaces(retryParsed, app_filter?.location || 'Miami, FL');
+
+          // Use retry result if it's better quality
+          if (retryEnhanced.validation_stats?.validation_rate > enhancedAdventure.validation_stats?.validation_rate) {
+            console.log(`✅ Retry improved quality: ${Math.round(retryEnhanced.validation_stats.validation_rate * 100)}% vs ${Math.round(enhancedAdventure.validation_stats.validation_rate * 100)}%`);
+            enhancedAdventure = retryEnhanced;
+
+            // Add retry cost to metadata
+            if (retryCompletion.usage) {
+              const retryCost = estimateCost(
+                retryCompletion.usage.prompt_tokens,
+                retryCompletion.usage.completion_tokens,
+                'gpt-4o',
+                retryCompletion.usage
+              );
+
+              if (enhancedAdventure._meta) {
+                enhancedAdventure._meta.retried = true;
+                enhancedAdventure._meta.totalCost = enhancedAdventure._meta.cost.totalCost + retryCost.totalCost;
+              }
+            }
+          } else {
+            console.log(`⚠️ Retry did not improve quality, using original`);
+          }
+        }
 
         // Add cost metadata to response with cache details
         if (completion.usage) {
